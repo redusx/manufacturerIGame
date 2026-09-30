@@ -1,19 +1,21 @@
 /* ======================================================================
  * MilestoneBar.ts — Sıradaki hedef / kilometre taşı ilerleme çubuğu
+ * Tamamen gerçek piksel-art raster dokuları ile oluşturuldu (docs/ART_DIRECTION.md)
  * ====================================================================== */
 
 import Phaser from 'phaser';
 import type { FactoryGoal } from '../data/MachineData';
-import { formatNumber } from '../utils/format';
+import { formatNumber, formatDuration } from '../utils/format';
 import type { Decimal } from '../utils/decimal';
+import { PALETTE, FONT_FAMILY } from './theme';
 
 export class MilestoneBar {
   private scene: Phaser.Scene;
   private container: Phaser.GameObjects.Container;
 
-  private bg!: Phaser.GameObjects.Graphics;
-  private fillGraphics!: Phaser.GameObjects.Graphics;
-  private iconText!: Phaser.GameObjects.Text;
+  private barSlotSlice!: Phaser.GameObjects.NineSlice;
+  private barFillSlice!: Phaser.GameObjects.NineSlice;
+  private trophyIcon!: Phaser.GameObjects.Image;
   private labelText!: Phaser.GameObjects.Text;
   private progressText!: Phaser.GameObjects.Text;
 
@@ -31,25 +33,34 @@ export class MilestoneBar {
   private create(): void {
     const s = this.scene;
     const font: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontFamily: 'Arial, Helvetica, sans-serif',
+      fontFamily: FONT_FAMILY,
     };
 
-    this.bg = s.add.graphics();
-    this.container.add(this.bg);
+    // 1. Piksel Oluk Yuvası (Raster 9-Slice)
+    this.barSlotSlice = s.add.nineslice(0, 0, 'ui_bar_slot', 0, 100, 20, 4, 4, 4, 4).setOrigin(0, 0);
+    this.container.add(this.barSlotSlice);
 
-    this.fillGraphics = s.add.graphics();
-    this.container.add(this.fillGraphics);
+    // 2. Altın İlerleme Dolgusu (Raster 9-Slice)
+    this.barFillSlice = s.add.nineslice(2, 2, 'ui_bar_fill_gold', 0, 10, 16, 2, 2, 2, 2).setOrigin(0, 0);
+    this.container.add(this.barFillSlice);
 
-    this.iconText = s.add.text(0, 0, '🎯', { ...font, fontSize: '13px' }).setOrigin(0, 0.5);
-    this.container.add(this.iconText);
+    // 3. Kupa İkonu (Gerçek Piksel Raster Sprite'ı)
+    this.trophyIcon = s.add.image(0, 0, 'icon_trophy').setOrigin(0, 0.5).setScale(1.1);
+    this.container.add(this.trophyIcon);
 
     this.labelText = s.add.text(0, 0, 'Sıradaki Hedef', {
-      ...font, fontSize: '11px', color: '#e8e8e8', fontStyle: 'bold',
+      ...font,
+      fontSize: '11px',
+      color: PALETTE.textPrimary,
+      fontStyle: 'bold',
     }).setOrigin(0, 0.5);
     this.container.add(this.labelText);
 
     this.progressText = s.add.text(0, 0, '%0', {
-      ...font, fontSize: '11px', color: '#2ecc71', fontStyle: 'bold',
+      ...font,
+      fontSize: '11px',
+      color: PALETTE.resourceGoldHex,
+      fontStyle: 'bold',
     }).setOrigin(1, 0.5);
     this.container.add(this.progressText);
   }
@@ -59,7 +70,7 @@ export class MilestoneBar {
     progress: number;
     current: Decimal;
     target: Decimal;
-  } | null): void {
+  } | null, pps?: Decimal): void {
     if (!goalInfo) {
       this.container.setVisible(false);
       return;
@@ -69,12 +80,22 @@ export class MilestoneBar {
     const { goal, progress, current, target } = goalInfo;
     this.targetProgress = Phaser.Math.Clamp(progress, 0, 1);
 
-    // Yumuşak ilerleme interpolasyonu
     this.currentProgress = Phaser.Math.Linear(this.currentProgress, this.targetProgress, 0.2);
 
     const percent = Math.floor(this.targetProgress * 100);
     this.labelText.setText(`${goal.name}: ${formatNumber(current)} / ${formatNumber(target)}`);
-    this.progressText.setText(`%${percent}`);
+
+    // Tahmini süre hesaplama
+    let etaStr = '';
+    if (pps && pps.gt(0) && target.gt(current)) {
+      const remaining = target.sub(current);
+      const etaSec = remaining.div(pps).toNumber();
+      if (etaSec < 86400) { // 24 saatten kısa ise göster
+        etaStr = ` — ~${formatDuration(etaSec)}`;
+      }
+    }
+
+    this.progressText.setText(`%${percent}${etaStr}`);
 
     this.drawBar();
   }
@@ -87,14 +108,16 @@ export class MilestoneBar {
     const cy = this.barH / 2;
     const pad = Math.round(8 * sf);
 
-    this.iconText.setPosition(pad, cy);
-    this.iconText.setFontSize(`${Math.round(12 * sf)}px`);
+    this.barSlotSlice.setSize(this.barW, this.barH);
 
-    this.labelText.setPosition(pad + 18 * sf, cy);
-    this.labelText.setFontSize(`${Math.round(10 * sf)}px`);
+    this.trophyIcon.setPosition(pad, cy);
+    this.trophyIcon.setScale(Math.max(0.8, sf * 0.95));
+
+    this.labelText.setPosition(pad + Math.round(18 * sf), cy);
+    this.labelText.setFontSize(`${Math.max(9, Math.round(10 * sf))}px`);
 
     this.progressText.setPosition(this.barW - pad, cy);
-    this.progressText.setFontSize(`${Math.round(10 * sf)}px`);
+    this.progressText.setFontSize(`${Math.max(9, Math.round(10 * sf))}px`);
 
     this.drawBar();
   }
@@ -103,31 +126,25 @@ export class MilestoneBar {
     const w = this.barW;
     const h = this.barH;
 
-    // Arka plan
-    this.bg.clear();
-    this.bg.fillStyle(0x131325, 0.9);
-    this.bg.fillRoundedRect(0, 0, w, h, 6);
-    this.bg.lineStyle(1, 0x2e3856, 0.8);
-    this.bg.strokeRoundedRect(0, 0, w, h, 6);
-
-    // İlerleme dolgusu
-    this.fillGraphics.clear();
-    const fillW = Math.max(0, (w - 2) * this.currentProgress);
-    if (fillW > 4) {
-      this.fillGraphics.fillStyle(0x2ecc71, 0.35);
-      this.fillGraphics.fillRoundedRect(1, 1, fillW, h - 2, 5);
-      this.fillGraphics.fillStyle(0x2ecc71, 0.7);
-      this.fillGraphics.fillRect(1, h - 3, fillW, 2);
+    const fillW = Math.max(0, Math.floor((w - 4) * this.currentProgress));
+    if (fillW > 2) {
+      this.barFillSlice.setVisible(true);
+      this.barFillSlice.setSize(fillW, h - 4);
+    } else {
+      this.barFillSlice.setVisible(false);
     }
   }
 
-  /** Tamamlanma kutlama animasyonu */
   playGoalReachedEffect(): void {
     this.scene.tweens.add({
       targets: this.container,
-      scaleX: 1.05, scaleY: 1.05,
-      duration: 150, yoyo: true,
+      scaleX: 1.04, scaleY: 1.04,
+      duration: 100, yoyo: true,
       ease: 'Back.easeOut',
     });
+  }
+
+  setVisible(visible: boolean): void {
+    this.container.setVisible(visible);
   }
 }

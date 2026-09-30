@@ -1,5 +1,6 @@
 /* ======================================================================
  * HUD.ts — Üst bilgi çubuğu (kaynak, üretim hızı, ayarlar butonu)
+ * Tamamen gerçek piksel-art raster dokuları ile oluşturuldu (docs/ART_DIRECTION.md)
  * ====================================================================== */
 
 import Phaser from 'phaser';
@@ -7,15 +8,21 @@ import type { DecimalSource } from 'break_eternity.js';
 import { D } from '../utils/decimal';
 import { formatNumber } from '../utils/format';
 import { RESOURCE_NAME } from '../data/MachineData';
+import { PALETTE, FONT_FAMILY, PixelUIHelper } from './theme';
 
 export class HUD {
   private scene: Phaser.Scene;
 
-  private bg!: Phaser.GameObjects.Graphics;
-  private resourceIcon!: Phaser.GameObjects.Text;
+  private bg!: Phaser.GameObjects.NineSlice;
+  private coinSprite: Phaser.GameObjects.Sprite | null = null;
   private resourceText!: Phaser.GameObjects.Text;
+  private gearIcon!: Phaser.GameObjects.Image;
   private rateText!: Phaser.GameObjects.Text;
-  private settingsBtn!: Phaser.GameObjects.Text;
+  private trophyIcon!: Phaser.GameObjects.Image;
+  private flightBadgeText!: Phaser.GameObjects.Text;
+  private settingsBtnBg!: Phaser.GameObjects.NineSlice;
+  private settingsBtnIcon!: Phaser.GameObjects.Image;
+  private settingsZone!: Phaser.GameObjects.Zone;
 
   private onSettingsClick: () => void;
 
@@ -28,32 +35,72 @@ export class HUD {
   private create(): void {
     const s = this.scene;
     const font: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontFamily: 'Arial, Helvetica, sans-serif',
+      fontFamily: FONT_FAMILY,
     };
 
-    this.bg = s.add.graphics().setDepth(100);
+    // 1. Üst Panel Arka Planı (9-Slice Raster)
+    this.bg = PixelUIHelper.createPanel(s, 0, 0, 100, 48).setDepth(100);
 
-    this.resourceIcon = s.add.text(0, 0, '⚙', { ...font, fontSize: '22px' })
-      .setOrigin(0, 0.5).setDepth(101);
+    // 2. Dönen Altın Sikke Sprite'ı (Piksel Asset)
+    if (s.textures.exists('coin_gold')) {
+      this.coinSprite = s.add.sprite(0, 0, 'coin_gold', 0)
+        .setOrigin(0.5)
+        .setScale(2)
+        .setDepth(102);
 
+      if (s.anims.exists('coin_gold_spin')) {
+        this.coinSprite.play('coin_gold_spin');
+      }
+    } else {
+      this.coinSprite = s.add.sprite(0, 0, 'icon_coin')
+        .setOrigin(0.5)
+        .setScale(1.5)
+        .setDepth(102);
+    }
+
+    // 3. Kaynak Sayısı Metni
     this.resourceText = s.add.text(0, 0, '0', {
-      ...font, fontSize: '22px', color: '#f4a261', fontStyle: 'bold',
+      ...font,
+      fontSize: '22px',
+      color: PALETTE.resourceGoldHex,
+      fontStyle: 'bold',
     }).setOrigin(0, 0.5).setDepth(101);
 
+    // 4. Üretim Hızı İkonu ve Metni
+    this.gearIcon = s.add.image(0, 0, 'icon_gear').setOrigin(0.5).setScale(1.2).setDepth(101);
     this.rateText = s.add.text(0, 0, '', {
-      ...font, fontSize: '13px', color: '#8888a0',
+      ...font,
+      fontSize: '11px',
+      color: PALETTE.textMuted,
     }).setOrigin(0, 0.5).setDepth(101);
 
-    this.settingsBtn = s.add.text(0, 0, '⚙', {
-      ...font, fontSize: '24px', color: '#8888a0',
-    }).setOrigin(1, 0.5).setDepth(101)
+    // 5. Uçuş Rekor İkonu ve Rozeti (Sağa dayalı origin)
+    this.trophyIcon = s.add.image(0, 0, 'icon_trophy').setOrigin(0.5).setScale(1.1).setDepth(101);
+    this.flightBadgeText = s.add.text(0, 0, 'Rekor: 0m', {
+      ...font,
+      fontSize: '12px',
+      color: PALETTE.rocketCyanHex,
+      fontStyle: 'bold',
+    }).setOrigin(1, 0.5).setDepth(101);
+
+    // 6. Ayarlar Butonu (Piksel 9-Slice Buton + icon_settings)
+    this.settingsBtnBg = PixelUIHelper.createButton(s, 0, 0, 32, 32, 'disabled').setDepth(101);
+    this.settingsBtnIcon = s.add.image(0, 0, 'icon_settings').setOrigin(0.5).setScale(1.3).setDepth(102);
+
+    this.settingsZone = s.add.zone(0, 0, 34, 34)
+      .setOrigin(0.5)
+      .setDepth(103)
       .setInteractive({ useHandCursor: true })
       .on('pointerdown', () => this.onSettingsClick())
-      .on('pointerover', () => this.settingsBtn.setColor('#d4d4e0'))
-      .on('pointerout', () => this.settingsBtn.setColor('#8888a0'));
+      .on('pointerover', () => {
+        this.settingsBtnBg.setTexture('btn_green_hover');
+      })
+      .on('pointerout', () => {
+        this.settingsBtnBg.setTexture('btn_disabled');
+      });
   }
 
-  update(resources: DecimalSource, perSecond: DecimalSource): void {
+  update(resources: DecimalSource, perSecond: DecimalSource, bestDistance = 0): void {
     const resDec = D(resources);
     const ppsDec = D(perSecond);
 
@@ -63,53 +110,134 @@ export class HUD {
     } else {
       this.rateText.setText('0 /sn (Tıkla!)');
     }
+    this.flightBadgeText.setText(`Rekor: ${bestDistance}m`);
+
+    // Metin uzunlukları değiştiğinde aralıkları anında dinamik olarak yeniden ayarla
+    this.repositionTextElements();
   }
 
+  private baseCoinScale = 1.6;
+  private cachedW = 800;
+  private cachedSf = 1.0;
+
   layout(w: number, _h: number, sf: number): void {
+    this.cachedW = w;
+    this.cachedSf = sf;
+
     const barH = Math.round(48 * sf);
     const pad = Math.round(14 * sf);
 
-    this.bg.clear();
-    // Glassmorphism-style dark header
-    this.bg.fillStyle(0x0c0c1a, 0.95);
-    this.bg.fillRect(0, 0, w, barH);
-    this.bg.lineStyle(1, 0x2e3856, 0.7);
-    this.bg.lineBetween(0, barH, w, barH);
+    // 1. Üst Panel 9-Slice
+    this.bg.setPosition(0, 0);
+    this.bg.setSize(w, barH);
 
-    // Accent line along top edge
-    this.bg.fillStyle(0xf4a261, 0.8);
-    this.bg.fillRect(0, 0, Math.min(w, 240 * sf), 2);
+    // 2. Dönen Altın Sikke Boyutu
+    const coinX = pad + Math.round(16 * sf);
+    const coinY = barH / 2;
 
-    const cy = barH / 2;
+    this.baseCoinScale = Math.max(1.3, sf * 1.6);
+    if (this.coinSprite) {
+      this.scene.tweens.killTweensOf(this.coinSprite);
+      this.coinSprite.setPosition(coinX, coinY);
+      this.coinSprite.setScale(this.baseCoinScale);
+    }
 
-    this.resourceIcon.setPosition(pad, cy);
-    this.resourceIcon.setFontSize(`${Math.round(22 * sf)}px`);
+    this.resourceText.setFontSize(`${Math.max(14, Math.round(20 * sf))}px`);
+    this.rateText.setFontSize(`${Math.max(9, Math.round(11 * sf))}px`);
+    this.flightBadgeText.setFontSize(`${Math.max(9, Math.round(11 * sf))}px`);
 
-    this.resourceText.setPosition(pad + 30 * sf, cy - 2);
-    this.resourceText.setFontSize(`${Math.round(22 * sf)}px`);
+    this.gearIcon.setScale(Math.max(0.8, sf * 1.0));
+    this.trophyIcon.setScale(Math.max(0.8, sf * 1.0));
 
-    this.rateText.setPosition(pad + 30 * sf, cy + 18 * sf);
-    this.rateText.setFontSize(`${Math.round(11 * sf)}px`);
+    // 4. Ayarlar Butonu (Sağ Kenar)
+    const btnSize = Math.round(32 * sf);
+    const btnX = w - pad - btnSize / 2;
+    const btnY = barH / 2;
 
-    this.settingsBtn.setPosition(w - pad, cy);
-    this.settingsBtn.setFontSize(`${Math.round(22 * sf)}px`);
+    this.settingsBtnBg.setPosition(btnX, btnY);
+    this.settingsBtnBg.setSize(btnSize, btnSize);
+    this.settingsBtnIcon.setPosition(btnX, btnY);
+    this.settingsBtnIcon.setScale(Math.max(0.9, sf * 1.2));
+    this.settingsZone.setPosition(btnX, btnY);
+    this.settingsZone.setSize(btnSize + 4, btnSize + 4);
+
+    // Dinamik metin konumlandırma
+    this.repositionTextElements();
   }
 
-  /** Kaynak ikonunun ve metninin ekran koordinatını döndürür */
-  getResourceTargetPos(): { x: number; y: number } {
-    return {
-      x: this.resourceText.x + 30,
-      y: this.resourceText.y,
-    };
+  private repositionTextElements(): void {
+    const sf = this.cachedSf;
+    const w = this.cachedW;
+    const barH = Math.round(48 * sf);
+    const pad = Math.round(14 * sf);
+    const coinY = barH / 2;
+
+    // 1. Altın sikke ve para metni
+    const coinX = pad + Math.round(16 * sf);
+    const resX = coinX + Math.round(18 * sf);
+    this.resourceText.setPosition(resX, coinY);
+
+    // 2. Üretim hızı (Ana para yazısının bitiminden sonra ferah boşlukla başlar)
+    const resW = this.resourceText.width;
+    const gap = Math.round(22 * sf);
+    const gearX = resX + resW + gap;
+    this.gearIcon.setPosition(gearX, coinY);
+    this.rateText.setPosition(gearX + Math.round(14 * sf), coinY);
+
+    // 3. Ayarlar butonu konumu
+    const btnSize = Math.round(32 * sf);
+    const btnX = w - pad - btnSize / 2;
+
+    // 4. Uçuş Rekor Rozeti — Sağa dayalı, ayarlar butonundan temiz ve sabit mesafede
+    const safeMargin = Math.round(24 * sf);
+    const badgeRight = btnX - btnSize / 2 - safeMargin;
+    this.flightBadgeText.setPosition(badgeRight, coinY);
+
+    const badgeW = this.flightBadgeText.width;
+    this.trophyIcon.setPosition(badgeRight - badgeW - Math.round(14 * sf), coinY);
   }
 
-  /** Kaynak metnine vurgu efekti */
   pulse(): void {
+    if (this.coinSprite) {
+      // Önce eski tweenleri durdur ve scale'i kesin olarak sıfırla
+      this.scene.tweens.killTweensOf(this.coinSprite);
+      this.coinSprite.setScale(this.baseCoinScale);
+      this.coinSprite.setAlpha(1);
+      const targetScale = this.baseCoinScale * 1.18;
+      this.scene.tweens.add({
+        targets: this.coinSprite,
+        scaleX: targetScale,
+        scaleY: targetScale,
+        duration: 65,
+        yoyo: true,
+        ease: 'Quad.easeOut',
+        onComplete: () => {
+          if (this.coinSprite) {
+            this.coinSprite.setScale(this.baseCoinScale);
+          }
+        },
+      });
+    }
+
+    this.scene.tweens.killTweensOf(this.resourceText);
+    this.resourceText.setScale(1);
     this.scene.tweens.add({
-      targets: [this.resourceText, this.resourceIcon],
-      scaleX: 1.18, scaleY: 1.18,
-      duration: 70, yoyo: true,
+      targets: this.resourceText,
+      scaleX: 1.08,
+      scaleY: 1.08,
+      duration: 65,
+      yoyo: true,
       ease: 'Quad.easeOut',
+      onComplete: () => {
+        this.resourceText.setScale(1);
+      },
     });
+  }
+
+  getResourceTargetPos(): { x: number; y: number } {
+    if (this.coinSprite) {
+      return { x: this.coinSprite.x, y: this.coinSprite.y };
+    }
+    return { x: 30, y: 24 };
   }
 }

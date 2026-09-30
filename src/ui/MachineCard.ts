@@ -1,8 +1,6 @@
 /* ======================================================================
  * MachineCard.ts — Tek bir makine için görsel kart bileşeni (Decimal destekli)
- *
- * İçerir: makine ikonu, ad, seviye, üretim hızı, sıradaki kilometre taşı,
- * satın alma/yükseltme butonu (fiyat ve eksik göstergeli), kilit durumu.
+ * Tamamen gerçek piksel-art raster dokuları ile oluşturuldu (docs/ART_DIRECTION.md)
  * ====================================================================== */
 
 import Phaser from 'phaser';
@@ -10,6 +8,7 @@ import type { MachineDefinition, LevelMilestone } from '../data/MachineData';
 import { formatNumber } from '../utils/format';
 import { RESOURCE_NAME } from '../data/MachineData';
 import type { Decimal } from '../utils/decimal';
+import { PALETTE, FONT_FAMILY, PixelUIHelper } from './theme';
 
 export interface MachineCardData {
   definition: MachineDefinition;
@@ -27,21 +26,20 @@ export class MachineCard {
   private scene: Phaser.Scene;
   private container: Phaser.GameObjects.Container;
 
-  /* Grafik öğeleri */
-  private bg!: Phaser.GameObjects.Graphics;
-  private machineVisual!: Phaser.GameObjects.Graphics;
-  private iconText!: Phaser.GameObjects.Text;
+  /* Raster Dokular ve UI */
+  private bg!: Phaser.GameObjects.NineSlice;
+  private machineIconSprite!: Phaser.GameObjects.Sprite;
   private nameText!: Phaser.GameObjects.Text;
   private levelText!: Phaser.GameObjects.Text;
   private prodText!: Phaser.GameObjects.Text;
   private milestoneBadgeText!: Phaser.GameObjects.Text;
-  private btnBg!: Phaser.GameObjects.Graphics;
+  private btnBg!: Phaser.GameObjects.NineSlice;
   private btnLabel!: Phaser.GameObjects.Text;
   private btnZone!: Phaser.GameObjects.Zone;
 
   /* Kilitli durumu */
-  private lockOverlay!: Phaser.GameObjects.Graphics;
-  private lockText!: Phaser.GameObjects.Text;
+  private lockOverlay!: Phaser.GameObjects.NineSlice;
+  private lockIcon!: Phaser.GameObjects.Image;
   private lockRequirement!: Phaser.GameObjects.Text;
 
   /* Boyutlar */
@@ -49,6 +47,7 @@ export class MachineCard {
   private cardH = 0;
   private _btnW = 95;
   private _btnH = 26;
+  private isAffordable = false;
 
   private onClick: () => void;
 
@@ -69,43 +68,44 @@ export class MachineCard {
   private createElements(): void {
     const s = this.scene;
     const font: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontFamily: 'Arial, Helvetica, sans-serif',
+      fontFamily: FONT_FAMILY,
     };
 
-    this.bg = s.add.graphics();
+    // 1. Kart Arka Planı (Raster 9-Slice)
+    this.bg = PixelUIHelper.createCard(s, 0, 0, 100, 50);
     this.container.add(this.bg);
 
-    this.machineVisual = s.add.graphics();
-    this.container.add(this.machineVisual);
+    // 2. Makine İkonu (Gerçek Piksel Raster Sprite'ı)
+    this.machineIconSprite = s.add.sprite(0, 0, 'machine_bench').setOrigin(0.5, 0.5);
+    this.container.add(this.machineIconSprite);
 
-    this.iconText = s.add.text(0, 0, '', { ...font, fontSize: '26px' }).setOrigin(0.5);
-    this.container.add(this.iconText);
-
+    // 3. Başlık ve İstatistik Metinleri
     this.nameText = s.add.text(0, 0, '', {
-      ...font, fontSize: '13px', color: '#e8e8e8', fontStyle: 'bold',
+      ...font, fontSize: '12.5px', color: PALETTE.textPrimary, fontStyle: 'bold',
     }).setOrigin(0, 0.5);
     this.container.add(this.nameText);
 
     this.levelText = s.add.text(0, 0, '', {
-      ...font, fontSize: '11px', color: '#8888a0',
+      ...font, fontSize: '10.5px', color: PALETTE.textMuted,
     }).setOrigin(0, 0.5);
     this.container.add(this.levelText);
 
     this.prodText = s.add.text(0, 0, '', {
-      ...font, fontSize: '11px', color: '#2ecc71',
+      ...font, fontSize: '10.5px', color: PALETTE.successGreenHex, fontStyle: 'bold',
     }).setOrigin(0, 0.5);
     this.container.add(this.prodText);
 
     this.milestoneBadgeText = s.add.text(0, 0, '', {
-      ...font, fontSize: '9px', color: '#f4a261', fontStyle: 'bold',
+      ...font, fontSize: '9px', color: PALETTE.factoryAmberHex, fontStyle: 'bold',
     }).setOrigin(0, 0.5);
     this.container.add(this.milestoneBadgeText);
 
-    this.btnBg = s.add.graphics();
+    // 4. Raster 9-Slice Buton
+    this.btnBg = PixelUIHelper.createButton(s, 0, 0, this._btnW, this._btnH, 'green');
     this.container.add(this.btnBg);
 
     this.btnLabel = s.add.text(0, 0, '', {
-      ...font, fontSize: '11px', color: '#0f0e17', fontStyle: 'bold',
+      ...font, fontSize: '10.5px', color: PALETTE.btnAffordableText, fontStyle: 'bold',
       align: 'center',
     }).setOrigin(0.5);
     this.container.add(this.btnLabel);
@@ -113,18 +113,28 @@ export class MachineCard {
     this.btnZone = s.add.zone(0, 0, 1, 1)
       .setOrigin(0.5)
       .setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => this.onClick());
+      .on('pointerdown', () => this.onClick())
+      .on('pointerover', () => {
+        if (this.isAffordable) {
+          this.btnBg.setTexture('btn_green_hover');
+        }
+      })
+      .on('pointerout', () => {
+        if (this.isAffordable) {
+          this.btnBg.setTexture('btn_green_normal');
+        }
+      });
     this.container.add(this.btnZone);
 
-    // Kilit katmanı
-    this.lockOverlay = s.add.graphics();
+    // 5. Kilit Katmanı (Raster Dokular)
+    this.lockOverlay = PixelUIHelper.createModal(s, 0, 0, 100, 50).setTint(0x141828);
     this.container.add(this.lockOverlay);
 
-    this.lockText = s.add.text(0, 0, '🔒', { ...font, fontSize: '22px' }).setOrigin(0.5);
-    this.container.add(this.lockText);
+    this.lockIcon = s.add.image(0, 0, 'icon_close').setOrigin(0.5).setScale(1.2);
+    this.container.add(this.lockIcon);
 
     this.lockRequirement = s.add.text(0, 0, '', {
-      ...font, fontSize: '11px', color: '#7a7a90', align: 'center',
+      ...font, fontSize: '10.5px', color: PALETTE.textMuted, align: 'center',
     }).setOrigin(0.5);
     this.container.add(this.lockRequirement);
   }
@@ -144,16 +154,25 @@ export class MachineCard {
       nextMilestone,
     } = data;
 
-    this.iconText.setText(def.icon);
+    this.isAffordable = canAfford;
     this.nameText.setText(def.name);
+
+    // Makineye özel raster ikon dokusu
+    const machineKeys: Record<string, string> = {
+      assembler: 'machine_bench',
+      press: 'machine_press',
+      welder: 'machine_welder',
+      automation: 'machine_automation',
+    };
+    const key = machineKeys[def.id] || 'machine_bench';
+    this.machineIconSprite.setTexture(key);
 
     if (unlocked) {
       this.lockOverlay.setVisible(false);
-      this.lockText.setVisible(false);
+      this.lockIcon.setVisible(false);
       this.lockRequirement.setVisible(false);
 
-      this.machineVisual.setVisible(true);
-      this.iconText.setVisible(true);
+      this.machineIconSprite.setVisible(true);
       this.nameText.setVisible(true);
       this.levelText.setVisible(true);
       this.prodText.setVisible(true);
@@ -163,7 +182,7 @@ export class MachineCard {
       this.btnZone.setVisible(true);
 
       if (level === 0) {
-        this.levelText.setText('Satın alınmadı');
+        this.levelText.setText('Kurulum Yapılmadı');
         this.prodText.setText(`+${formatNumber(def.baseProduction)} ${RESOURCE_NAME}/sn`);
         this.milestoneBadgeText.setText('');
         if (canAfford) {
@@ -191,17 +210,26 @@ export class MachineCard {
         }
       }
 
-      // Buton stili
-      this.drawButton(canAfford ? 0x2ecc71 : 0x2a2a3e);
-      this.btnLabel.setColor(canAfford ? '#0f0e17' : '#7a7a8e');
-      this.btnZone.input!.enabled = canAfford;
+      // Buton Raster Dokusu Durumu (Satın Alınabilir vs Devre Dışı)
+      if (canAfford) {
+        this.btnBg.setTexture('btn_green_normal');
+        this.btnLabel.setColor(PALETTE.btnAffordableText);
+        this.btnZone.input!.enabled = true;
+      } else {
+        this.btnBg.setTexture('btn_disabled');
+        this.btnLabel.setColor(PALETTE.btnDisabledText);
+        this.btnZone.input!.enabled = false;
+      }
 
-      // Makine mini görseli
-      this.drawMachineVisual(def, level);
+      // Makine ikon tint'i
+      if (level === 0) {
+        this.machineIconSprite.setTint(0x7f8c8d);
+      } else {
+        this.machineIconSprite.clearTint();
+      }
     } else {
       // Kilitli durum
-      this.machineVisual.setVisible(false);
-      this.iconText.setVisible(false);
+      this.machineIconSprite.setVisible(false);
       this.nameText.setVisible(false);
       this.levelText.setVisible(false);
       this.prodText.setVisible(false);
@@ -211,7 +239,7 @@ export class MachineCard {
       this.btnZone.setVisible(false);
 
       this.lockOverlay.setVisible(true);
-      this.lockText.setVisible(true);
+      this.lockIcon.setVisible(true);
       this.lockRequirement.setVisible(true);
       this.lockRequirement.setText(
         `${def.name}\n${formatNumber(def.unlockAt)} ${RESOURCE_NAME} kazanılınca açılır`,
@@ -226,22 +254,19 @@ export class MachineCard {
     this.cardH = h;
     this.container.setPosition(x, y);
 
-    // Kart Arka planı
-    this.bg.clear();
-    this.bg.fillStyle(0x151528, 0.95);
-    this.bg.fillRoundedRect(0, 0, w, h, 8);
-    this.bg.lineStyle(1, 0x2e3856, 0.7);
-    this.bg.strokeRoundedRect(0, 0, w, h, 8);
+    // Kart Arka Planı (9-Slice)
+    this.bg.setPosition(0, 0);
+    this.bg.setSize(w, h);
 
-    const pad = 10 * sf;
-    const iconSize = 34 * sf;
+    const pad = Math.round(10 * sf);
+    const iconW = Math.round(36 * sf);
 
-    // İkon
-    this.iconText.setPosition(pad + iconSize / 2, h / 2 - 2);
-    this.iconText.setFontSize(`${Math.round(20 * sf)}px`);
+    // Makine İkonu (Gerçek Piksel Raster Sprite'ı)
+    this.machineIconSprite.setPosition(pad + iconW / 2, h / 2);
+    this.machineIconSprite.setScale(Math.max(0.65, sf * 0.7));
 
     // Metin alanı
-    const textX = pad + iconSize + 8 * sf;
+    const textX = pad + iconW + Math.round(8 * sf);
     this.nameText.setPosition(textX, h * 0.20);
     this.nameText.setFontSize(`${Math.round(12 * sf)}px`);
 
@@ -254,27 +279,26 @@ export class MachineCard {
     this.milestoneBadgeText.setPosition(textX, h * 0.86);
     this.milestoneBadgeText.setFontSize(`${Math.round(8.5 * sf)}px`);
 
-    // Buton (sağ taraf)
-    this._btnW = Math.round(92 * sf);
-    this._btnH = Math.round(36 * sf);
-    const btnX = w - pad - this._btnW;
-    const btnY = h / 2 - this._btnH / 2;
+    // Buton (Sağ taraf)
+    this._btnW = Math.round(96 * sf);
+    this._btnH = Math.round(38 * sf);
+    const btnCx = w - pad - this._btnW / 2;
+    const btnCy = h / 2;
 
-    this.btnBg.setPosition(btnX, btnY);
-    this.btnLabel.setPosition(btnX + this._btnW / 2, btnY + this._btnH / 2);
-    this.btnLabel.setFontSize(`${Math.round(10 * sf)}px`);
-    this.btnZone.setPosition(btnX + this._btnW / 2, btnY + this._btnH / 2);
+    this.btnBg.setPosition(btnCx, btnCy);
+    this.btnBg.setSize(this._btnW, this._btnH);
+
+    this.btnLabel.setPosition(btnCx, btnCy);
+    this.btnLabel.setFontSize(`${Math.round(9.5 * sf)}px`);
+
+    this.btnZone.setPosition(btnCx, btnCy);
     this.btnZone.setSize(this._btnW, this._btnH);
 
-    this.drawButton(0x2a2a3e);
+    // Kilit Katmanı
+    this.lockOverlay.setPosition(w / 2, h / 2);
+    this.lockOverlay.setSize(w, h);
 
-    // Kilit katmanı
-    this.lockOverlay.clear();
-    this.lockOverlay.fillStyle(0x0a0a14, 0.85);
-    this.lockOverlay.fillRoundedRect(0, 0, w, h, 8);
-
-    this.lockText.setPosition(w / 2, h / 2 - 14);
-    this.lockText.setFontSize(`${Math.round(18 * sf)}px`);
+    this.lockIcon.setPosition(w / 2, h / 2 - 12);
     this.lockRequirement.setPosition(w / 2, h / 2 + 12);
     this.lockRequirement.setFontSize(`${Math.round(10 * sf)}px`);
   }
@@ -284,7 +308,7 @@ export class MachineCard {
     this.scene.tweens.add({
       targets: this.container,
       scaleX: 1.03, scaleY: 1.03,
-      duration: 90, yoyo: true,
+      duration: 80, yoyo: true,
       ease: 'Back.easeOut',
     });
 
@@ -292,7 +316,7 @@ export class MachineCard {
     const cy = this.container.y + this.cardH / 2;
     for (let i = 0; i < 6; i++) {
       const angle = (Math.PI * 2 * i) / 6;
-      const p = this.scene.add.circle(cx, cy, 3, 0x2ecc71, 0.9).setDepth(60);
+      const p = this.scene.add.image(cx, cy, 'icon_coin').setScale(0.8).setDepth(60);
       this.scene.tweens.add({
         targets: p,
         x: cx + Math.cos(angle) * 35,
@@ -304,7 +328,7 @@ export class MachineCard {
     }
   }
 
-  /** Kilit açılma animasyonu */
+  /** Kilit açılma anı efekti */
   playUnlockEffect(): void {
     this.scene.tweens.add({
       targets: this.lockOverlay,
@@ -313,36 +337,10 @@ export class MachineCard {
       ease: 'Quad.easeOut',
     });
     this.scene.tweens.add({
-      targets: [this.lockText, this.lockRequirement],
+      targets: [this.lockIcon, this.lockRequirement],
       alpha: 0, y: '-=15',
       duration: 350,
       ease: 'Quad.easeOut',
     });
-  }
-
-  /* ---- Çizim yardımcıları ---- */
-
-  private drawButton(color: number): void {
-    const g = this.btnBg;
-    g.clear();
-    g.fillStyle(color, 1);
-    g.fillRoundedRect(0, 0, this._btnW, this._btnH, 6);
-  }
-
-  private drawMachineVisual(def: MachineDefinition, level: number): void {
-    const g = this.machineVisual;
-    g.clear();
-
-    if (level === 0) return;
-
-    const ix = this.iconText.x;
-    const iy = this.iconText.y;
-
-    // Seviye noktaları (5'e kadar)
-    const dotCount = Math.min(level, 5);
-    g.fillStyle(def.color, 0.8);
-    for (let i = 0; i < dotCount; i++) {
-      g.fillCircle(ix - 10 + i * 5, iy + 17, 2);
-    }
   }
 }

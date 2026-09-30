@@ -1,18 +1,27 @@
 /* ======================================================================
  * SettingsPanel.ts — Ayarlar paneli (kayıt sıfırlama onayı ile)
+ * Tamamen gerçek piksel-art raster dokuları ile oluşturuldu (docs/ART_DIRECTION.md)
  * ====================================================================== */
 
 import Phaser from 'phaser';
+import { PALETTE, FONT_FAMILY, PixelUIHelper } from './theme';
 
 export class SettingsPanel {
   private scene: Phaser.Scene;
   private container!: Phaser.GameObjects.Container;
-  private overlay!: Phaser.GameObjects.Graphics;
-  private panel!: Phaser.GameObjects.Graphics;
+  private overlay!: Phaser.GameObjects.Rectangle;
+  private panelSlice!: Phaser.GameObjects.NineSlice;
   private titleText!: Phaser.GameObjects.Text;
-  private resetBtn!: Phaser.GameObjects.Text;
-  private closeBtn!: Phaser.GameObjects.Text;
+  private resetBtnBg!: Phaser.GameObjects.NineSlice;
+  private resetBtnText!: Phaser.GameObjects.Text;
+  private resetZone!: Phaser.GameObjects.Zone;
+  private closeIcon!: Phaser.GameObjects.Image;
+  private closeZone!: Phaser.GameObjects.Zone;
+
   private confirmGroup!: Phaser.GameObjects.Container;
+  private confirmBgSlice!: Phaser.GameObjects.NineSlice;
+  private yesBtnBg!: Phaser.GameObjects.NineSlice;
+  private noBtnBg!: Phaser.GameObjects.NineSlice;
 
   private _visible = false;
   private onReset: () => void;
@@ -28,75 +37,106 @@ export class SettingsPanel {
   private create(): void {
     const s = this.scene;
     const font: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontFamily: 'Arial, Helvetica, sans-serif',
+      fontFamily: FONT_FAMILY,
     };
 
     this.container = s.add.container(0, 0).setDepth(200).setVisible(false);
 
-    // Yarı saydam arka plan
-    this.overlay = s.add.graphics();
-    this.overlay.setInteractive(
-      new Phaser.Geom.Rectangle(0, 0, 2000, 2000),
-      Phaser.Geom.Rectangle.Contains,
-    );
+    // Yarı saydam koyu arka plan (Graphics yerine Rectangle - vektör çizim yok)
+    this.overlay = s.add.rectangle(0, 0, 3000, 3000, 0x070913, 0.75)
+      .setOrigin(0, 0)
+      .setInteractive(
+        new Phaser.Geom.Rectangle(0, 0, 3000, 3000),
+        Phaser.Geom.Rectangle.Contains,
+      );
     this.overlay.on('pointerdown', () => this.hide());
     this.container.add(this.overlay);
 
-    // Panel arka planı
-    this.panel = s.add.graphics();
-    this.container.add(this.panel);
+    // Modal Arka Planı (Raster 9-Slice)
+    this.panelSlice = PixelUIHelper.createModal(s, 0, 0, 280, 240);
+    this.container.add(this.panelSlice);
 
     // Başlık
-    this.titleText = s.add.text(0, 0, 'Ayarlar', {
-      ...font, fontSize: '22px', color: '#d4d4e0', fontStyle: 'bold',
+    this.titleText = s.add.text(0, -80, '⚙ AYARLAR', {
+      ...font, fontSize: '16px', color: PALETTE.resourceGoldHex, fontStyle: 'bold',
     }).setOrigin(0.5);
     this.container.add(this.titleText);
 
-    // Kapat butonu
-    this.closeBtn = s.add.text(0, 0, '✕', {
-      ...font, fontSize: '20px', color: '#8888a0',
-    }).setOrigin(0.5)
+    // Kapat butonu (Piksel Kırmızı Çarpı İkonu)
+    this.closeIcon = s.add.image(115, -80, 'icon_close').setOrigin(0.5).setScale(1.2);
+    this.closeZone = s.add.zone(115, -80, 28, 28)
+      .setOrigin(0.5)
       .setInteractive({ useHandCursor: true })
       .on('pointerdown', () => this.hide())
-      .on('pointerover', () => this.closeBtn.setColor('#ffffff'))
-      .on('pointerout', () => this.closeBtn.setColor('#8888a0'));
-    this.container.add(this.closeBtn);
+      .on('pointerover', () => this.closeIcon.setScale(1.35))
+      .on('pointerout', () => this.closeIcon.setScale(1.2));
+    this.container.add([this.closeIcon, this.closeZone]);
 
-    // Kayıt sıfırla butonu
-    this.resetBtn = s.add.text(0, 0, '🗑  Kaydı Sıfırla', {
-      ...font, fontSize: '16px', color: '#e76f51',
-    }).setOrigin(0.5)
+    // Kayıt sıfırla butonu (Raster Tehlike Butonu)
+    this.resetBtnBg = PixelUIHelper.createButton(s, 0, -20, 180, 38, 'danger');
+    this.container.add(this.resetBtnBg);
+
+    this.resetBtnText = s.add.text(0, -20, '🗑  Kaydı Sıfırla', {
+      ...font, fontSize: '13px', color: '#ffffff', fontStyle: 'bold',
+    }).setOrigin(0.5);
+    this.container.add(this.resetBtnText);
+
+    this.resetZone = s.add.zone(0, -20, 180, 38)
+      .setOrigin(0.5)
       .setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => this.showConfirm())
-      .on('pointerover', () => this.resetBtn.setAlpha(0.7))
-      .on('pointerout', () => this.resetBtn.setAlpha(1));
-    this.container.add(this.resetBtn);
+      .on('pointerdown', () => {
+        this.resetBtnBg.setTexture('btn_danger_pressed');
+        this.showConfirm();
+      })
+      .on('pointerup', () => {
+        this.resetBtnBg.setTexture('btn_danger_normal');
+      })
+      .on('pointerover', () => {
+        this.resetBtnBg.setScale(1.03);
+      })
+      .on('pointerout', () => {
+        this.resetBtnBg.setScale(1.0);
+        this.resetBtnBg.setTexture('btn_danger_normal');
+      });
+    this.container.add(this.resetZone);
 
-    // Onay grubu
-    this.confirmGroup = s.add.container(0, 0).setVisible(false);
+    // Onay Grubu (Kayıt Sıfırlama)
+    this.confirmGroup = s.add.container(0, 45).setVisible(false);
 
-    const confirmText = s.add.text(0, -20, 'Emin misin? Tüm ilerleme silinecek.', {
-      ...font, fontSize: '13px', color: '#e8e8e8', align: 'center',
-      wordWrap: { width: 240 },
+    this.confirmBgSlice = PixelUIHelper.createCard(s, 0, 0, 240, 95).setOrigin(0.5, 0.5);
+    this.confirmGroup.add(this.confirmBgSlice);
+
+    const confirmText = s.add.text(0, -20, 'Emin misin? Tüm fabrika ve roket verisi silinecek!', {
+      ...font, fontSize: '11px', color: PALETTE.textPrimary, align: 'center',
+      wordWrap: { width: 220 },
     }).setOrigin(0.5);
     this.confirmGroup.add(confirmText);
 
-    const yesBtn = s.add.text(-50, 15, '✓ Evet', {
-      ...font, fontSize: '15px', color: '#2ecc71', fontStyle: 'bold',
-    }).setOrigin(0.5)
+    // Evet Butonu (Raster Yeşil Buton)
+    this.yesBtnBg = PixelUIHelper.createButton(s, -55, 18, 80, 30, 'green');
+    const yesBtn = s.add.text(-55, 18, '✓ Evet', {
+      ...font, fontSize: '11px', color: PALETTE.btnAffordableText, fontStyle: 'bold',
+    }).setOrigin(0.5);
+    const yesZone = s.add.zone(-55, 18, 80, 30)
+      .setOrigin(0.5)
       .setInteractive({ useHandCursor: true })
       .on('pointerdown', () => {
+        this.yesBtnBg.setTexture('btn_green_pressed');
         this.onReset();
         this.hide();
       });
-    this.confirmGroup.add(yesBtn);
+    this.confirmGroup.add([this.yesBtnBg, yesBtn, yesZone]);
 
-    const noBtn = s.add.text(50, 15, '✗ Hayır', {
-      ...font, fontSize: '15px', color: '#e76f51', fontStyle: 'bold',
-    }).setOrigin(0.5)
+    // Hayır Butonu (Raster Koyu Buton)
+    this.noBtnBg = PixelUIHelper.createButton(s, 55, 18, 80, 30, 'disabled');
+    const noBtn = s.add.text(55, 18, '✗ İptal', {
+      ...font, fontSize: '11px', color: PALETTE.textPrimary, fontStyle: 'bold',
+    }).setOrigin(0.5);
+    const noZone = s.add.zone(55, 18, 80, 30)
+      .setOrigin(0.5)
       .setInteractive({ useHandCursor: true })
       .on('pointerdown', () => this.confirmGroup.setVisible(false));
-    this.confirmGroup.add(noBtn);
+    this.confirmGroup.add([this.noBtnBg, noBtn, noZone]);
 
     this.container.add(this.confirmGroup);
   }
@@ -118,26 +158,23 @@ export class SettingsPanel {
   }
 
   layout(w: number, h: number): void {
-    if (!this._visible) return;
+    this.container.setPosition(w / 2, h / 2);
+    const sf = Phaser.Math.Clamp(Math.min(w, h) / 480, 0.7, 1.2);
 
-    const cx = w / 2;
-    const cy = h / 2;
-    const pw = Math.min(300, w * 0.85);
-    const ph = 200;
+    const modalW = Math.min(320 * sf, w - 30);
+    const modalH = Math.min(260 * sf, h - 40);
 
-    this.overlay.clear();
-    this.overlay.fillStyle(0x000000, 0.6);
-    this.overlay.fillRect(0, 0, w, h);
+    this.panelSlice.setSize(modalW, modalH);
 
-    this.panel.clear();
-    this.panel.fillStyle(0x1a1a2e, 1);
-    this.panel.fillRoundedRect(cx - pw / 2, cy - ph / 2, pw, ph, 12);
-    this.panel.lineStyle(1, 0x3a3a5a, 0.8);
-    this.panel.strokeRoundedRect(cx - pw / 2, cy - ph / 2, pw, ph, 12);
+    this.titleText.setPosition(0, -modalH / 2 + 25 * sf);
+    this.closeIcon.setPosition(modalW / 2 - 22 * sf, -modalH / 2 + 25 * sf);
+    this.closeZone.setPosition(modalW / 2 - 22 * sf, -modalH / 2 + 25 * sf);
 
-    this.titleText.setPosition(cx, cy - ph / 2 + 30);
-    this.closeBtn.setPosition(cx + pw / 2 - 20, cy - ph / 2 + 20);
-    this.resetBtn.setPosition(cx, cy + 5);
-    this.confirmGroup.setPosition(cx, cy + 50);
+    this.resetBtnBg.setPosition(0, -modalH * 0.15);
+    this.resetBtnText.setPosition(0, -modalH * 0.15);
+    this.resetZone.setPosition(0, -modalH * 0.15);
+
+    this.confirmGroup.setPosition(0, modalH * 0.22);
+    this.confirmBgSlice.setSize(modalW - 30, Math.round(95 * sf));
   }
 }

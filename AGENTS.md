@@ -6,8 +6,8 @@
 
 ## Proje Özeti
 
-Tarayıcıda çalışan, CrazyGames'e yayımlanacak 2D fabrika incremental/clicker oyunu.
-Oyuncu tıklayarak kaynak kazanır, makineler ve üretim hatları satın alarak otomatik üretimi büyütür.
+Tarayıcıda çalışan, CrazyGames'e yayımlanacak 2D fabrika incremental ekonomisi ile sağa kaydırmalı, oyuncu kontrollü roket uçuşunu birleştiren hibrit oyun.
+Oyuncu fabrikada tıklayarak ve makineler/üretim hatları kurarak kaynak kazanır; kazandığı kaynakla roketini geliştirir (görsel ve mekanik olarak değişir), fırlatma alanına geçerek sağa kaydırmalı yatay uçuşta roketini yönlendirir, boost ve engelden kaçınma mekanikleriyle uçuş mesafesi ve toplanan parçalardan skor elde eder. Uçuş sonunda skor kaynaklara dönüştürülerek fabrika ve roket döngüsü sürekli büyütülür.
 
 ---
 
@@ -46,12 +46,19 @@ Oyuncu tıklayarak kaynak kazanır, makineler ve üretim hatları satın alarak 
 
 ---
 
+## Sanat ve Görsel Standartlar
+
+- Tüm UI, görsel, animasyon ve asset geliştirme görevlerinde **`docs/ART_DIRECTION.md`** dosyasını okumak ve buradaki piksel sanat, renk paleti ve grid standartlarına uymak **zorunludur**.
+- Renkler `src/ui/theme.ts` merkezi paletinden kullanılmalı; rastgele hex renkleri tanımlanmamalıdır.
+- Phaser doku ve kamera ayarlarında piksel sanat bütünlüğü (`pixelArt: true`, `roundPixels: true`) korunmalıdır.
+
+---
+
 ## Netleştirilecek Kararlar
 
 Aşağıdaki konular henüz karara bağlanmamıştır. Bunları kesin karar gibi kodlama; gerektiğinde kullanıcıya sor.
 
 - Oyun adı ve marka kimliği
-- Sanat yönü / görsel stil
 - Kaynak türleri ve ekonomi değerleri
 - Kesin ilerleme eğrisi ve dengeleme
 - Prestige / reset sistemi

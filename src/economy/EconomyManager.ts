@@ -16,6 +16,7 @@ import {
   type FactoryGoal,
   type LevelMilestone,
 } from '../data/MachineData';
+import { ROCKET_UPGRADES, type RocketUpgradeDef } from '../data/RocketData';
 
 /* ---- Çalışma zamanı makine durumu ---- */
 
@@ -34,15 +35,19 @@ export type EconomyEventType =
   | 'click'
   | 'unlock'
   | 'goal_reached'
-  | 'offline';
+  | 'offline'
+  | 'rocket_upgrade'
+  | 'flight_complete';
 
 export interface EconomyEvent {
   type: EconomyEventType;
   machineId?: string;
+  upgradeId?: string;
   amount?: Decimal;
   goalId?: string;
   /** Offline ilerleme süresi (saniye) */
   offlineSeconds?: number;
+  newLevel?: number;
 }
 
 export type EconomyListener = (evt: EconomyEvent) => void;
@@ -56,6 +61,21 @@ export class EconomyManager {
 
   /** Her makine türü için çalışma zamanı durumu */
   private machines: MachineState[] = [];
+
+  /** Roket bileşenleri seviyeleri */
+  private rocketUpgrades: Record<string, number> = {
+    hull: 1,
+    engine: 1,
+    wings: 1,
+    boost: 1,
+  };
+
+  /** Uçuş istatistikleri */
+  private flightStats = {
+    totalFlights: 0,
+    bestDistance: 0,
+    bestScore: 0,
+  };
 
   /** Tamamlanan hedefler */
   private completedGoalIds: Set<string> = new Set();
@@ -171,12 +191,12 @@ export class EconomyManager {
   }
 
   /** Bir makinenin saniye başına üretimi */
-  getProduction(index: number): Decimal {
+  getProduction(index: number, atLevel?: number): Decimal {
     const def = MACHINES[index];
-    const state = this.machines[index];
-    if (state.level === 0) return D_ZERO;
+    const level = atLevel !== undefined ? atLevel : this.machines[index].level;
+    if (level === 0) return D_ZERO;
 
-    const base = D(def.baseProduction).mul(state.level);
+    const base = D(def.baseProduction).mul(level);
     const msMul = this.getMachineMilestoneMultiplier(index);
     const globalMul = this.getGlobalMultiplier();
 
@@ -272,6 +292,74 @@ export class EconomyManager {
   }
 
   /* ============================================================
+   * Roket Yükseltmeleri ve Uçuş
+   * ============================================================ */
+
+  getRocketUpgradeLevel(id: string): number {
+    return this.rocketUpgrades[id] ?? 1;
+  }
+
+  getRocketUpgradeCost(id: string): Decimal {
+    const def = ROCKET_UPGRADES.find(u => u.id === id);
+    if (!def) return D_ZERO;
+    const currentLvl = this.getRocketUpgradeLevel(id);
+    if (currentLvl >= def.maxLevel) return D(Infinity);
+    return D(def.baseCost).mul(D(def.costScale).pow(currentLvl - 1)).floor();
+  }
+
+  canAffordRocketUpgrade(id: string): boolean {
+    const def = ROCKET_UPGRADES.find(u => u.id === id);
+    if (!def) return false;
+    const lvl = this.getRocketUpgradeLevel(id);
+    if (lvl >= def.maxLevel) return false;
+    return this._resources.gte(this.getRocketUpgradeCost(id));
+  }
+
+  buyRocketUpgrade(id: string): boolean {
+    const def = ROCKET_UPGRADES.find(u => u.id === id);
+    if (!def) return false;
+    const lvl = this.getRocketUpgradeLevel(id);
+    if (lvl >= def.maxLevel) return false;
+
+    const cost = this.getRocketUpgradeCost(id);
+    if (this._resources.lt(cost)) return false;
+
+    this._resources = this._resources.sub(cost);
+    const newLvl = lvl + 1;
+    this.rocketUpgrades[id] = newLvl;
+
+    this.emit({
+      type: 'rocket_upgrade',
+      upgradeId: id,
+      newLevel: newLvl,
+    });
+    return true;
+  }
+
+  recordFlightResult(distance: number, score: number, resourcesGained: number): void {
+    this.flightStats.totalFlights++;
+    this.flightStats.bestDistance = Math.max(this.flightStats.bestDistance, distance);
+    this.flightStats.bestScore = Math.max(this.flightStats.bestScore, score);
+
+    if (resourcesGained > 0) {
+      this.addResources(resourcesGained);
+    }
+
+    this.emit({
+      type: 'flight_complete',
+      amount: D(resourcesGained),
+    });
+  }
+
+  get stats() {
+    return { ...this.flightStats };
+  }
+
+  getAllRocketUpgrades(): Record<string, number> {
+    return { ...this.rocketUpgrades };
+  }
+
+  /* ============================================================
    * Kayıt / Yükleme (serileştirme)
    * ============================================================ */
 
@@ -282,6 +370,8 @@ export class EconomyManager {
       totalEarned: this._totalEarned.toString(),
       machines: this.machines.map(m => ({ level: m.level })),
       completedGoals: Array.from(this.completedGoalIds),
+      rocketUpgrades: { ...this.rocketUpgrades },
+      flightStats: { ...this.flightStats },
       timestamp: Date.now(),
     };
   }
@@ -305,6 +395,25 @@ export class EconomyManager {
       this.completedGoalIds.clear();
       // Hedefleri mevcut kazanımla geri hesapla
       this.checkGoals();
+    }
+
+    if (data.rocketUpgrades && typeof data.rocketUpgrades === 'object') {
+      for (const def of ROCKET_UPGRADES) {
+        if (typeof data.rocketUpgrades[def.id] === 'number') {
+          this.rocketUpgrades[def.id] = Math.min(
+            def.maxLevel,
+            Math.max(1, Math.floor(data.rocketUpgrades[def.id])),
+          );
+        }
+      }
+    }
+
+    if (data.flightStats && typeof data.flightStats === 'object') {
+      this.flightStats = {
+        totalFlights: Number(data.flightStats.totalFlights) || 0,
+        bestDistance: Number(data.flightStats.bestDistance) || 0,
+        bestScore: Number(data.flightStats.bestScore) || 0,
+      };
     }
   }
 
@@ -334,5 +443,11 @@ export interface EconomySaveData {
   totalEarned: string | number;
   machines: MachineSaveEntry[];
   completedGoals?: string[];
+  rocketUpgrades?: Record<string, number>;
+  flightStats?: {
+    totalFlights: number;
+    bestDistance: number;
+    bestScore: number;
+  };
   timestamp: number;
 }

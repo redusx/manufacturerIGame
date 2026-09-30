@@ -5,16 +5,52 @@
 import Decimal, { type DecimalSource } from 'break_eternity.js';
 
 const SUFFIXES = [
-  '', 'K', 'M', 'B', 'T', 'Qa', 'Qi', 'Sx', 'Sp', 'Oc', 'No', 'Dc',
+  '',
+  'K',   // Bin (Thousand)
+  'M',   // Milyon (Million)
+  'B',   // Milyar (Billion)
+  'T',   // Trilyon (Trillion)
+  'Qa',  // Katrilyon (Quadrillion)
+  'Qi',  // Kentilyon (Quintillion)
+  'Sx',  // Sekstilyon (Sextillion)
+  'Sp',  // Septilyon (Septillion)
+  'Oc',  // Oktilyon (Octillion)
+  'No',  // Nonilyon (Nonillion)
+  'Dc',  // Desilyon (Decillion)
+  'Ud',  // Undesilyon (Undecillion)
+  'Dd',  // Duodesilyon (Duodecillion)
+  'Td',  // Tredesilyon (Tredecillion)
+  'Qad', // Kattuordesilyon (Quattuordecillion)
+  'Qid', // Kuindesilyon (Quindecillion)
+  'Sxd', // Seksdesilyon (Sexdecillion)
+  'Spd', // Septendesilyon (Septendecillion)
+  'Ocd', // Oktodesilyon (Octodecillion)
+  'Nod', // Novemdesilyon (Novemdecillion)
+  'Vg',  // Vigintilyon (Vigintillion)
+  'Uvg', // Unvigintilyon
+  'Dvg', // Duovigintilyon
+  'Tvg', // Tresvigintilyon
+  'Qavg',// Kattuorvigintilyon
+  'Qivg',// Kuinvigintilyon
+  'Sxvg',// Seksvigintilyon
+  'Spvg',// Septenvigintilyon
+  'Ocvg',// Oktovigintilyon
+  'Novg',// Novemvigintilyon
+  'Tg',  // Trigintilyon (10^93)
 ];
 
 /**
  * Büyük sayıları veya Decimal değerleri okunabilir kısa biçime çevirir.
+ * Standart artımlı oyun kısaltmalarını (K, M, B, T, Qa, Qi, ...) kullanır.
+ *
  * Örnekler:
  *   999 → "999"
+ *   1000 → "1.00K"
  *   1234 → "1.23K"
+ *   15_600 → "15.6K"
+ *   123_456 → "123K"
  *   1_500_000 → "1.50M"
- *   1e36 → "1.00e36"
+ *   1e9 → "1.00B"
  */
 export function formatNumber(value: DecimalSource): string {
   const dec = value instanceof Decimal ? value : new Decimal(value);
@@ -24,24 +60,29 @@ export function formatNumber(value: DecimalSource): string {
 
   // 1000'den küçükse tam sayı
   if (dec.lt(1000)) {
-    const num = dec.toNumber();
-    // Tam sayı değilse ve küçükse 1 ondalık gösterebiliriz, tam ise düz tam sayı
-    return Math.floor(num).toString();
+    return Math.floor(dec.toNumber()).toString();
   }
 
-  // Standart büyük harf ekleri (K, M, B, ...)
-  const maxSuffixExp = SUFFIXES.length * 3; // 36
-  if (dec.layer === 0 && dec.mag < maxSuffixExp) {
-    const exp = Math.floor(dec.mag);
-    const tier = Math.floor(exp / 3);
-    const remainderExp = exp % 3;
-    const baseVal = dec.sign * Math.pow(10, dec.mag - tier * 3);
+  const exp = dec.e;
+  let tier = Math.floor(exp / 3);
 
-    const digits = baseVal >= 100 ? 0 : baseVal >= 10 ? 1 : 2;
-    return baseVal.toFixed(digits) + SUFFIXES[tier];
+  // Standart kısaltma ekleri (K, M, B, ...)
+  if (tier < SUFFIXES.length) {
+    let base = dec.m * Math.pow(10, exp % 3);
+
+    // Yuvarlama taşması kontrolü (ör. 999.95+ -> 1000 -> bir üst basamak kademesine geçiş)
+    if (base >= 999.5) {
+      base /= 1000;
+      tier += 1;
+    }
+
+    const digits = base >= 99.95 ? 0 : base >= 9.995 ? 1 : 2;
+    if (tier < SUFFIXES.length) {
+      return base.toFixed(digits) + SUFFIXES[tier];
+    }
   }
 
-  // Bilimsel gösterim (e36 ve üzeri)
+  // Tanımlı son ek sınırının (10^93+) üzerindeki aşırı büyük sayılar için bilimsel gösterim
   return dec.toExponential(2).replace('+', '');
 }
 

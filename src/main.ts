@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { GameScene } from './scenes/GameScene';
+import { FlightScene } from './scenes/FlightScene';
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -8,8 +9,13 @@ const config: Phaser.Types.Core.GameConfig = {
     mode: Phaser.Scale.RESIZE,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
-  backgroundColor: '#0f0e17',
-  scene: [GameScene],
+  render: {
+    pixelArt: true,
+    roundPixels: true,
+    antialias: false,
+  },
+  backgroundColor: '#070913',
+  scene: [GameScene, FlightScene],
 };
 
 new Phaser.Game(config);
