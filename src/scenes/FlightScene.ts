@@ -115,7 +115,6 @@ export class FlightScene extends Phaser.Scene {
   private launchGantry: Phaser.GameObjects.Image | null = null;
 
   /* Zemin ve Parallaks */
-  private skyTileSprite!: Phaser.GameObjects.TileSprite;
   private groundTileSprite!: Phaser.GameObjects.TileSprite;
   private stars: Array<{ sprite: Phaser.GameObjects.Image; speed: number }> = [];
   private mountains: Array<{ sprite: Phaser.GameObjects.Image; speed: number }> = [];
@@ -230,8 +229,8 @@ export class FlightScene extends Phaser.Scene {
     this.obstacles = [];
     this.collectibles = [];
 
-    // 1. Arka Plan Tile
-    this.skyTileSprite = this.add.tileSprite(0, 0, w, h, 'sky_band_space').setOrigin(0, 0).setDepth(0);
+    // 1. Arka Plan
+    this.cameras.main.setBackgroundColor('#070913');
 
     // 2. Parallaks Katmanları
     this.createParallaxLayers(w, h);
