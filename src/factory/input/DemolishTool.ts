@@ -1,0 +1,363 @@
+/* ======================================================================
+ * src/factory/input/DemolishTool.ts — Yıkım ve Taşıma Aracı
+ *
+ * Fabrikadaki herhangi bir makine, konveyör bandı veya lojistik birimini
+ * %100 sermaye iadesiyle (DEC-007) sökmeyi, tehlike desenli (hazard X)
+ * kırmızı hayalet vurgusu ile önizlemeyi ve dokunsal geri bildirimle
+ * yıkım işlemini yürüten Phaser 3 araç kontrolcüsü.
+ *
+ * docs/ART_DIRECTION.md, DEC-007 ve src/ui/theme.ts standartlarına tam uyumludur.
+ * ====================================================================== */
+
+import Phaser from 'phaser';
+import type { GridCoord } from '../types.ts';
+import { GridMap } from '../simulation/GridMap.ts';
+import { LogisticsNetwork } from '../simulation/LogisticsNetwork.ts';
+import { ProductionEngine } from '../simulation/ProductionEngine.ts';
+import { FactoryEconomy } from '../simulation/FactoryEconomy.ts';
+import { GridCoordinates } from '../view/GridCoordinates.ts';
+import {
+  DemolishMath,
+  type DemolishTargetInfo,
+  type DemolishExecuteResult,
+} from './DemolishMath.ts';
+import { PALETTE, FONT_FAMILY } from '../../ui/theme.ts';
+
+export interface DemolishToolConfig {
+  tileSize?: number;
+  originX?: number;
+  originY?: number;
+  onDemolished?: (result: DemolishExecuteResult) => void;
+  onCancel?: () => void;
+}
+
+export class DemolishTool {
+  readonly scene: Phaser.Scene;
+  readonly grid: GridMap;
+  readonly logistics: LogisticsNetwork;
+  readonly engine: ProductionEngine;
+  readonly economy: FactoryEconomy;
+
+  readonly tileSize: number;
+  private originX: number;
+  private originY: number;
+
+  /** Araç aktif mi? */
+  private _isActive = false;
+
+  /** Anlık fare imleci koordinatı */
+  private currentCoord: GridCoord = { x: 0, y: 0 };
+
+  /** Anlık hedefin bilgisi */
+  private currentTarget: DemolishTargetInfo | null = null;
+
+  /** Görsel önizleme konteyneri */
+  private overlayContainer: Phaser.GameObjects.Container;
+  private highlightGraphics: Phaser.GameObjects.Graphics;
+  private badgeText: Phaser.GameObjects.Text;
+
+  /** Olay geri çağırmaları */
+  onDemolished?: (result: DemolishExecuteResult) => void;
+  onCancel?: () => void;
+
+  constructor(
+    scene: Phaser.Scene,
+    grid: GridMap,
+    logistics: LogisticsNetwork,
+    engine: ProductionEngine,
+    economy: FactoryEconomy,
+    config: DemolishToolConfig = {},
+  ) {
+    this.scene = scene;
+    this.grid = grid;
+    this.logistics = logistics;
+    this.engine = engine;
+    this.economy = economy;
+
+    this.tileSize = config.tileSize ?? GridCoordinates.DEFAULT_TILE_SIZE;
+    this.originX = config.originX ?? 0;
+    this.originY = config.originY ?? 0;
+    this.onDemolished = config.onDemolished;
+    this.onCancel = config.onCancel;
+
+    // Yıkım önizleme katmanı (depth 125: makinelerin ve bantların üstü)
+    this.overlayContainer = this.scene.add.container(0, 0).setDepth(125).setVisible(false);
+    this.highlightGraphics = this.scene.add.graphics();
+
+    this.badgeText = this.scene.add
+      .text(0, 0, '', {
+        fontFamily: FONT_FAMILY,
+        fontSize: '10px',
+        color: PALETTE.dangerRedHex,
+        stroke: '#0c1020',
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5, 1.2)
+      .setVisible(false);
+
+    this.overlayContainer.add([this.highlightGraphics, this.badgeText]);
+
+    this.bindInputs();
+  }
+
+  get isActive(): boolean {
+    return this._isActive;
+  }
+
+  // -------------------------------------------------------------
+  // GİRDİ BAĞLANTILARI
+  // -------------------------------------------------------------
+
+  private bindInputs(): void {
+    this.scene.input.on('pointermove', this.handlePointerMove, this);
+    this.scene.input.on('pointerdown', this.handlePointerDown, this);
+
+    if (this.scene.input.keyboard) {
+      const keyEsc = this.scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
+      keyEsc.on('down', () => {
+        if (this._isActive) {
+          this.cancelTool();
+        }
+      });
+    }
+  }
+
+  // -------------------------------------------------------------
+  // YAŞAM DÖNGÜSÜ (AKTİF / PASİF)
+  // -------------------------------------------------------------
+
+  activate(): void {
+    this._isActive = true;
+    this.overlayContainer.setVisible(true);
+    this.updateTarget();
+  }
+
+  deactivate(): void {
+    this._isActive = false;
+    this.clearVisuals();
+    this.overlayContainer.setVisible(false);
+  }
+
+  cancelTool(): void {
+    this.deactivate();
+    if (this.onCancel) {
+      this.onCancel();
+    }
+  }
+
+  // -------------------------------------------------------------
+  // İMLEÇ VE TIKLAMA İŞLEMLERİ
+  // -------------------------------------------------------------
+
+  private handlePointerMove(pointer: Phaser.Input.Pointer): void {
+    if (!this._isActive) return;
+
+    const worldPoint = pointer.positionToCamera(this.scene.cameras.main) as Phaser.Math.Vector2;
+    const coord = GridCoordinates.worldToGrid(
+      worldPoint.x,
+      worldPoint.y,
+      this.tileSize,
+      this.originX,
+      this.originY,
+    );
+
+    if (coord.x !== this.currentCoord.x || coord.y !== this.currentCoord.y) {
+      this.currentCoord = coord;
+      this.updateTarget();
+    }
+  }
+
+  private handlePointerDown(pointer: Phaser.Input.Pointer): void {
+    if (!this._isActive) return;
+
+    // Sağ tık: Araçtan çık
+    if (pointer.button === 2) {
+      this.cancelTool();
+      return;
+    }
+
+    // Sol tık: Yıkımı onayla
+    if (pointer.button === 0 || pointer.button === -1) {
+      this.executeDemolishCurrent();
+    }
+  }
+
+  private updateTarget(): void {
+    const info = DemolishMath.inspectTarget({
+      grid: this.grid,
+      logistics: this.logistics,
+      engine: this.engine,
+      economy: this.economy,
+      coord: this.currentCoord,
+    });
+
+    this.currentTarget = info;
+    this.renderHighlight(info);
+  }
+
+  private executeDemolishCurrent(): void {
+    if (!this.currentTarget || !this.currentTarget.canDemolish) return;
+
+    const result = DemolishMath.executeDemolish({
+      grid: this.grid,
+      logistics: this.logistics,
+      engine: this.engine,
+      economy: this.economy,
+      coord: this.currentCoord,
+    });
+
+    if (result.success) {
+      this.playDemolishFeedback(result);
+
+      if (this.onDemolished) {
+        this.onDemolished(result);
+      }
+
+      // Yeni hücre durumunu tekrar incele
+      this.updateTarget();
+    }
+  }
+
+  // -------------------------------------------------------------
+  // GÖRSEL GERİBİLDİRİM VE TEHLİKE VURGUSU (VISUAL JUICE)
+  // -------------------------------------------------------------
+
+  private renderHighlight(info: DemolishTargetInfo): void {
+    this.highlightGraphics.clear();
+
+    if (!info.canDemolish || info.occupiedCoords.length === 0) {
+      this.badgeText.setVisible(false);
+      return;
+    }
+
+    const dangerColor = PALETTE.dangerRed;
+    this.highlightGraphics.fillStyle(dangerColor, 0.4);
+    this.highlightGraphics.lineStyle(1.5, dangerColor, 0.95);
+
+    let topMinY = Infinity;
+    let topCenterX = 0;
+
+    for (const c of info.occupiedCoords) {
+      const worldPos = GridCoordinates.gridToWorld(
+        c,
+        this.tileSize,
+        this.originX,
+        this.originY,
+      );
+
+      // Kırmızı zemin ve sınır
+      this.highlightGraphics.fillRect(worldPos.x, worldPos.y, this.tileSize, this.tileSize);
+      this.highlightGraphics.strokeRect(worldPos.x, worldPos.y, this.tileSize, this.tileSize);
+
+      // Tehlike "X" deseni
+      this.highlightGraphics.lineBetween(
+        worldPos.x + 4,
+        worldPos.y + 4,
+        worldPos.x + this.tileSize - 4,
+        worldPos.y + this.tileSize - 4,
+      );
+      this.highlightGraphics.lineBetween(
+        worldPos.x + this.tileSize - 4,
+        worldPos.y + 4,
+        worldPos.x + 4,
+        worldPos.y + this.tileSize - 4,
+      );
+
+      if (worldPos.y < topMinY) {
+        topMinY = worldPos.y;
+        topCenterX = worldPos.x + this.tileSize * 0.5;
+      }
+    }
+
+    // Yıkım rozeti: Ad ve İade Tutarı
+    const label = `YIK: ${info.name} (+$${info.refundAmount} ⚙)`;
+    this.badgeText
+      .setPosition(topCenterX, topMinY - 6)
+      .setText(label)
+      .setVisible(true);
+  }
+
+  private playDemolishFeedback(result: DemolishExecuteResult): void {
+    // 1. Yüzen İade Metni
+    const firstCoord = result.freedCoords[0] ?? this.currentCoord;
+    const center = GridCoordinates.gridToWorldCenter(
+      firstCoord,
+      this.tileSize,
+      this.originX,
+      this.originY,
+    );
+
+    const floatingText = this.scene.add
+      .text(center.x, center.y, `+$${result.refundAmount} ⚙ (İADE)`, {
+        fontFamily: FONT_FAMILY,
+        fontSize: '11px',
+        color: PALETTE.resourceGoldHex,
+        fontStyle: 'bold',
+        stroke: '#0c1020',
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5)
+      .setDepth(150);
+
+    this.scene.tweens.add({
+      targets: floatingText,
+      y: center.y - 28,
+      alpha: 0,
+      duration: 650,
+      ease: 'Quad.easeOut',
+      onComplete: () => floatingText.destroy(),
+    });
+
+    // 2. Yıkım Kıvılcım & Parçacık Patlaması
+    if (this.scene.textures.exists('star_pixel')) {
+      for (const c of result.freedCoords) {
+        const tileCenter = GridCoordinates.gridToWorldCenter(
+          c,
+          this.tileSize,
+          this.originX,
+          this.originY,
+        );
+
+        for (let i = 0; i < 4; i++) {
+          const spark = this.scene.add
+            .sprite(tileCenter.x, tileCenter.y, 'star_pixel')
+            .setDepth(140)
+            .setTint(PALETTE.dangerRed);
+
+          const angle = Math.random() * Math.PI * 2;
+          const dist = 14 + Math.random() * 10;
+
+          this.scene.tweens.add({
+            targets: spark,
+            x: tileCenter.x + Math.cos(angle) * dist,
+            y: tileCenter.y + Math.sin(angle) * dist,
+            alpha: 0,
+            scale: 0.25,
+            duration: 300 + Math.random() * 150,
+            ease: 'Quad.easeOut',
+            onComplete: () => spark.destroy(),
+          });
+        }
+      }
+    }
+  }
+
+  private clearVisuals(): void {
+    this.highlightGraphics.clear();
+    this.badgeText.setVisible(false);
+  }
+
+  updateOrigin(originX: number, originY: number): void {
+    this.originX = originX;
+    this.originY = originY;
+    if (this._isActive) {
+      this.updateTarget();
+    }
+  }
+
+  destroy(): void {
+    this.scene.input.off('pointermove', this.handlePointerMove, this);
+    this.scene.input.off('pointerdown', this.handlePointerDown, this);
+    this.overlayContainer.destroy();
+  }
+}
