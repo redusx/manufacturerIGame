@@ -843,8 +843,7 @@ export class FlightScene extends Phaser.Scene {
     const speedX = this.vx;
     const speedY = -this.vy;
 
-    this.skyTileSprite.tilePositionX += speedX * dt * 0.12;
-    this.skyTileSprite.tilePositionY -= speedY * dt * 0.35;
+
 
     // 3. Fırlatma platformunu geride bırakma
     if (this.launchPlatform) {
@@ -885,14 +884,7 @@ export class FlightScene extends Phaser.Scene {
       }
     }
 
-    // 5. Dağlar (Zemine bağlıdır, roket yükseldikçe ekranın altına kayar)
-    for (const m of this.mountains) {
-      m.sprite.x -= speedX * m.speed * dt;
-      if (m.sprite.x < -160) {
-        m.sprite.x += (this.mountains.length * 140);
-      }
-      m.sprite.y = (h - 35) + Math.max(0, this.altitude * 0.85);
-    }
+
 
     // 6. Bulutlar (Atmosfer katmanı, dikey ve yatay sonsuz parallaks)
     for (const c of this.clouds) {
