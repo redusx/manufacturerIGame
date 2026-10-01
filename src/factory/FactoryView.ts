@@ -196,7 +196,7 @@ export class FactoryView {
       bayCont.add(movingPartSprite);
 
       // Bilgi kartı arkaplanı (9-slice)
-      const infoBg = PixelUIHelper.createCard(s, 0, 0, 80, 50);
+      const infoBg = PixelUIHelper.createCard(s, 0, 0, 80, 50).setOrigin(0.5, 0.5);
       bayCont.add(infoBg);
 
       const nameLabel = s.add.text(0, 0, def.name, {
@@ -624,8 +624,8 @@ export class FactoryView {
     this.floorTileSprite.setSize(w, floorH);
 
     // 3. Konveyör Bandı (conveyor_belt)
-    const intakeW = Math.round(52 * sf);
-    const shippingW = Math.round(56 * sf);
+    const intakeW = Math.round(68 * sf);
+    const shippingW = Math.round(76 * sf);
 
     this.beltY = Math.round(h * 0.72);
     this.beltStartX = intakeW + 8;
@@ -637,13 +637,13 @@ export class FactoryView {
     // 4. Hammadde Giriş Silosu
     this.intakeContainer.setPosition(intakeW / 2 + 4, this.beltY - 14 * sf);
     this.intakeSprite.setScale(Math.max(1, sf * 1.1));
-    this.intakeLabel.setPosition(0, -32 * sf);
+    this.intakeLabel.setPosition(0, -42 * sf);
     this.intakeLabel.setFontSize(`${Math.max(9, Math.round(9 * sf))}px`);
 
     // 5. Sevkiyat Sandığı
     this.shippingContainer.setPosition(w - shippingW / 2 - 4, this.beltY - 12 * sf);
     this.shippingSprite.setScale(Math.max(1, sf * 1.1));
-    this.shippingText.setPosition(0, -28 * sf);
+    this.shippingText.setPosition(0, -38 * sf);
     this.shippingText.setFontSize(`${Math.max(9, Math.round(9 * sf))}px`);
 
     // 6. Tıklama / Dokunma Alanı (Tüm fabrika içi)
@@ -685,8 +685,8 @@ export class FactoryView {
     // Layout adjustments
     const infoBgY = -105 * sf;
     const maxInfoWidth = 180 * sf;
-    bay.infoBg.setPosition(0, infoBgY);
-    bay.infoBg.setSize(maxInfoWidth, 68 * sf);
+    bay.infoBg.setPosition(0, infoBgY - 2 * sf);
+    bay.infoBg.setSize(maxInfoWidth, 80 * sf);
 
     // İsim etiketi
     bay.nameLabel.setText(def.name);
