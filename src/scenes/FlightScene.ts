@@ -293,14 +293,7 @@ export class FlightScene extends Phaser.Scene {
       }
     }
 
-    if (this.textures.exists('mountain_pixel')) {
-      const count = Math.ceil(w / 120) + 3;
-      for (let i = 0; i < count; i++) {
-        const m = this.add.image(i * 140, h - 35, 'mountain_pixel').setOrigin(0, 1).setDepth(4);
-        m.setScale(2.5, Phaser.Math.FloatBetween(1.8, 2.8));
-        this.mountains.push({ sprite: m, speed: 0.4 });
-      }
-    }
+
 
     if (this.textures.exists('cloud_pixel')) {
       for (let i = 0; i < 9; i++) {

@@ -31,8 +31,15 @@ function handleResize() {
   // Masaüstünde çok küçük kalmaması için float scale kullan
   const scale = Math.max(1, Math.min(w / 360, h / 640));
   
-  game.scale.setZoom(scale);
-  game.scale.resize(w / scale, h / scale);
+  const gameW = Math.floor(w / scale);
+  const gameH = Math.floor(h / scale);
+  
+  // Phaser zoom yerine CSS ile ölçeklendirerek bulanıklaşmayı engelle
+  game.scale.setZoom(1);
+  game.scale.resize(gameW, gameH);
+  
+  game.canvas.style.width = `${w}px`;
+  game.canvas.style.height = `${h}px`;
 }
 
 window.addEventListener('resize', handleResize);
