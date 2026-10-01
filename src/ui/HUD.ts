@@ -14,6 +14,9 @@ export class HUD {
   private scene: Phaser.Scene;
 
   private bg!: Phaser.GameObjects.NineSlice;
+  private resourcePillBg!: Phaser.GameObjects.NineSlice;
+  private ratePillBg!: Phaser.GameObjects.NineSlice;
+  private flightPillBg!: Phaser.GameObjects.NineSlice;
   private coinSprite: Phaser.GameObjects.Sprite | null = null;
   private resourceText!: Phaser.GameObjects.Text;
   private gearIcon!: Phaser.GameObjects.Image;
@@ -41,12 +44,17 @@ export class HUD {
     // 1. Üst Panel Arka Planı (9-Slice Raster)
     this.bg = PixelUIHelper.createPanel(s, 0, 0, 100, 48).setDepth(100);
 
-    // 2. Dönen Altın Sikke Sprite'ı (Piksel Asset)
+    // 2. Telemetri Kapsül Arka Planları (Beveled 9-Slice Bezels)
+    this.resourcePillBg = PixelUIHelper.createCard(s, 0, 0, 100, 32).setDepth(101).setOrigin(0, 0.5);
+    this.ratePillBg = PixelUIHelper.createCard(s, 0, 0, 100, 28).setDepth(101).setOrigin(0, 0.5);
+    this.flightPillBg = PixelUIHelper.createCard(s, 0, 0, 100, 28).setDepth(101).setOrigin(1, 0.5);
+
+    // 3. Dönen Altın Sikke Sprite'ı (Piksel Asset)
     if (s.textures.exists('coin_gold')) {
       this.coinSprite = s.add.sprite(0, 0, 'coin_gold', 0)
         .setOrigin(0.5)
         .setScale(2)
-        .setDepth(102);
+        .setDepth(103);
 
       if (s.anims.exists('coin_gold_spin')) {
         this.coinSprite.play('coin_gold_spin');
@@ -55,41 +63,48 @@ export class HUD {
       this.coinSprite = s.add.sprite(0, 0, 'icon_coin')
         .setOrigin(0.5)
         .setScale(1.5)
-        .setDepth(102);
+        .setDepth(103);
     }
 
-    // 3. Kaynak Sayısı Metni
+    // 4. Kaynak Sayısı Metni (Piksel Konturlu Yüksek Kontrast)
     this.resourceText = s.add.text(0, 0, '0', {
       ...font,
-      fontSize: '22px',
+      fontSize: '20px',
       color: PALETTE.resourceGoldHex,
       fontStyle: 'bold',
-    }).setOrigin(0, 0.5).setDepth(101);
+      stroke: '#05070e',
+      strokeThickness: 2,
+    }).setOrigin(0, 0.5).setDepth(103);
 
-    // 4. Üretim Hızı İkonu ve Metni
-    this.gearIcon = s.add.image(0, 0, 'icon_gear').setOrigin(0.5).setScale(1.2).setDepth(101);
+    // 5. Üretim Hızı İkonu ve Metni
+    this.gearIcon = s.add.image(0, 0, 'icon_gear').setOrigin(0.5).setScale(1.2).setDepth(103);
     this.rateText = s.add.text(0, 0, '', {
       ...font,
-      fontSize: '11px',
-      color: PALETTE.textMuted,
-    }).setOrigin(0, 0.5).setDepth(101);
+      fontSize: '11.5px',
+      color: '#2ecc71',
+      fontStyle: 'bold',
+      stroke: '#05070e',
+      strokeThickness: 2,
+    }).setOrigin(0, 0.5).setDepth(103);
 
-    // 5. Uçuş Rekor İkonu ve Rozeti (Sağa dayalı origin)
-    this.trophyIcon = s.add.image(0, 0, 'icon_trophy').setOrigin(0.5).setScale(1.1).setDepth(101);
+    // 6. Uçuş Rekor İkonu ve Rozeti (Sağa dayalı)
+    this.trophyIcon = s.add.image(0, 0, 'icon_trophy').setOrigin(0.5).setScale(1.1).setDepth(103);
     this.flightBadgeText = s.add.text(0, 0, 'Rekor: 0m', {
       ...font,
       fontSize: '12px',
       color: PALETTE.rocketCyanHex,
       fontStyle: 'bold',
-    }).setOrigin(1, 0.5).setDepth(101);
+      stroke: '#05070e',
+      strokeThickness: 2,
+    }).setOrigin(1, 0.5).setDepth(103);
 
-    // 6. Ayarlar Butonu (Piksel 9-Slice Buton + icon_settings)
-    this.settingsBtnBg = PixelUIHelper.createButton(s, 0, 0, 32, 32, 'disabled').setDepth(101);
-    this.settingsBtnIcon = s.add.image(0, 0, 'icon_settings').setOrigin(0.5).setScale(1.3).setDepth(102);
+    // 7. Ayarlar Butonu (Piksel 9-Slice Buton + icon_settings)
+    this.settingsBtnBg = PixelUIHelper.createButton(s, 0, 0, 32, 32, 'disabled').setDepth(102);
+    this.settingsBtnIcon = s.add.image(0, 0, 'icon_settings').setOrigin(0.5).setScale(1.3).setDepth(103);
 
     this.settingsZone = s.add.zone(0, 0, 34, 34)
       .setOrigin(0.5)
-      .setDepth(103)
+      .setDepth(104)
       .setInteractive({ useHandCursor: true })
       .on('pointerdown', () => this.onSettingsClick())
       .on('pointerover', () => {
@@ -172,29 +187,51 @@ export class HUD {
     const pad = Math.round(14 * sf);
     const coinY = barH / 2;
 
-    // 1. Altın sikke ve para metni
+    // 1. Altın sikke ve para kapsülü
+    const pillPad = Math.round(6 * sf);
+    const resW = this.resourceText.width;
+    const resPillW = Math.round(resW + 42 * sf);
+    const resPillH = Math.round(32 * sf);
+
+    this.resourcePillBg.setPosition(pad, coinY);
+    this.resourcePillBg.setSize(resPillW, resPillH);
+
     const coinX = pad + Math.round(16 * sf);
-    const resX = coinX + Math.round(18 * sf);
+    if (this.coinSprite) {
+      this.coinSprite.setPosition(coinX, coinY);
+    }
+    const resX = coinX + Math.round(16 * sf);
     this.resourceText.setPosition(resX, coinY);
 
-    // 2. Üretim hızı (Ana para yazısının bitiminden sonra ferah boşlukla başlar)
-    const resW = this.resourceText.width;
-    const gap = Math.round(22 * sf);
-    const gearX = resX + resW + gap;
+    // 2. Üretim hızı kapsülü (Telemetri Rozeti)
+    const rateW = this.rateText.width;
+    const ratePillX = pad + resPillW + Math.round(10 * sf);
+    const ratePillW = Math.round(rateW + 32 * sf);
+    const ratePillH = Math.round(28 * sf);
+
+    this.ratePillBg.setPosition(ratePillX, coinY);
+    this.ratePillBg.setSize(ratePillW, ratePillH);
+
+    const gearX = ratePillX + Math.round(14 * sf);
     this.gearIcon.setPosition(gearX, coinY);
-    this.rateText.setPosition(gearX + Math.round(14 * sf), coinY);
+    this.rateText.setPosition(gearX + Math.round(12 * sf), coinY);
 
     // 3. Ayarlar butonu konumu
     const btnSize = Math.round(32 * sf);
     const btnX = w - pad - btnSize / 2;
 
-    // 4. Uçuş Rekor Rozeti — Sağa dayalı, ayarlar butonundan temiz ve sabit mesafede
-    const safeMargin = Math.round(24 * sf);
-    const badgeRight = btnX - btnSize / 2 - safeMargin;
-    this.flightBadgeText.setPosition(badgeRight, coinY);
-
+    // 4. Uçuş Rekor Rozeti Kapsülü — Sağa dayalı
     const badgeW = this.flightBadgeText.width;
-    this.trophyIcon.setPosition(badgeRight - badgeW - Math.round(14 * sf), coinY);
+    const flightMargin = Math.round(16 * sf);
+    const flightRight = btnX - btnSize / 2 - flightMargin;
+    const flightPillW = Math.round(badgeW + 34 * sf);
+    const flightPillH = Math.round(28 * sf);
+
+    this.flightPillBg.setPosition(flightRight, coinY);
+    this.flightPillBg.setSize(flightPillW, flightPillH);
+
+    this.flightBadgeText.setPosition(flightRight - Math.round(8 * sf), coinY);
+    this.trophyIcon.setPosition(flightRight - badgeW - Math.round(18 * sf), coinY);
   }
 
   pulse(): void {

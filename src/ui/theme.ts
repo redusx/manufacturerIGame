@@ -44,22 +44,22 @@ export const PALETTE = {
   btnDisabled: 0x22293e,
   btnDisabledHex: '#22293e',
   btnDisabledBorder: 0x3d4e7a,
-  btnDisabledText: '#6f7e9a',
+  btnDisabledText: '#8c9bb3', // was #6f7e9a
 
-  btnAffordable: 0x27ae60,
+  btnAffordable: 0x2ecc71, // was 0x27ae60
   btnAffordableHover: 0x2ecc71,
-  btnAffordableText: '#08170e',
+  btnAffordableText: '#0b0e17', // was #08170e
 
   btnAction: 0xf4a261,
-  btnActionHover: 0xf6b27e,
-  btnActionText: '#1f1003',
+  btnActionHover: 0xf4a261, // was 0xf6b27e
+  btnActionText: '#0b0e17', // was #1f1003
 
-  btnCyan: 0x00b4b5,
+  btnCyan: 0x00d2d3, // was 0x00b4b5
   btnCyanHover: 0x00d2d3,
-  btnCyanText: '#021818',
+  btnCyanText: '#0b0e17', // was #021818
 };
 
-export const FONT_FAMILY = 'Arial, Helvetica, sans-serif';
+export const FONT_FAMILY = "'Press Start 2P', monospace";
 
 export const FONT_SIZES = {
   header: '20px',
@@ -268,5 +268,50 @@ export class PixelUIHelper {
       corner = 4;
     }
     return scene.add.nineslice(x, y, key, 0, w, h, corner, corner, corner, corner).setOrigin(0.5, 0.5);
+  }
+
+  /**
+   * Create or get a pixel art hazard stripe texture (seamless 45-degree yellow/black warning stripes)
+   */
+  static ensureHazardTexture(scene: Phaser.Scene): string {
+    const key = 'hazard_stripe_tile';
+    if (scene.textures.exists(key)) return key;
+
+    const canvas = scene.textures.createCanvas(key, 32, 16);
+    if (!canvas) return key;
+
+    const ctx = canvas.context;
+    ctx.imageSmoothingEnabled = false;
+
+    // Fill dark industrial base
+    ctx.fillStyle = '#141a2e'; // was #141824
+    ctx.fillRect(0, 0, 32, 16);
+
+    // Draw 45-degree hazard yellow diagonal stripes
+    ctx.fillStyle = '#ffd166';
+    ctx.beginPath();
+    ctx.moveTo(0, 0); ctx.lineTo(8, 0); ctx.lineTo(0, 8); ctx.closePath(); ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(12, 0); ctx.lineTo(24, 0); ctx.lineTo(8, 16); ctx.lineTo(-4, 16); ctx.closePath(); ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(28, 0); ctx.lineTo(40, 0); ctx.lineTo(24, 16); ctx.lineTo(12, 16); ctx.closePath(); ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(44, 0); ctx.lineTo(48, 0); ctx.lineTo(40, 16); ctx.lineTo(28, 16); ctx.closePath(); ctx.fill();
+
+    // Top 1px bevel highlight
+    ctx.fillStyle = '#ffffff';
+    ctx.globalAlpha = 0.25;
+    ctx.fillRect(0, 0, 32, 1);
+
+    // Bottom 1px shadow
+    ctx.fillStyle = '#000000';
+    ctx.globalAlpha = 0.5;
+    ctx.fillRect(0, 15, 32, 1);
+
+    canvas.refresh();
+    return key;
   }
 }

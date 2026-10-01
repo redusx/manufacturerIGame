@@ -11,6 +11,7 @@ import Phaser from 'phaser';
 import { MACHINES, type MachineDefinition } from '../data/MachineData';
 import type { EconomyManager } from '../economy/EconomyManager';
 import { FONT_FAMILY, PALETTE, PixelUIHelper } from '../ui/theme';
+import { formatNumber } from '../utils/format';
 
 interface VisualProduct {
   container: Phaser.GameObjects.Container;
@@ -30,8 +31,11 @@ interface MachineVisualBay {
   container: Phaser.GameObjects.Container;
   baseSprite: Phaser.GameObjects.Sprite;
   movingPartSprite: Phaser.GameObjects.Sprite;
+  infoBg: Phaser.GameObjects.NineSlice;
   nameLabel: Phaser.GameObjects.Text;
   levelBadge: Phaser.GameObjects.Text;
+  prodLabel: Phaser.GameObjects.Text;
+  costLabel: Phaser.GameObjects.Text;
   upgradePillBg: Phaser.GameObjects.NineSlice;
   upgradePillText: Phaser.GameObjects.Text;
   zone: Phaser.GameObjects.Zone;
@@ -191,6 +195,10 @@ export class FactoryView {
       const movingPartSprite = s.add.sprite(0, 0, keys.part).setOrigin(0.5, 0.5);
       bayCont.add(movingPartSprite);
 
+      // Bilgi kartı arkaplanı (9-slice)
+      const infoBg = PixelUIHelper.createCard(s, 0, 0, 80, 50);
+      bayCont.add(infoBg);
+
       const nameLabel = s.add.text(0, 0, def.name, {
         ...font,
         fontSize: '11px',
@@ -209,13 +217,31 @@ export class FactoryView {
       }).setOrigin(0.5);
       bayCont.add(levelBadge);
 
-      // Geliştirme / Satın alma rozeti (Piksel 9-slice mini buton)
-      const upgradePillBg = PixelUIHelper.createButton(s, 0, 0, 56, 17, 'green');
+      const prodLabel = s.add.text(0, 0, '', {
+        ...font,
+        fontSize: '9px',
+        color: '#2ecc71',
+        fontStyle: 'bold',
+        align: 'center',
+      }).setOrigin(0.5);
+      bayCont.add(prodLabel);
+
+      const costLabel = s.add.text(0, 0, '', {
+        ...font,
+        fontSize: '9px',
+        color: '#ffedd5',
+        fontStyle: 'bold',
+        align: 'center',
+      }).setOrigin(0.5);
+      bayCont.add(costLabel);
+
+      // Geliştirme / Satın alma rozeti (Piksel 9-slice buton - boyut büyütüldü)
+      const upgradePillBg = PixelUIHelper.createButton(s, 0, 0, 80, 28, 'green');
       bayCont.add(upgradePillBg);
 
       const upgradePillText = s.add.text(0, 0, '▲ GELİŞTİR', {
         ...font,
-        fontSize: '8.5px',
+        fontSize: '10px',
         color: '#0e180d',
         fontStyle: 'bold',
         align: 'center',
@@ -223,7 +249,7 @@ export class FactoryView {
       bayCont.add(upgradePillText);
 
       // Cihaz interaktif tıklama alanı (Doğrudan makineye tıklanınca açılır)
-      const zone = s.add.zone(0, 0, 80, 80)
+      const zone = s.add.zone(0, 0, 100, 160)
         .setOrigin(0.5, 0.5)
         .setInteractive({ useHandCursor: true })
         .on('pointerdown', (ptr: Phaser.Input.Pointer) => {
@@ -231,7 +257,7 @@ export class FactoryView {
           this.onMachineSelect(i);
         })
         .on('pointerover', () => {
-          bayCont.setScale(1.06);
+          bayCont.setScale(1.04);
           if (this.economy.canAfford(i)) {
             upgradePillBg.setTexture('btn_green_hover');
           }
@@ -249,12 +275,15 @@ export class FactoryView {
         x: 0,
         y: 0,
         width: 100,
-        height: 120,
+        height: 180,
         container: bayCont,
         baseSprite,
         movingPartSprite,
+        infoBg,
         nameLabel,
         levelBadge,
+        prodLabel,
+        costLabel,
         upgradePillBg,
         upgradePillText,
         zone,
@@ -630,7 +659,7 @@ export class FactoryView {
     for (let i = 0; i < bayCount; i++) {
       const bay = this.machineBays[i];
       const bayX = this.beltStartX + baySpacing * (i + 0.5);
-      const bayY = this.beltY - bayH / 2 - 6 * sf;
+      const bayY = this.beltY - 66 * sf;
 
       this.layoutMachineBay(bay, bayX, bayY, baySpacing, sf);
     }
@@ -653,21 +682,34 @@ export class FactoryView {
     const isUnlocked = this.economy.isUnlocked(bay.index);
     const isOwned = state.level > 0;
 
+    // Layout adjustments
+    const infoBgY = -105 * sf;
+    const maxInfoWidth = 180 * sf;
+    bay.infoBg.setPosition(0, infoBgY);
+    bay.infoBg.setSize(maxInfoWidth, 68 * sf);
+
     // İsim etiketi
     bay.nameLabel.setText(def.name);
-    bay.nameLabel.setPosition(0, -42 * sf);
-    bay.nameLabel.setFontSize(`${Math.max(9, Math.round(10.5 * sf))}px`);
+    bay.nameLabel.setPosition(0, infoBgY - 22 * sf);
+    bay.nameLabel.setFontSize(`${Math.max(9, Math.round(10 * sf))}px`);
     bay.nameLabel.setColor(isOwned ? '#f5f6fa' : '#8c9bb3');
 
     // Seviye rozeti
     if (isOwned) {
       bay.levelBadge.setText(`Sv. ${state.level}`);
-      bay.levelBadge.setPosition(0, -28 * sf);
-      bay.levelBadge.setFontSize(`${Math.max(8, Math.round(9.5 * sf))}px`);
+      bay.levelBadge.setPosition(0, infoBgY - 10 * sf);
+      bay.levelBadge.setFontSize(`${Math.max(8, Math.round(9 * sf))}px`);
       bay.levelBadge.setVisible(true);
     } else {
       bay.levelBadge.setVisible(false);
     }
+
+    // Üretim ve Maliyet (layout for both states)
+    bay.prodLabel.setPosition(0, infoBgY + 5 * sf);
+    bay.prodLabel.setFontSize(`${Math.max(8, Math.round(9 * sf))}px`);
+    
+    bay.costLabel.setPosition(0, infoBgY + 18 * sf);
+    bay.costLabel.setFontSize(`${Math.max(8, Math.round(9 * sf))}px`);
 
     // Makine Dokuları ve Görsel Durumu
     const scale = Math.max(1, sf * 1.15);
@@ -688,9 +730,11 @@ export class FactoryView {
       bay.movingPartSprite.setVisible(false);
       bay.levelBadge.setText('🔒 KİLİTLİ');
       bay.levelBadge.setColor(PALETTE.textMuted);
-      bay.levelBadge.setPosition(0, -28 * sf);
+      bay.levelBadge.setPosition(0, infoBgY - 8 * sf);
       bay.levelBadge.setFontSize(`${Math.max(8, Math.round(9 * sf))}px`);
       bay.levelBadge.setVisible(true);
+      bay.prodLabel.setVisible(false);
+      bay.costLabel.setVisible(false);
       bay.upgradePillBg.setVisible(false);
       bay.upgradePillText.setVisible(false);
     } else if (!isOwned) {
@@ -700,20 +744,28 @@ export class FactoryView {
       bay.movingPartSprite.setVisible(false);
       bay.levelBadge.setText('KURULABİLİR');
       bay.levelBadge.setColor(PALETTE.factoryAmberHex);
-      bay.levelBadge.setPosition(0, -28 * sf);
+      bay.levelBadge.setPosition(0, infoBgY - 8 * sf);
       bay.levelBadge.setFontSize(`${Math.max(8, Math.round(9 * sf))}px`);
       bay.levelBadge.setVisible(true);
+      
+      bay.prodLabel.setText(`+${formatNumber(def.baseProduction)}/sn`);
+      bay.prodLabel.setVisible(true);
+      
+      const cost = this.economy.getCost(bay.index);
+      bay.costLabel.setText(`Maliyet: ${formatNumber(cost)}`);
+      bay.costLabel.setVisible(true);
 
       const canAfford = this.economy.canAfford(bay.index);
+      bay.upgradePillBg.setVisible(true);
+      bay.upgradePillText.setVisible(true);
+      bay.upgradePillText.setText('+ KUR');
+      bay.upgradePillBg.setPosition(0, -50 * sf);
+      bay.upgradePillText.setPosition(0, -50 * sf);
+      bay.upgradePillBg.setSize(120 * sf, 28 * sf);
       if (canAfford) {
-        bay.upgradePillBg.setVisible(true);
-        bay.upgradePillText.setVisible(true);
-        bay.upgradePillText.setText('+ KUR');
-        bay.upgradePillBg.setPosition(0, -14 * sf);
-        bay.upgradePillText.setPosition(0, -14 * sf);
+        bay.upgradePillBg.setTexture('btn_green_normal');
       } else {
-        bay.upgradePillBg.setVisible(false);
-        bay.upgradePillText.setVisible(false);
+        bay.upgradePillBg.setTexture('btn_disabled');
       }
     } else {
       // Satın alınmış aktif makine
@@ -726,24 +778,33 @@ export class FactoryView {
 
       bay.levelBadge.setText(`Sv. ${state.level}`);
       bay.levelBadge.setColor(PALETTE.textPrimary);
-      bay.levelBadge.setPosition(0, -28 * sf);
-      bay.levelBadge.setFontSize(`${Math.max(8, Math.round(9.5 * sf))}px`);
+      bay.levelBadge.setPosition(0, infoBgY - 10 * sf);
+      bay.levelBadge.setFontSize(`${Math.max(8, Math.round(9 * sf))}px`);
       bay.levelBadge.setVisible(true);
 
+      const prod = this.economy.getProduction(bay.index);
+      bay.prodLabel.setText(`Üretim: ${formatNumber(prod)}/sn`);
+      bay.prodLabel.setVisible(true);
+
+      const cost = this.economy.getCost(bay.index);
+      bay.costLabel.setText(`Maliyet: ${formatNumber(cost)}`);
+      bay.costLabel.setVisible(true);
+
       const canAfford = this.economy.canAfford(bay.index);
+      bay.upgradePillBg.setVisible(true);
+      bay.upgradePillText.setVisible(true);
+      bay.upgradePillText.setText('GELİŞTİR');
+      bay.upgradePillBg.setPosition(0, -50 * sf);
+      bay.upgradePillText.setPosition(0, -50 * sf);
+      bay.upgradePillBg.setSize(120 * sf, 28 * sf);
       if (canAfford) {
-        bay.upgradePillBg.setVisible(true);
-        bay.upgradePillText.setVisible(true);
-        bay.upgradePillText.setText('▲ GELİŞTİR');
-        bay.upgradePillBg.setPosition(0, -14 * sf);
-        bay.upgradePillText.setPosition(0, -14 * sf);
+        bay.upgradePillBg.setTexture('btn_green_normal');
       } else {
-        bay.upgradePillBg.setVisible(false);
-        bay.upgradePillText.setVisible(false);
+        bay.upgradePillBg.setTexture('btn_disabled');
       }
     }
 
-    bay.zone.setSize(Math.max(70, w * 0.8), Math.round(100 * sf));
+    bay.zone.setSize(maxInfoWidth + 20, 160 * sf);
   }
 
   refreshBays(): void {
@@ -782,9 +843,18 @@ export class FactoryView {
         bay.levelBadge.setColor(PALETTE.factoryAmberHex);
         bay.levelBadge.setVisible(true);
 
-        bay.upgradePillBg.setVisible(canAfford);
-        bay.upgradePillText.setVisible(canAfford);
+        bay.upgradePillBg.setVisible(true);
+        bay.upgradePillText.setVisible(true);
         bay.upgradePillText.setText('+ KUR');
+        if (canAfford) {
+          bay.upgradePillBg.setTexture('btn_green_normal');
+        } else {
+          bay.upgradePillBg.setTexture('btn_disabled');
+        }
+        
+        bay.prodLabel.setText(`+${formatNumber(this.economy.getMachineDefinition(i).baseProduction)}/sn`);
+        const cost = this.economy.getCost(i);
+        bay.costLabel.setText(`Maliyet: ${formatNumber(cost)}`);
       } else {
         // Kurulmuş ve çalışan aktif makine görseli
         const k = machineKeys[bay.index];
@@ -798,10 +868,21 @@ export class FactoryView {
         bay.levelBadge.setText(`Sv. ${state.level}`);
         bay.levelBadge.setColor(PALETTE.textPrimary);
         bay.levelBadge.setVisible(true);
-
-        bay.upgradePillBg.setVisible(canAfford);
-        bay.upgradePillText.setVisible(canAfford);
-        bay.upgradePillText.setText('▲ GELİŞTİR');
+        
+        const prod = this.economy.getProduction(i);
+        bay.prodLabel.setText(`Üretim: ${formatNumber(prod)}/sn`);
+        
+        const cost = this.economy.getCost(i);
+        bay.costLabel.setText(`Maliyet: ${formatNumber(cost)}`);
+        
+        bay.upgradePillBg.setVisible(true);
+        bay.upgradePillText.setVisible(true);
+        bay.upgradePillText.setText('GELİŞTİR');
+        if (canAfford) {
+          bay.upgradePillBg.setTexture('btn_green_normal');
+        } else {
+          bay.upgradePillBg.setTexture('btn_disabled');
+        }
       }
     }
   }

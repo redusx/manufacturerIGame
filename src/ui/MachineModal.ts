@@ -245,7 +245,7 @@ export class MachineModal {
     this.isAffordable = unlocked && canAfford;
 
     // Başlık
-    this.titleText.setText(`${def.icon}  ${def.name}`);
+    this.titleText.setText(`${def.name}`);
 
     // Doku eşleştirmesi
     const machineKeys: Record<string, { base: string; part: string }> = {
@@ -297,7 +297,7 @@ export class MachineModal {
       this.milestoneBarBg.setVisible(true);
       this.milestoneTitleText.setVisible(true);
     } else {
-      this.milestoneTitleText.setText(milestoneMul > 1 ? `⭐ TÜM HEDEFLER TAMAMLANDI (${milestoneMul}x Verimlilik)` : '');
+      this.milestoneTitleText.setText(milestoneMul > 1 ? `TÜM HEDEFLER TAMAMLANDI (${milestoneMul}x Verimlilik)` : '');
       this.milestoneBarFill.setVisible(false);
       this.milestoneBarBg.setVisible(false);
     }
@@ -314,7 +314,7 @@ export class MachineModal {
       this.actionZone.input!.enabled = true;
       if (canAfford) {
         this.actionBtnBg.setTexture('btn_green_normal');
-        this.actionBtnText.setText(`🔨 KURULUM YAP (${formatNumber(cost)} ${RESOURCE_NAME})`);
+        this.actionBtnText.setText(`+ KURULUM YAP (${formatNumber(cost)} ${RESOURCE_NAME})`);
         this.actionBtnText.setColor('#0e180d');
         this.actionBtnSubtext.setText(`+${formatNumber(def.baseProduction)} ${RESOURCE_NAME}/sn kazandırır`);
         this.actionBtnSubtext.setColor('#253d20');
@@ -329,7 +329,7 @@ export class MachineModal {
       this.actionZone.input!.enabled = true;
       if (canAfford) {
         this.actionBtnBg.setTexture('btn_green_normal');
-        this.actionBtnText.setText(`▲ GELİŞTİR (Sv. ${state.level + 1}) — ${formatNumber(cost)} ${RESOURCE_NAME}`);
+        this.actionBtnText.setText(`GELİŞTİR (Sv. ${state.level + 1}) — ${formatNumber(cost)} ${RESOURCE_NAME}`);
         this.actionBtnText.setColor('#0e180d');
         const nextProd = this.economy.getProduction(idx, state.level + 1);
         const gain = nextProd.sub(prod);

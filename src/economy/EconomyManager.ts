@@ -71,7 +71,7 @@ export class EconomyManager {
   };
 
   /** Uçuş istatistikleri */
-  private flightStats = {
+  public flightStats = {
     totalFlights: 0,
     bestDistance: 0,
     bestScore: 0,

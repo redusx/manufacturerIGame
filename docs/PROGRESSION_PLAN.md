@@ -36,11 +36,11 @@ Denetim raporundaki kritik sorunları (S1–S4) çözmek ve önemli sorunları (
 | 7 | goal_automation_unlock | Endüstri 4.0 | 10,000 | 1× | Otomasyon Hattı açılımı |
 | 8 | goal_super_factory | Süper Fabrika | 30,000 | 1.30× | İlk büyük çarpan |
 | 9 | goal_industrial_giant | Endüstriyel Dev | 100,000 | 1.35× | Orta-geç oyun |
-| 10 | goal_mega_factory | Megafabrika | 2,000,000 | 1.35× | Geç oyun hedefi |
-| 11 | goal_titan | Fabrika Titanı | 25,000,000 | 1.40× | Çok geç oyun |
-| 12 | goal_legend | Efsanevi Üretici | 250,000,000 | 1.50× | 60dk+ oyuncular için |
+| 10 | goal_mega_factory | Megafabrika | 500,000 | 1.40× | Geç oyun hedefi |
+| 11 | goal_titan | Fabrika Titanı | 2,500,000 | 1.50× | Çok geç oyun |
+| 12 | goal_legend | Efsanevi Üretici | 15,000,000 | 1.60× | 60dk+ oyuncular için |
 
-**Bileşik çarpan:** 1.15 × 1.20 × 1.25 × 1.30 × 1.35 × 1.35 × 1.40 × 1.50 ≈ **5.72×** (eski 9×'dan düşük, çok daha kademeli)
+**Bileşik çarpan:** 1.15 × 1.20 × 1.25 × 1.30 × 1.35 × 1.40 × 1.50 × 1.60 ≈ **8.86×** (eski 9× ile benzer ama çok daha geç ulaşılır)
 
 ### Makine Kilidi Eşiklerini Güncelle
 

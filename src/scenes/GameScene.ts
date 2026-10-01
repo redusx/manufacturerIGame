@@ -42,15 +42,20 @@ export class GameScene extends Phaser.Scene {
   /* Arka plan */
   private bgTile!: Phaser.GameObjects.TileSprite;
 
+  /* Alt Konsol Tablası (Arcade Control Deck) */
+  private consoleDeckBg!: Phaser.GameObjects.NineSlice;
+
   /* Alt Kontrol Butonları: Manuel Üret ve Fırlatma Modu */
   private clickBtnContainer!: Phaser.GameObjects.Container;
   private clickBtnBg!: Phaser.GameObjects.NineSlice;
+  private clickBtnIcon!: Phaser.GameObjects.Image;
   private clickBtnText!: Phaser.GameObjects.Text;
   private clickInfoText!: Phaser.GameObjects.Text;
   private clickZone!: Phaser.GameObjects.Zone;
 
   private launchModeBtnContainer!: Phaser.GameObjects.Container;
   private launchModeBtnBg!: Phaser.GameObjects.NineSlice;
+  private launchModeBtnIcon!: Phaser.GameObjects.Image;
   private launchModeBtnText!: Phaser.GameObjects.Text;
   private launchModeSubText!: Phaser.GameObjects.Text;
   private launchModeZone!: Phaser.GameObjects.Zone;
@@ -272,19 +277,27 @@ export class GameScene extends Phaser.Scene {
       (machineIdx) => this.machineModal.show(machineIdx),
     );
 
+    /* Alt Konsol Gövdesi (Arcade Control Deck Grounding) */
+    this.consoleDeckBg = PixelUIHelper.createPanel(this, 0, 0, 100, 60).setDepth(40);
+
     /* Tıklama / Manuel Üretim Düğmesi (Büyük Arcade Konsol Butonu) */
     this.clickBtnContainer = this.add.container(0, 0).setDepth(45);
 
     this.clickBtnBg = PixelUIHelper.createButton(this, 0, 0, this.clickBtnW, this.clickBtnH, 'manual');
     this.clickBtnContainer.add(this.clickBtnBg);
 
-    this.clickBtnText = this.add.text(0, -3, '⚙  MANUEL ÜRET', {
-      ...font, fontSize: '15px', color: '#1f1003', fontStyle: 'bold',
+    this.clickBtnIcon = this.add.image(-50, -4, 'icon_gear').setOrigin(0.5);
+    this.clickBtnContainer.add(this.clickBtnIcon);
+
+    this.clickBtnText = this.add.text(12, -4, 'MANUEL ÜRET', {
+      ...font, fontSize: '14px', color: '#ffffff', fontStyle: 'bold',
+      stroke: '#381600', strokeThickness: 2,
     }).setOrigin(0.5);
     this.clickBtnContainer.add(this.clickBtnText);
 
-    this.clickInfoText = this.add.text(0, 0, '', {
-      ...font, fontSize: '11px', color: '#8888a0',
+    this.clickInfoText = this.add.text(0, 10, '', {
+      ...font, fontSize: '10px', color: '#ffedd5', fontStyle: 'bold',
+      stroke: '#281000', strokeThickness: 1.5,
     }).setOrigin(0.5);
     this.clickBtnContainer.add(this.clickInfoText);
 
@@ -311,13 +324,18 @@ export class GameScene extends Phaser.Scene {
     this.launchModeBtnBg = PixelUIHelper.createButton(this, 0, 0, this.clickBtnW, this.clickBtnH, 'launch');
     this.launchModeBtnContainer.add(this.launchModeBtnBg);
 
-    this.launchModeBtnText = this.add.text(0, -5, '🚀  FIRLATMA MODU', {
-      ...font, fontSize: '14px', color: '#041717', fontStyle: 'bold',
+    this.launchModeBtnIcon = this.add.image(-56, -5, 'icon_rocket').setOrigin(0.5);
+    this.launchModeBtnContainer.add(this.launchModeBtnIcon);
+
+    this.launchModeBtnText = this.add.text(12, -5, 'FIRLATMA MODU', {
+      ...font, fontSize: '13.5px', color: '#ffffff', fontStyle: 'bold',
+      stroke: '#042323', strokeThickness: 2,
     }).setOrigin(0.5);
     this.launchModeBtnContainer.add(this.launchModeBtnText);
 
-    this.launchModeSubText = this.add.text(0, 9, 'Geliştir & Uçuşa Geç', {
-      ...font, fontSize: '10px', color: '#093636', fontStyle: 'bold',
+    this.launchModeSubText = this.add.text(0, 10, 'Geliştir & Uçuşa Geç', {
+      ...font, fontSize: '9.5px', color: '#cbf8f2', fontStyle: 'bold',
+      stroke: '#042323', strokeThickness: 1.5,
     }).setOrigin(0.5);
     this.launchModeBtnContainer.add(this.launchModeSubText);
 
@@ -360,7 +378,7 @@ export class GameScene extends Phaser.Scene {
       this.saveGame();
       this.refreshUI();
       this.factoryView.playMachineUpgradeEffect(idx);
-      this.showNotification(`⚙ ${MACHINES[idx].name} başarıyla geliştirildi!`);
+      this.showNotification(`${MACHINES[idx].name} başarıyla geliştirildi!`);
     });
 
     /* Ayarlar paneli */
@@ -387,10 +405,10 @@ export class GameScene extends Phaser.Scene {
         }
       } else if (evt.type === 'goal_reached') {
         this.milestoneBar.playGoalReachedEffect();
-        this.showNotification(`⭐ HEDEF TAMAMLANDI! Fabrika gücü arttı.`);
+        this.showNotification(`HEDEF TAMAMLANDI! Fabrika gücü arttı.`);
       } else if (evt.type === 'rocket_upgrade') {
         this.rocketHangar.refresh();
-        this.showNotification(`🚀 Roket geliştirildi! Seviye ${evt.newLevel}`);
+        this.showNotification(`Roket geliştirildi! Seviye ${evt.newLevel}`);
       }
     });
 
@@ -415,7 +433,7 @@ export class GameScene extends Phaser.Scene {
     this.rocketHangar.refresh();
 
     this.showNotification(
-      `🚀 Uçuş tamamlandı! +${formatNumber(totalResources)} ${RESOURCE_NAME} (${distance}m)`,
+      `Uçuş tamamlandı! +${formatNumber(totalResources)} ${RESOURCE_NAME} (${distance}m)`,
     );
 
     // HUD'a doğru kutlama parçacıkları
@@ -553,7 +571,7 @@ export class GameScene extends Phaser.Scene {
       const nowUnlocked = this.economy.isUnlocked(i);
       if (nowUnlocked && !this.lastUnlockState[i]) {
         this.lastUnlockState[i] = true;
-        this.showNotification(`🔓 YENİ CİHAZ: ${MACHINES[i].name} kuruluma hazır!`);
+        this.showNotification(`YENİ CİHAZ: ${MACHINES[i].name} kuruluma hazır!`);
         this.factoryView.refreshBays();
         if (this.machineModal && this.machineModal.isOpen()) {
           this.machineModal.refresh();
@@ -610,7 +628,7 @@ export class GameScene extends Phaser.Scene {
 
     if (wasCorrupted) {
       this.time.delayedCall(500, () => {
-        this.showNotification('⚠ Eski kayıt formatı yenilendi.');
+        this.showNotification('Eski kayıt formatı yenilendi.');
       });
     }
 
@@ -629,7 +647,7 @@ export class GameScene extends Phaser.Scene {
 
           this.time.delayedCall(800, () => {
             this.showNotification(
-              `⏱ ${formatDuration(elapsedSec)} uzaktaydın!\n+${formatNumber(gained)} ${RESOURCE_NAME} kazandın.`,
+              `${formatDuration(elapsedSec)} uzaktaydın!\n+${formatNumber(gained)} ${RESOURCE_NAME} kazandın.`,
             );
           });
         }
@@ -718,7 +736,9 @@ export class GameScene extends Phaser.Scene {
     // 1. Manuel Üret
     this.clickBtnContainer.setPosition(leftBtnX, btnCy);
     this.clickBtnBg.setSize(maxBtnW, btnH);
-    this.clickBtnText.setFontSize(`${Math.max(11, Math.round(13.5 * sf))}px`);
+    this.clickBtnIcon.setPosition(-maxBtnW * 0.28, -4);
+    this.clickBtnText.setPosition(12, -4);
+    this.clickBtnText.setFontSize(`${Math.max(11, Math.round(12.5 * sf))}px`);
     this.clickZone.setSize(maxBtnW, btnH);
     this.clickInfoText.setPosition(0, 9);
     this.clickInfoText.setFontSize(`${Math.max(8.5, Math.round(9.5 * sf))}px`);
@@ -726,7 +746,9 @@ export class GameScene extends Phaser.Scene {
     // 2. Fırlatma Modu
     this.launchModeBtnContainer.setPosition(rightBtnX, btnCy);
     this.launchModeBtnBg.setSize(maxBtnW, btnH);
-    this.launchModeBtnText.setFontSize(`${Math.max(11, Math.round(13.5 * sf))}px`);
+    this.launchModeBtnIcon.setPosition(-maxBtnW * 0.30, -5);
+    this.launchModeBtnText.setPosition(12, -5);
+    this.launchModeBtnText.setFontSize(`${Math.max(11, Math.round(12.5 * sf))}px`);
     this.launchModeZone.setSize(maxBtnW, btnH);
     this.launchModeSubText.setPosition(0, 9);
     this.launchModeSubText.setFontSize(`${Math.max(8.5, Math.round(9.5 * sf))}px`);
