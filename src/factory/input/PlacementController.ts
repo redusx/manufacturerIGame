@@ -32,6 +32,7 @@ import { PALETTE } from '../../ui/theme.ts';
 export interface PlacementItem {
   type: PlacementItemType;
   machineDef?: MachineDefinition;
+  sourceCoord?: GridCoord;
 }
 
 export interface PlacementControllerConfig {
@@ -39,6 +40,7 @@ export interface PlacementControllerConfig {
   originX?: number;
   originY?: number;
   autoCloseMachines?: boolean;
+  camera?: Phaser.Cameras.Scene2D.Camera;
   onPlaced?: (result: PlacementExecuteResult) => void;
   onCancel?: () => void;
 }
@@ -49,6 +51,7 @@ export class PlacementController {
   readonly logistics: LogisticsNetwork;
   readonly engine: ProductionEngine;
   readonly economy: FactoryEconomy;
+  private camera: Phaser.Cameras.Scene2D.Camera;
 
   readonly tileSize: number;
   private originX: number;
@@ -71,7 +74,7 @@ export class PlacementController {
   private lastValidation: PlacementValidationResult | null = null;
 
   /** Hayalet önizleme konteyneri */
-  private ghostContainer: Phaser.GameObjects.Container;
+  readonly ghostContainer: Phaser.GameObjects.Container;
   private ghostBoxGraphics: Phaser.GameObjects.Graphics;
   private ghostSprite: Phaser.GameObjects.Sprite | null = null;
   private ghostPortGraphics: Phaser.GameObjects.Graphics;
@@ -97,6 +100,7 @@ export class PlacementController {
     this.logistics = logistics;
     this.engine = engine;
     this.economy = economy;
+    this.camera = config.camera ?? scene.cameras.main;
 
     this.tileSize = config.tileSize ?? GridCoordinates.DEFAULT_TILE_SIZE;
     this.originX = config.originX ?? 0;
@@ -112,6 +116,10 @@ export class PlacementController {
     this.ghostContainer.add([this.ghostBoxGraphics, this.ghostPortGraphics]);
 
     this.bindInputs();
+  }
+
+  setCamera(camera: Phaser.Cameras.Scene2D.Camera): void {
+    this.camera = camera;
   }
 
   get isActive(): boolean {
@@ -201,7 +209,7 @@ export class PlacementController {
   private handlePointerMove(pointer: Phaser.Input.Pointer): void {
     if (!this._isActive || !this.selectedItem) return;
 
-    const worldPoint = pointer.positionToCamera(this.scene.cameras.main) as Phaser.Math.Vector2;
+    const worldPoint = pointer.positionToCamera(this.camera) as Phaser.Math.Vector2;
     const gridCoord = GridCoordinates.worldToGrid(
       worldPoint.x,
       worldPoint.y,
@@ -219,6 +227,16 @@ export class PlacementController {
 
   private handlePointerDown(pointer: Phaser.Input.Pointer): void {
     if (!this._isActive || !this.selectedItem) return;
+
+    // Viewport kontrolü (Kamera dışındaki HUD ve alt deck alanlarına tıklanmasını yoksay)
+    if (
+      pointer.x < this.camera.x ||
+      pointer.x > this.camera.x + this.camera.width ||
+      pointer.y < this.camera.y ||
+      pointer.y > this.camera.y + this.camera.height
+    ) {
+      return;
+    }
 
     // Sağ tık: İptal
     if (pointer.button === 2) {
@@ -249,6 +267,7 @@ export class PlacementController {
       direction: this.currentRotation,
       machineDef: this.selectedItem.machineDef,
       unlockedBounds: dimensions,
+      sourceCoord: this.selectedItem.sourceCoord,
     });
 
     if (result.success) {
@@ -258,7 +277,11 @@ export class PlacementController {
         this.onPlaced(result);
       }
 
-      if (this.selectedItem.type === 'MACHINE' && this.autoCloseMachines) {
+      if (
+        (this.selectedItem.type === 'MACHINE' && this.autoCloseMachines) ||
+        this.selectedItem.type === 'INTAKE_MOVE' ||
+        this.selectedItem.type === 'EXPORT_MOVE'
+      ) {
         this.cancelPlacement();
       } else {
         // Yeni konumu tekrar doğrula
@@ -296,6 +319,18 @@ export class PlacementController {
         this.ghostSprite.setAlpha(0.7);
         this.ghostContainer.add(this.ghostSprite);
       }
+    } else if (this.selectedItem.type === 'INTAKE_MOVE') {
+      if (this.scene.textures.exists('factory_intake')) {
+        this.ghostSprite = this.scene.add.sprite(0, 0, 'factory_intake');
+        this.ghostSprite.setAlpha(0.8);
+        this.ghostContainer.add(this.ghostSprite);
+      }
+    } else if (this.selectedItem.type === 'EXPORT_MOVE') {
+      if (this.scene.textures.exists('shipping_crate')) {
+        this.ghostSprite = this.scene.add.sprite(0, 0, 'shipping_crate');
+        this.ghostSprite.setAlpha(0.8);
+        this.ghostContainer.add(this.ghostSprite);
+      }
     }
   }
 
@@ -321,6 +356,7 @@ export class PlacementController {
       direction: this.currentRotation,
       machineDef: this.selectedItem.machineDef,
       unlockedBounds: dimensions,
+      sourceCoord: this.selectedItem.sourceCoord,
     });
     this.lastValidation = validation;
 
@@ -354,6 +390,9 @@ export class PlacementController {
         const rotDeg = PlacementMath.directionToRotationDeg(this.currentRotation);
         this.ghostSprite.setAngle(rotDeg);
         this.ghostSprite.setDisplaySize(pixelW, pixelH);
+      } else if (this.selectedItem.type === 'INTAKE_MOVE' || this.selectedItem.type === 'EXPORT_MOVE') {
+        this.ghostSprite.setAngle(0);
+        this.ghostSprite.setDisplaySize(this.tileSize, this.tileSize);
       }
     }
 

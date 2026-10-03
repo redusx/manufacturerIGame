@@ -71,11 +71,11 @@
 
 ### Sistem 4.1: Kilometre Taşları ve Hedef Motoru
 * [x] **TASK-100:** `src/factory/progression/MilestoneManager.ts` — 10 aşamalı fabrika kilometre taşlarının takibi, aktif hedefin kontrolü ve ödül dağıtımı (`MilestoneManager.test.ts` ile test edildi).
-* [ ] **TASK-101:** `src/factory/view/MilestoneHUD.ts` — Ekranın üst kısmında aktif hedefi, ilerleme yüzdesini ve ödülünü gösteren animasyonlu HUD barı.
+* [x] **TASK-101:** `src/factory/view/MilestoneHUD.ts` & `MilestoneHUDHelper.ts` — Ekranın üst kısmında aktif hedefi, ilerleme yüzdesini ve ödülünü gösteren animasyonlu HUD barı (`MilestoneHUDHelper.test.ts` ile test edildi, Sistem 4.1 %100 Tamamlandı).
 
 ### Sistem 4.2: Kademeli Parsel Genişletmesi
-* [ ] **TASK-102:** `src/factory/progression/PlotExpansionManager.ts` — Kalıcı fabrika ızgarasının yeni parsellerle ($8 \times 8 \rightarrow 12 \times 8 \rightarrow 16 \times 12 \rightarrow 24 \times 24$) genişletilmesi ve kilit açılma animasyonu.
-* [ ] **TASK-103:** Hızlı Yan Siparişler (Quick Contracts): Oyuncuya süre baskısıyla ekstra nakit kazandıran dinamik mini sipariş sistemi.
+* [x] **TASK-102:** `src/factory/progression/PlotExpansionManager.ts` — Kalıcı fabrika ızgarasının yeni parsellerle ($8 \times 8 \rightarrow 12 \times 8 \rightarrow 16 \times 12 \rightarrow 24 \times 24$) genişletilmesi ve kilit açılma animasyonu (`PlotExpansionManager.test.ts` ile test edildi).
+* [x] **TASK-103:** `src/factory/progression/ContractManager.ts` — Hızlı Yan Siparişler (Quick Contracts): Oyuncuya süre baskısıyla ekstra nakit kazandıran dinamik mini sipariş sistemi (`ContractManager.test.ts` ile test edildi, FAZ 4 %100 TAMAMLANDI).
 
 ---
 
@@ -83,19 +83,33 @@
 *Amaç: Fabrikayı roket fırlatma döngüsüyle kenetleyerek nihai ilerleme amacını tamamlamak.*
 
 ### Sistem 5.1: Hangar Tedarik Köprüsü ve Montaj
-* [ ] **TASK-110:** `src/factory/simulation/RocketHangarBridge.ts` — Fabrika konveyöründen çıkan havacılık parçalarının (Gövde Paneli, Roket Motoru, Aviyonik, Yakıt) doğrudan Roket Hangarına aktarılması.
-* [ ] **TASK-111:** `src/ui/RocketHangarView.ts` modülünün üretilen fiziksel parçalarla roket modüllerini inşa edecek şekilde güncellenmesi.
+* [x] **TASK-110:** `src/factory/simulation/RocketHangarBridge.ts` — Fabrika konveyöründen çıkan havacılık parçalarının (Gövde Paneli, Roket Motoru, Aviyonik, Yakıt) doğrudan Roket Hangarına aktarılması (`RocketHangarBridge.test.ts` ile test edildi).
+* [x] **TASK-111:** `src/ui/RocketHangarView.ts` modülünün üretilen fiziksel parçalarla roket modüllerini inşa edecek şekilde güncellenmesi (`RocketHangarHelper.test.ts` ile test edildi, Sistem 5.1 %100 Tamamlandı).
 
 ### Sistem 5.2: Fırlatma Sahnesi ve İlerleme Entegrasyonu
-* [ ] **TASK-112:** `FlightScene.ts` uçuş sahnesi entegrasyonu: Uçuş mesafesi ve toplanan uzay hurdalarının nakde dönüştürülmesi ve yeni fabrika yetenekleri/alanlarını açması.
-* [ ] **TASK-113:** Tam Döngü Entegrasyon Testi: Fabrika Üretimi $\rightarrow$ Roket Montajı $\rightarrow$ Fırlatma $\rightarrow$ Yeni Parsel Açılışı.
+* [x] **TASK-112:** `FlightScene.ts` uçuş sahnesi entegrasyonu: Uçuş mesafesi ve toplanan uzay hurdalarının nakde dönüştürülmesi (`RocketHangarBridge` & `FactoryEconomy`), irtifa/mesafe kilometre taşlarının (100m, 500m, 1000m, 2500m, 5000m) kalıcı global gelir çarpanı ödülleri vermesi (`FlightReturnHelper.test.ts` ile test edildi).
+* [x] **TASK-113:** Tam Döngü Entegrasyon Testi: Fabrika Üretimi $\rightarrow$ Roket Montajı $\rightarrow$ Fırlatma $\rightarrow$ Yeni Parsel Açılışı (`FullLoopIntegration.test.ts` ile test edildi, FAZ 5 %100 TAMAMLANDI).
 
 ---
 
 ## FAZ 6: CİLA, KALICI KAYIT VE CRAZYGAMES LANSMANI (POLISH & LAUNCH)
 *Amaç: Oyunu pürüzsüz, kaydedilebilir ve yayınlanabilir hale getirmek.*
 
-* [ ] **TASK-120:** `src/factory/persistence/SaveManager.ts` — LocalStorage tabanlı otomatik kayıt ve sıfır kayıpla yükleme.
-* [ ] **TASK-121:** Çevrimdışı Gelir (Offline Earnings): Oyuncu oyunda yokken 4 saate kadar %50 verimle temel gelir birikimi.
-* [ ] **TASK-122:** Piksel parçacık animasyonları ve ses efektleri entegrasyonu.
-* [ ] **TASK-123:** CrazyGames SDK hazırlığı ve nihai üretim build doğrulaması.
+* [x] **TASK-120:** `src/factory/persistence/SaveManager.ts` — LocalStorage tabanlı birleşik v3 şeması, StorageLike soyutlaması, geriye dönük v1/v2 otomatik geçiş, bozuk veri kurtarma, oyuncu yedek dışa/içe aktarım metni (`SaveManager.test.ts` ile test edildi).
+* [x] **TASK-121:** Çevrimdışı Gelir (Offline Earnings): `OfflineEarningsHelper.ts` (4 saate kadar tavan, %50 verim, minimum eşik denetimi, 2X kazanç) ve `OfflineEarningsModal.ts` piksel-art karşılama modalı (`OfflineEarningsHelper.test.ts` ile test edildi).
+* [x] **TASK-122:** Piksel parçacık animasyonları ve ses efektleri entegrasyonu: Web Audio API tabanlı retro chiptune `SoundManager.ts` (tıklama, coin, arpej yükseltme, fanfar, boost, darbe; `SoundManager.test.ts` ile test edildi), `PixelParticleHelper.ts` (kıvılcım, konfeti, patlama, yüzen metin; `PixelParticleHelper.test.ts` ile test edildi) ve `PixelParticleManager.ts` Phaser entegrasyonu; `SettingsPanel` ses aç/kapat butonu.
+* [x] **TASK-123:** CrazyGames SDK hazırlığı ve nihai üretim build doğrulaması: `CrazyGamesSDK.ts` (SDK v3 adaptörü, mock geri dönüş, ses kısma/açma koordinasyonu, `gameplayStart`, `gameplayStop`, `happytime`, `requestAd`), `CrazyGamesSDK.test.ts` (4 headless test), `index.html` v3 script & SEO etiketleri, `main.ts` arka plan başlatımı, `GameScene.ts` ve `FlightScene.ts` yaşam döngüsü & rewarded ad entegrasyonu, `npm test` (241/241 test başarılı) ve `npm run build` doğrulaması.
+
+---
+
+## FAZ 7: GERÇEK OYNANABİLİRLİK VE ANA SAHNE ENTEGRASYONU (PLAYABLE GAME INTEGRATION)
+*Amaç: Birim testleri tamamlanmış 2D simülasyon, lojistik ve inşa araçlarını ana oyun akışına bağlayarak oyunu oyuncu için gerçekten baştan sona oynanabilir kılmak.*
+
+* [x] **TASK-INT-01:** Roket Hangarı ve Ekonomi Köprüsünün Onarımı (HangarBridge ve EconomyManager para/parça senkronizasyonu; roket modül yükseltmelerinin çalışır hale getirilmesi; `RocketHangarIntegration.test.ts` 5/5 geçti).
+* [x] **TASK-INT-02:** 2D Izgara ve Kamera Sahne Entegrasyonu (`GameScene.ts` merkezine `GridView` ve `CameraController` monte edilmesi, 8x8 başlangıç atölye zemin çizimi, çift kamera mimarisi; `FactoryFloorIntegration.test.ts` 5/5 geçti).
+* [x] **TASK-INT-03:** Üretim Motoru ve Konveyör Akışı Entegrasyonu (`ProductionEngine` ve `LogisticsNetwork` tick döngüsünün `GameScene.update()`'e bağlanması, `ConveyorRenderer` ve `ItemFlowAnimator` ile 60 FPS görsel akış, `FactorySerializer` ile tam kayıt/yükleme; `ConveyorFlowIntegration.test.ts` 4/4 geçti).
+* [x] **TASK-INT-04:** Alt İnşa Araç Çubuğu ve Yerleşim Entegrasyonu (`PlacementController` ile Makine ve Konveyör yerleştirme, 4 butonlu alt dock [MANUEL ÜRET, BANT DÖŞE, MAKİNE KUR, HANGAR], `BuildMenuModal`, canlı hayalet önizleme, $R$ rotasyonu, ESC iptal; `BuildToolbarIntegration.test.ts` 4/4 geçti).
+* [x] **TASK-INT-05:** Yıkım/Taşıma ve Makine İnceleme Modalı Entegrasyonu (`DemolishTool` ile %100 sermaye ve seviye iadeli silme, `BuildMenuModal` içi `[SÖK (X)]` butonu, klavye $X$ kısayolu, `MachineInspectorModal` ile tıklanan makineyi inceleme, tampon stokları, reçete seçimi ve seviye yükseltme; `DemolishAndInspectorIntegration.test.ts` 4/4 geçti).
+* [x] **TASK-INT-06:** Parsel Genişletme ve Fabrika Kayıt/Yükleme Entegrasyonu (`PlotExpansionManager` ile $8 \times 8 \rightarrow 24 \times 24$ genişleme, kural denetimli sıralı kilit açılımı, `playUnlockCelebration` altın dalga efekti ve zafer sancağı, dinamik inşa alanı genişlemesi, `SaveManager` v3 ile ızgara/makine durumunun tam korunumu; `PlotExpansionAndSaveIntegration.test.ts` 4/4 geçti).
+* [x] **TASK-INT-07:** Uçtan Uca Oynanış Doğrulaması (Yeni oyun -> Tıklama -> Makine kur -> Üret -> Para kazan -> Roket geliştir -> Fırlat -> Rekor kır -> Kaydet/Yükle; `FullGameLoopIntegration.test.ts` 7/7 geçti, FAZ 7 VE TÜM MASTER PLAN %100 TAMAMLANDI).
+

@@ -17,6 +17,12 @@ import type { EconomyManager } from '../economy/EconomyManager';
 import { formatNumber } from '../utils/format';
 import { RESOURCE_NAME } from '../data/MachineData';
 import { PALETTE, FONT_FAMILY, PixelUIHelper } from './theme';
+import {
+  RocketHangarBridge,
+  type RocketModuleCategory,
+} from '../factory/simulation/RocketHangarBridge.ts';
+import type { FactoryEconomy } from '../factory/simulation/FactoryEconomy.ts';
+import { RocketHangarHelper } from './RocketHangarHelper.ts';
 
 interface UpgradeCardElement {
   def: RocketUpgradeDef;
@@ -39,9 +45,12 @@ export class RocketHangarView {
   private scene: Phaser.Scene;
   private economy: EconomyManager;
   private onLaunch: () => void;
+  private hangarBridge?: RocketHangarBridge;
+  private factoryEconomy?: FactoryEconomy;
 
-  private container: Phaser.GameObjects.Container;
+  public container: Phaser.GameObjects.Container;
   private backdrop!: Phaser.GameObjects.Rectangle;
+  private panelBlocker!: Phaser.GameObjects.Rectangle;
   private modalBg!: Phaser.GameObjects.NineSlice;
   private closeBtnBg!: Phaser.GameObjects.NineSlice;
   private closeBtnIcon!: Phaser.GameObjects.Image;
@@ -81,24 +90,41 @@ export class RocketHangarView {
   private viewW = 0;
   private viewH = 0;
 
-  constructor(scene: Phaser.Scene, economy: EconomyManager, onLaunch: () => void) {
+  constructor(
+    scene: Phaser.Scene,
+    economy: EconomyManager,
+    onLaunch: () => void,
+    hangarBridge?: RocketHangarBridge,
+    factoryEconomy?: FactoryEconomy,
+  ) {
     this.scene = scene;
     this.economy = economy;
     this.onLaunch = onLaunch;
+    this.hangarBridge = hangarBridge;
+    this.factoryEconomy = factoryEconomy;
 
     this.container = scene.add.container(0, 0).setDepth(205).setVisible(false);
     const font: Phaser.Types.GameObjects.Text.TextStyle = {
       fontFamily: FONT_FAMILY,
     };
 
-    // 1. Ekran Karartma Katmanı (Arka plana tıklanınca kapatır)
+    // 1. Ekran Karartma Katmanı (Yalnızca dışarı tıklanınca kapatır)
     this.backdrop = scene.add.rectangle(0, 0, 100, 100, 0x05070e, 0.75)
       .setOrigin(0, 0)
       .setInteractive()
       .on('pointerdown', () => this.hide());
     this.container.add(this.backdrop);
 
-    // 2. Modal Çerçevesi (9-Slice)
+    // 2. Modal Gövdesi Tıklama Engelleyici (Pencere içine tıklanınca kapanmasını önler)
+    this.panelBlocker = scene.add.rectangle(0, 0, 440, 520, 0x000000, 0.001)
+      .setOrigin(0, 0)
+      .setInteractive()
+      .on('pointerdown', (_pointer: any, _lx: number, _ly: number, event?: Phaser.Types.Input.EventData) => {
+        event?.stopPropagation();
+      });
+    this.container.add(this.panelBlocker);
+
+    // 3. Modal Çerçevesi (9-Slice)
     this.modalBg = PixelUIHelper.createModal(scene, 0, 0, 440, 520).setOrigin(0, 0);
     this.container.add(this.modalBg);
 
@@ -311,11 +337,45 @@ export class RocketHangarView {
     }
   }
 
+  /** Hangar köprüsünü ve fabrika ekonomisini canlı olarak bağlar veya günceller */
+  setHangarBridge(bridge: RocketHangarBridge, factoryEconomy?: FactoryEconomy): void {
+    this.hangarBridge = bridge;
+    if (factoryEconomy) {
+      this.factoryEconomy = factoryEconomy;
+    }
+    this.updateRocketVisuals();
+    this.refresh();
+  }
+
+  getHangarBridge(): RocketHangarBridge | undefined {
+    return this.hangarBridge;
+  }
+
+  getFactoryEconomy(): FactoryEconomy | undefined {
+    return this.factoryEconomy;
+  }
+
   private handleUpgradeClick(id: string): void {
-    if (this.economy.buyRocketUpgrade(id)) {
-      this.playUpgradeEffect(id);
-      this.updateRocketVisuals();
-      this.refresh();
+    const category = id as RocketModuleCategory;
+
+    if (this.hangarBridge && this.factoryEconomy) {
+      let upgraded = this.hangarBridge.upgradeModule(category, this.factoryEconomy, false);
+      if (!upgraded && this.hangarBridge.canAffordQuickBuild(category, this.factoryEconomy)) {
+        upgraded = this.hangarBridge.upgradeModule(category, this.factoryEconomy, true);
+      }
+      if (upgraded) {
+        const newLvl = this.hangarBridge.getModuleLevel(category);
+        this.economy.setRocketUpgradeLevel(id, newLvl);
+        this.playUpgradeEffect(id);
+        this.updateRocketVisuals();
+        this.refresh();
+      }
+    } else {
+      if (this.economy.buyRocketUpgrade(id)) {
+        this.playUpgradeEffect(id);
+        this.updateRocketVisuals();
+        this.refresh();
+      }
     }
   }
 
@@ -376,10 +436,18 @@ export class RocketHangarView {
   }
 
   updateRocketVisuals(): void {
-    const hullLevel = this.economy.getRocketUpgradeLevel('hull');
-    const engineLevel = this.economy.getRocketUpgradeLevel('engine');
-    const wingsLevel = this.economy.getRocketUpgradeLevel('wings');
-    const boostLevel = this.economy.getRocketUpgradeLevel('boost');
+    const hullLevel = this.hangarBridge
+      ? this.hangarBridge.getModuleLevel('hull')
+      : this.economy.getRocketUpgradeLevel('hull');
+    const engineLevel = this.hangarBridge
+      ? this.hangarBridge.getModuleLevel('engine')
+      : this.economy.getRocketUpgradeLevel('engine');
+    const wingsLevel = this.hangarBridge
+      ? this.hangarBridge.getModuleLevel('wings')
+      : this.economy.getRocketUpgradeLevel('wings');
+    const boostLevel = this.hangarBridge
+      ? this.hangarBridge.getModuleLevel('boost')
+      : this.economy.getRocketUpgradeLevel('boost');
 
     // Seviye 1, 2, 3 doğrudan ilgili görsel doku kademesine (rocket_*_1, 2, 3) eşlenir
     const hullTier = Math.min(3, Math.max(1, hullLevel));
@@ -404,52 +472,106 @@ export class RocketHangarView {
   refresh(): void {
     this.updateRocketVisuals();
 
-    const hullLevel = this.economy.getRocketUpgradeLevel('hull');
-    const engineLevel = this.economy.getRocketUpgradeLevel('engine');
-    const wingsLevel = this.economy.getRocketUpgradeLevel('wings');
-    const boostLevel = this.economy.getRocketUpgradeLevel('boost');
+    const hullLevel = this.hangarBridge
+      ? this.hangarBridge.getModuleLevel('hull')
+      : this.economy.getRocketUpgradeLevel('hull');
+    const engineLevel = this.hangarBridge
+      ? this.hangarBridge.getModuleLevel('engine')
+      : this.economy.getRocketUpgradeLevel('engine');
+    const wingsLevel = this.hangarBridge
+      ? this.hangarBridge.getModuleLevel('wings')
+      : this.economy.getRocketUpgradeLevel('wings');
+    const boostLevel = this.hangarBridge
+      ? this.hangarBridge.getModuleLevel('boost')
+      : this.economy.getRocketUpgradeLevel('boost');
 
     const hp = getMaxHullHP(hullLevel);
     const speed = getFlightSpeed(engineLevel);
     const steer = getSteeringSpeed(wingsLevel);
     const boostSec = getMaxBoostDuration(boostLevel);
     const fuelSec = getFuelCapacity(engineLevel);
-    const res = this.economy.resources;
 
-    this.statsText.setText(
-      `Zırh: ${hp} HP | Yakıt: ${fuelSec.toFixed(1)}s | Nitro: ${boostSec.toFixed(1)}s`,
-    );
+    const statsLine = `Zırh: ${hp} HP | Hız: ${speed} | Yakıt: ${fuelSec.toFixed(1)}s | Nitro: ${boostSec.toFixed(1)}s`;
+    const stockHeader = this.hangarBridge
+      ? `\n${RocketHangarHelper.formatHangarStockHeader(this.hangarBridge)}`
+      : '';
+    this.statsText.setText(statsLine + stockHeader);
+
+    const economyRef = this.factoryEconomy ?? {
+      canAfford: (cost: number) => this.economy.resources.gte(cost),
+      money: Number(this.economy.resources),
+    };
 
     for (const card of this.cardElements) {
       const def = card.def;
-      const level = this.economy.getRocketUpgradeLevel(def.id);
-      const isMax = level >= def.maxLevel;
-      const cost = this.economy.getRocketUpgradeCost(def.id);
-      const canAfford = !isMax && res.gte(cost);
+      const category = def.id as RocketModuleCategory;
 
-      card.levelText.setText(isMax ? 'MAKS' : `Sv. ${level}/${def.maxLevel}`);
-      card.statText.setText(def.getStatText(level));
+      if (this.hangarBridge) {
+        const vm = RocketHangarHelper.getCardViewModel(
+          category,
+          def.name,
+          this.hangarBridge,
+          economyRef,
+          def.getStatText(this.hangarBridge.getModuleLevel(category)),
+          def.maxLevel,
+          true,
+        );
 
-      if (isMax) {
-        card.btnBg.setTexture('btn_disabled');
-        card.btnText.setText('MAKSİMUM');
-        card.btnText.setColor(PALETTE.textMuted);
-        card.costText.setText('');
-        card.zone.input!.enabled = false;
-      } else {
-        card.btnText.setText('GELİŞTİR');
-        card.costText.setText(`⚙ ${formatNumber(cost)}`);
-
-        if (canAfford) {
-          card.btnBg.setTexture('btn_green_normal');
-          card.btnText.setColor(PALETTE.btnAffordableText);
-          card.costText.setColor(PALETTE.btnAffordableText);
-          card.zone.input!.enabled = true;
-        } else {
+        card.levelText.setText(vm.levelText);
+        if (vm.isMax) {
+          card.statText.setText(def.getStatText(vm.level));
           card.btnBg.setTexture('btn_disabled');
-          card.btnText.setColor(PALETTE.btnDisabledText);
-          card.costText.setColor(PALETTE.btnDisabledText);
+          card.btnText.setText('MAKSİMUM');
+          card.btnText.setColor(PALETTE.textMuted);
+          card.costText.setText('');
           card.zone.input!.enabled = false;
+        } else {
+          card.statText.setText(`${def.getStatText(vm.level)} | ${vm.partsDetailText}`);
+          card.btnText.setText(vm.btnText);
+          card.costText.setText(vm.costText);
+
+          if (vm.canAfford) {
+            card.btnBg.setTexture('btn_green_normal');
+            card.btnText.setColor(PALETTE.btnAffordableText);
+            card.costText.setColor(PALETTE.btnAffordableText);
+            card.zone.input!.enabled = true;
+          } else {
+            card.btnBg.setTexture('btn_disabled');
+            card.btnText.setColor(PALETTE.btnDisabledText);
+            card.costText.setColor(PALETTE.btnDisabledText);
+            card.zone.input!.enabled = false;
+          }
+        }
+      } else {
+        const level = this.economy.getRocketUpgradeLevel(def.id);
+        const isMax = level >= def.maxLevel;
+        const cost = this.economy.getRocketUpgradeCost(def.id);
+        const canAfford = !isMax && this.economy.resources.gte(cost);
+
+        card.levelText.setText(isMax ? 'MAKS' : `Sv. ${level}/${def.maxLevel}`);
+        card.statText.setText(def.getStatText(level));
+
+        if (isMax) {
+          card.btnBg.setTexture('btn_disabled');
+          card.btnText.setText('MAKSİMUM');
+          card.btnText.setColor(PALETTE.textMuted);
+          card.costText.setText('');
+          card.zone.input!.enabled = false;
+        } else {
+          card.btnText.setText('GELİŞTİR');
+          card.costText.setText(`⚙ ${formatNumber(cost)}`);
+
+          if (canAfford) {
+            card.btnBg.setTexture('btn_green_normal');
+            card.btnText.setColor(PALETTE.btnAffordableText);
+            card.costText.setColor(PALETTE.btnAffordableText);
+            card.zone.input!.enabled = true;
+          } else {
+            card.btnBg.setTexture('btn_disabled');
+            card.btnText.setColor(PALETTE.btnDisabledText);
+            card.costText.setColor(PALETTE.btnDisabledText);
+            card.zone.input!.enabled = false;
+          }
         }
       }
     }
@@ -500,6 +622,9 @@ export class RocketHangarView {
     const cy = h / 2;
     const modalX = cx - modalW / 2;
     const modalY = cy - modalH / 2;
+
+    this.panelBlocker.setPosition(modalX, modalY);
+    this.panelBlocker.setSize(modalW, modalH);
 
     this.modalBg.setPosition(modalX, modalY);
     this.modalBg.setSize(modalW, modalH);

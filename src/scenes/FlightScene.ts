@@ -15,6 +15,9 @@
 
 import Phaser from 'phaser';
 import type { EconomyManager } from '../economy/EconomyManager';
+import type { RocketHangarBridge } from '../factory/simulation/RocketHangarBridge';
+import type { FactoryEconomy } from '../factory/simulation/FactoryEconomy';
+import { FlightReturnHelper } from './FlightReturnHelper';
 import {
   DISTANCE_RESOURCE_RATE,
   PART_PICKUP_VALUE,
@@ -33,6 +36,9 @@ import {
 import { formatNumber } from '../utils/format';
 import { RESOURCE_NAME } from '../data/MachineData';
 import { PALETTE, FONT_FAMILY, PixelUIHelper } from '../ui/theme';
+import { sound } from '../audio/SoundManager.ts';
+import { fx } from '../effects/PixelParticleManager.ts';
+import { crazyGames } from '../integration/CrazyGamesSDK.ts';
 
 interface ObstacleEntity {
   sprite: Phaser.GameObjects.Image;
@@ -61,6 +67,8 @@ type FlightState = 'countdown' | 'launching' | 'flying' | 'crashed' | 'landed' |
 
 export class FlightScene extends Phaser.Scene {
   private economy!: EconomyManager;
+  private bridge?: RocketHangarBridge;
+  private factoryEconomy?: FactoryEconomy;
 
   /* Roket Geliştirme Seviyeleri */
   private hullLevel = 1;
@@ -162,8 +170,14 @@ export class FlightScene extends Phaser.Scene {
     super({ key: 'FlightScene' });
   }
 
-  init(data: { economy: EconomyManager }): void {
+  init(data: {
+    economy: EconomyManager;
+    bridge?: RocketHangarBridge;
+    factoryEconomy?: FactoryEconomy;
+  }): void {
     this.economy = data.economy;
+    this.bridge = data.bridge;
+    this.factoryEconomy = data.factoryEconomy;
   }
 
   create(): void {
@@ -197,10 +211,18 @@ export class FlightScene extends Phaser.Scene {
     }
 
     // Seviyeleri ve fizik parametrelerini yükle
-    this.hullLevel = this.economy.getRocketUpgradeLevel('hull');
-    this.engineLevel = this.economy.getRocketUpgradeLevel('engine');
-    this.wingsLevel = this.economy.getRocketUpgradeLevel('wings');
-    this.boostLevel = this.economy.getRocketUpgradeLevel('boost');
+    this.hullLevel = this.bridge
+      ? this.bridge.getModuleLevel('hull')
+      : this.economy.getRocketUpgradeLevel('hull');
+    this.engineLevel = this.bridge
+      ? this.bridge.getModuleLevel('engine')
+      : this.economy.getRocketUpgradeLevel('engine');
+    this.wingsLevel = this.bridge
+      ? this.bridge.getModuleLevel('wings')
+      : this.economy.getRocketUpgradeLevel('wings');
+    this.boostLevel = this.bridge
+      ? this.bridge.getModuleLevel('boost')
+      : this.economy.getRocketUpgradeLevel('boost');
 
     this.maxHP = getMaxHullHP(this.hullLevel);
     this.currentHP = this.maxHP;
@@ -432,6 +454,7 @@ export class FlightScene extends Phaser.Scene {
   /** İlk fırlatma ivmesi */
   private blastOff(): void {
     this.flightState = 'flying';
+    crazyGames.gameplayStart();
     this.flameSprite.setVisible(true);
     if (this.textures.exists('flame_idle')) {
       this.flameSprite.setTexture('flame_idle');
@@ -446,6 +469,8 @@ export class FlightScene extends Phaser.Scene {
     this.vx = Math.cos(launchAngle) * this.launchVelocity;
     this.vy = Math.sin(launchAngle) * this.launchVelocity;
 
+    sound.playLaunch();
+    fx.emitSparkles(this, this.rocketScreenX - 25, this.rocketScreenY + 20, 20, PALETTE.factoryAmber);
     this.spawnLaunchPuff(this.rocketScreenX - 25, this.rocketScreenY + 20);
     this.cameras.main.shake(300, 0.008);
   }
@@ -683,6 +708,9 @@ export class FlightScene extends Phaser.Scene {
 
     // 2. Süpersonik Boost (Nitro) & Kafa Dikme Mekaniği
     if (boostActive && this.currentBoost > 0) {
+      if (!this.isBoosting) {
+        sound.playBoost();
+      }
       this.isBoosting = true;
       this.currentBoost = Math.max(0, this.currentBoost - dt);
 
@@ -1072,6 +1100,9 @@ export class FlightScene extends Phaser.Scene {
   }
 
   private collectItem(item: CollectibleEntity): void {
+    sound.playCoin();
+    fx.emitSparkles(this, this.rocketScreenX, this.rocketScreenY, 8, PALETTE.resourceGold);
+
     if (item.type === 'gear') {
       this.collectedGears++;
       this.flightScore += 30;
@@ -1144,6 +1175,9 @@ export class FlightScene extends Phaser.Scene {
   }
 
   private spawnExplosionSparks(x: number, y: number): void {
+    sound.playHit();
+    fx.emitExplosion(this, x, y, 16);
+
     // Çarpışma kıvılcımı — önce hit_spark spritesheet animasyonu
     if (this.anims.exists('hit_spark_anim')) {
       const fx = this.add.sprite(x, y, 'hit_spark', 0)
@@ -1214,12 +1248,14 @@ export class FlightScene extends Phaser.Scene {
   }
 
   private calculateTotalEarnedResources(): number {
-    const distGains = Math.floor((this.distance / 10) * DISTANCE_RESOURCE_RATE);
-    const altGains = Math.floor(this.maxAltitude * 0.4);
-    const gearGains = this.collectedGears * PART_PICKUP_VALUE;
-    const crystalGains = this.collectedCrystals * CRYSTAL_PICKUP_VALUE;
-    const dodgeGains = this.dodgedObstacles * DODGE_BONUS_VALUE;
-    return distGains + altGains + gearGains + crystalGains + dodgeGains;
+    const breakdown = FlightReturnHelper.calculateRewardBreakdown({
+      distanceMeters: this.distance,
+      maxAltitudeMeters: this.maxAltitude,
+      gearsCollected: this.collectedGears,
+      crystalsCollected: this.collectedCrystals,
+      dodgedObstacles: this.dodgedObstacles,
+    });
+    return breakdown.totalCash;
   }
 
   /* ================================================================
@@ -1230,6 +1266,7 @@ export class FlightScene extends Phaser.Scene {
     // Sadece bir kez çalışsın: crashed veya finished state'inde tekrar çalışma
     if (this.flightState === 'crashed' || this.flightState === 'finished') return;
     this.flightState = isCrash ? 'crashed' : 'finished';
+    crazyGames.gameplayStop();
 
     if (isCrash) {
       this.spawnExplosionSparks(this.rocketScreenX, this.rocketScreenY);
@@ -1259,45 +1296,94 @@ export class FlightScene extends Phaser.Scene {
       fontFamily: FONT_FAMILY,
     };
 
-    const panelW = Math.min(380, w - 24);
-    const panelH = 340;
+    const prevBest = this.bridge
+      ? this.bridge.getFlightStats().bestDistance
+      : (this.economy as any).flightStats?.bestDistance ?? 0;
+    const currentMultiplier = this.factoryEconomy ? this.factoryEconomy.revenueMultiplier : 1.0;
+
+    const vm = FlightReturnHelper.buildReportViewModel({
+      distance: this.distance,
+      durationSec: this.flightDuration,
+      maxAltitude: this.maxAltitude,
+      maxSpeedKmH: this.maxSpeed,
+      gears: this.collectedGears,
+      crystals: this.collectedCrystals,
+      dodgedObstacles: this.dodgedObstacles,
+      flightScore: this.flightScore,
+      isCrash,
+      previousBestDistance: prevBest,
+      currentRevenueMultiplier: currentMultiplier,
+    });
+
+    const panelW = Math.min(390, w - 24);
+    const hasMilestone = !!vm.milestoneBannerText;
+    const panelH = hasMilestone ? 370 : 340;
 
     const bgModal = PixelUIHelper.createModal(this, 0, 0, panelW, panelH);
     this.reportContainer.add(bgModal);
 
     // Başlık
-    const titleText = this.add.text(
-      0,
-      -panelH / 2 + 26,
-      isCrash ? `💥 ${reasonText.toUpperCase()}` : '🏆 BAŞARILI UÇUŞ VE İNİŞ!',
-      { ...font, fontSize: '15px', color: isCrash ? PALETTE.dangerRedHex : PALETTE.resourceGoldHex, fontStyle: 'bold' },
-    ).setOrigin(0.5);
+    let titleStr: string;
+    let titleColor: string;
+    if (isCrash) {
+      titleStr = `💥 ${reasonText.toUpperCase()}`;
+      titleColor = PALETTE.dangerRedHex;
+    } else if (vm.isNewBestDistance) {
+      crazyGames.happytime();
+      titleStr = '🏆 YENİ MESAFE REKORU!';
+      titleColor = PALETTE.resourceGoldHex;
+    } else {
+      titleStr = '🏆 BAŞARILI UÇUŞ VE İNİŞ!';
+      titleColor = PALETTE.resourceGoldHex;
+    }
+
+    const titleText = this.add.text(0, -panelH / 2 + 24, titleStr, {
+      ...font, fontSize: '15px', color: titleColor, fontStyle: 'bold',
+    }).setOrigin(0.5);
     this.reportContainer.add(titleText);
 
     // İstatistik Verileri
     const items = [
-      { label: '📏 Ulaşılan Mesafe:', val: `${Math.floor(this.distance)} m` },
-      { label: '⏱ Havada Kalma Süresi:', val: `${this.flightDuration.toFixed(1)} sn` },
-      { label: '☁ Maksimum İrtifa:', val: `${this.maxAltitude} m` },
-      { label: '⚡ Maksimum Hız:', val: `${this.maxSpeed} km/s` },
-      { label: '⚙ Toplanan Parçalar:', val: `${this.collectedGears} adet` },
-      { label: '💎 Enerji Kristalleri:', val: `${this.collectedCrystals} adet` },
-      { label: '⭐ Toplam Uçuş Skoru:', val: `${this.flightScore} puan` },
+      { label: '📏 Ulaşılan Mesafe:', val: `${vm.distanceText} (+$${vm.breakdown.distanceCash})` },
+      { label: '⏱ Havada Kalma Süresi:', val: vm.durationText },
+      { label: '☁ Maksimum İrtifa:', val: `${vm.maxAltitudeText} (+$${vm.breakdown.altitudeCash})` },
+      { label: '⚡ Maksimum Hız:', val: vm.maxSpeedText },
+      { label: '⚙ Toplanan Parçalar:', val: vm.gearsText },
+      { label: '💎 Enerji Kristalleri:', val: vm.crystalsText },
+      { label: '⭐ Toplam Uçuş Skoru:', val: vm.scoreText },
     ];
 
-    let rowY = -panelH / 2 + 58;
+    let rowY = -panelH / 2 + 54;
     for (const item of items) {
       const lbl = this.add.text(-panelW / 2 + 22, rowY, item.label, {
-        ...font, fontSize: '11.5px', color: PALETTE.textMuted,
+        ...font, fontSize: '11px', color: PALETTE.textMuted,
       }).setOrigin(0, 0.5);
 
       const val = this.add.text(panelW / 2 - 22, rowY, item.val, {
-        ...font, fontSize: '11.5px', color: PALETTE.textPrimary, fontStyle: 'bold',
+        ...font, fontSize: '11px', color: PALETTE.textPrimary, fontStyle: 'bold',
       }).setOrigin(1, 0.5);
 
       this.reportContainer.add(lbl);
       this.reportContainer.add(val);
-      rowY += 23;
+      rowY += 22;
+    }
+
+    // Kilometre Taşı Çarpan Banner'ı (Varsa)
+    if (vm.milestoneBannerText) {
+      crazyGames.happytime();
+      sound.playMilestone();
+      fx.emitConfetti(this, this.scale.width / 2, this.scale.height / 2, 28);
+
+      const bannerY = rowY + 10;
+      const bannerBox = PixelUIHelper.createCard(this, 0, bannerY, panelW - 36, 26).setOrigin(0.5, 0.5);
+      this.reportContainer.add(bannerBox);
+
+      const bannerText = this.add.text(0, bannerY, vm.milestoneBannerText, {
+        ...font, fontSize: '10.5px', color: PALETTE.resourceGoldHex, fontStyle: 'bold',
+      }).setOrigin(0.5);
+      this.reportContainer.add(bannerText);
+
+      rowY += 30;
     }
 
     // Toplam Kazanım Kartı
@@ -1330,6 +1416,7 @@ export class FlightScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setInteractive({ useHandCursor: true })
       .on('pointerdown', () => {
+        sound.playClick();
         returnBtn.setTexture('btn_manual_pressed');
         this.returnToFactory(totalResources);
       })
@@ -1351,11 +1438,35 @@ export class FlightScene extends Phaser.Scene {
   }
 
   private returnToFactory(totalResources: number): void {
-    this.economy.recordFlightResult(
-      Math.floor(this.distance),
-      this.flightScore,
-      totalResources,
-    );
+    if (this.bridge && this.factoryEconomy) {
+      // 1. Uçuşta toplanan hurdaları havacılık parçası stoğu olarak hangara aktar
+      this.bridge.depositFlightSalvage(this.collectedGears, this.collectedCrystals);
+
+      // 2. Kilometre taşlarını ve uçuş gelirini fabrika ekonomisine aktar
+      this.bridge.processFlightResult(
+        {
+          distanceMeters: this.distance,
+          partsCollected: this.collectedGears,
+          crystalsCollected: this.collectedCrystals,
+          dodgedObstacles: this.dodgedObstacles,
+          altitudeMeters: this.maxAltitude,
+        },
+        this.factoryEconomy,
+      );
+
+      // 3. Mesafe ve skor istatistiklerini kaydet (gelir zaten processFlightResult ile tek seferde eklendi)
+      this.economy.recordFlightResult(
+        Math.floor(this.distance),
+        this.flightScore,
+        0,
+      );
+    } else {
+      this.economy.recordFlightResult(
+        Math.floor(this.distance),
+        this.flightScore,
+        totalResources,
+      );
+    }
 
     this.scene.stop('FlightScene');
     this.scene.resume('GameScene');

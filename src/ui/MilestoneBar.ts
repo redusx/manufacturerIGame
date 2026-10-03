@@ -175,4 +175,8 @@ export class MilestoneBar {
   setVisible(visible: boolean): void {
     this.container.setVisible(visible);
   }
+
+  ignoreCamera(camera: Phaser.Cameras.Scene2D.Camera): void {
+    camera.ignore([this.container]);
+  }
 }

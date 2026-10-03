@@ -1,6 +1,10 @@
 import Phaser from 'phaser';
 import { GameScene } from './scenes/GameScene';
 import { FlightScene } from './scenes/FlightScene';
+import { crazyGames } from './integration/CrazyGamesSDK.ts';
+
+// CrazyGames SDK v3 Başlatma (Güvenli Fallback ile)
+crazyGames.init().catch(() => {});
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,

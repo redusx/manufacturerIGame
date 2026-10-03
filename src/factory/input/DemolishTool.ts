@@ -27,8 +27,10 @@ export interface DemolishToolConfig {
   tileSize?: number;
   originX?: number;
   originY?: number;
+  camera?: Phaser.Cameras.Scene2D.Camera;
   onDemolished?: (result: DemolishExecuteResult) => void;
   onCancel?: () => void;
+  onProtectedClicked?: (name: string) => void;
 }
 
 export class DemolishTool {
@@ -37,6 +39,7 @@ export class DemolishTool {
   readonly logistics: LogisticsNetwork;
   readonly engine: ProductionEngine;
   readonly economy: FactoryEconomy;
+  private camera: Phaser.Cameras.Scene2D.Camera;
 
   readonly tileSize: number;
   private originX: number;
@@ -52,13 +55,14 @@ export class DemolishTool {
   private currentTarget: DemolishTargetInfo | null = null;
 
   /** Görsel önizleme konteyneri */
-  private overlayContainer: Phaser.GameObjects.Container;
+  readonly overlayContainer: Phaser.GameObjects.Container;
   private highlightGraphics: Phaser.GameObjects.Graphics;
   private badgeText: Phaser.GameObjects.Text;
 
   /** Olay geri çağırmaları */
   onDemolished?: (result: DemolishExecuteResult) => void;
   onCancel?: () => void;
+  onProtectedClicked?: (name: string) => void;
 
   constructor(
     scene: Phaser.Scene,
@@ -73,12 +77,14 @@ export class DemolishTool {
     this.logistics = logistics;
     this.engine = engine;
     this.economy = economy;
+    this.camera = config.camera ?? scene.cameras.main;
 
     this.tileSize = config.tileSize ?? GridCoordinates.DEFAULT_TILE_SIZE;
     this.originX = config.originX ?? 0;
     this.originY = config.originY ?? 0;
     this.onDemolished = config.onDemolished;
     this.onCancel = config.onCancel;
+    this.onProtectedClicked = config.onProtectedClicked;
 
     // Yıkım önizleme katmanı (depth 125: makinelerin ve bantların üstü)
     this.overlayContainer = this.scene.add.container(0, 0).setDepth(125).setVisible(false);
@@ -100,6 +106,10 @@ export class DemolishTool {
     this.bindInputs();
   }
 
+  setCamera(camera: Phaser.Cameras.Scene2D.Camera): void {
+    this.camera = camera;
+  }
+
   get isActive(): boolean {
     return this._isActive;
   }
@@ -117,6 +127,15 @@ export class DemolishTool {
       keyEsc.on('down', () => {
         if (this._isActive) {
           this.cancelTool();
+        }
+      });
+
+      const keyX = this.scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.X);
+      keyX.on('down', () => {
+        if (this._isActive) {
+          this.cancelTool();
+        } else {
+          this.activate();
         }
       });
     }
@@ -152,7 +171,7 @@ export class DemolishTool {
   private handlePointerMove(pointer: Phaser.Input.Pointer): void {
     if (!this._isActive) return;
 
-    const worldPoint = pointer.positionToCamera(this.scene.cameras.main) as Phaser.Math.Vector2;
+    const worldPoint = pointer.positionToCamera(this.camera) as Phaser.Math.Vector2;
     const coord = GridCoordinates.worldToGrid(
       worldPoint.x,
       worldPoint.y,
@@ -169,6 +188,16 @@ export class DemolishTool {
 
   private handlePointerDown(pointer: Phaser.Input.Pointer): void {
     if (!this._isActive) return;
+
+    // Viewport kontrolü (Kamera dışındaki HUD ve alt deck tıklamalarını yoksay)
+    if (
+      pointer.x < this.camera.x ||
+      pointer.x > this.camera.x + this.camera.width ||
+      pointer.y < this.camera.y ||
+      pointer.y > this.camera.y + this.camera.height
+    ) {
+      return;
+    }
 
     // Sağ tık: Araçtan çık
     if (pointer.button === 2) {
@@ -196,7 +225,19 @@ export class DemolishTool {
   }
 
   private executeDemolishCurrent(): void {
-    if (!this.currentTarget || !this.currentTarget.canDemolish) return;
+    if (!this.currentTarget || !this.currentTarget.canDemolish) {
+      if (
+        this.currentTarget &&
+        (this.currentTarget.blockReason === 'PROTECTED_INTAKE' ||
+          this.currentTarget.blockReason === 'PROTECTED_EXPORT')
+      ) {
+        this.playErrorShakeEffect();
+        if (this.onProtectedClicked) {
+          this.onProtectedClicked(this.currentTarget.name);
+        }
+      }
+      return;
+    }
 
     const result = DemolishMath.executeDemolish({
       grid: this.grid,
@@ -339,6 +380,12 @@ export class DemolishTool {
           });
         }
       }
+    }
+  }
+
+  private playErrorShakeEffect(): void {
+    if (this.camera) {
+      this.camera.shake(120, 0.003);
     }
   }
 

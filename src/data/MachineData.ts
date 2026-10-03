@@ -5,7 +5,7 @@
  * dağınık biçimde gömülmez. Dengeleme ayarları buradan yapılır.
  * ====================================================================== */
 
-import { D, type DecimalSource } from '../utils/decimal';
+import { D, type DecimalSource } from '../utils/decimal.ts';
 
 /** Tek bir makine türünün sabit (seviyeden bağımsız) verileri */
 export interface MachineDefinition {

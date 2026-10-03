@@ -20,21 +20,78 @@ import { HUD } from '../ui/HUD';
 import { MilestoneBar } from '../ui/MilestoneBar';
 import { MachineModal } from '../ui/MachineModal';
 import { SettingsPanel } from '../ui/SettingsPanel';
-import { FactoryView } from '../factory/FactoryView';
+import { OfflineEarningsModal } from '../ui/OfflineEarningsModal';
+import { calculateOfflineReport } from '../ui/OfflineEarningsHelper.ts';
+import { GridView } from '../factory/view/GridView.ts';
+import { CameraController } from '../factory/view/CameraController.ts';
+import { GridMap } from '../factory/simulation/GridMap.ts';
+import { LogisticsNetwork, type DeliveredItemEvent } from '../factory/simulation/LogisticsNetwork.ts';
+import { ProductionEngine } from '../factory/simulation/ProductionEngine.ts';
+import { ConveyorRenderer } from '../factory/view/ConveyorRenderer.ts';
+import { MachineRenderer } from '../factory/view/MachineRenderer.ts';
+import { ItemSpritePool } from '../factory/view/ItemSpritePool.ts';
+import { ItemFlowAnimator } from '../factory/view/ItemFlowAnimator.ts';
+import { MachineStatusIndicator } from '../factory/view/MachineStatusIndicator.ts';
+import { MachineEntity } from '../factory/simulation/MachineEntity.ts';
+import { defaultMachineRegistry } from '../factory/simulation/MachineRegistry.ts';
+import { defaultItemRegistry } from '../factory/simulation/ItemRegistry.ts';
+import { FactorySerializer } from '../factory/simulation/FactorySerializer.ts';
+import { GridCoordinates } from '../factory/view/GridCoordinates.ts';
 import { RocketHangarView } from '../ui/RocketHangarView';
+import { RocketHangarBridge } from '../factory/simulation/RocketHangarBridge';
+import { FactoryEconomy } from '../factory/simulation/FactoryEconomy';
+import { PlotExpansionManager } from '../factory/progression/PlotExpansionManager.ts';
+import { PlacementController, type PlacementItem } from '../factory/input/PlacementController.ts';
+import { BuildMenuModal } from '../ui/BuildMenuModal.ts';
+import { DemolishTool } from '../factory/input/DemolishTool.ts';
+import { DemolishMath } from '../factory/input/DemolishMath.ts';
+import { MachineInspectorModal } from '../factory/view/MachineInspectorModal.ts';
+import { TerminalInspectorModal } from '../ui/TerminalInspectorModal.ts';
+import { CONVEYOR_BUILD_COST } from '../factory/input/PlacementMath.ts';
 import { PALETTE, FONT_FAMILY, PixelUIHelper } from '../ui/theme';
+import { sound } from '../audio/SoundManager.ts';
+import { fx } from '../effects/PixelParticleManager.ts';
+import { crazyGames } from '../integration/CrazyGamesSDK.ts';
 
 export class GameScene extends Phaser.Scene {
   private economy!: EconomyManager;
+  private hangarBridge!: RocketHangarBridge;
+  private factoryEconomy!: FactoryEconomy;
+  private plotManager!: PlotExpansionManager;
 
   /* UI bileşenleri */
   private hud!: HUD;
   private milestoneBar!: MilestoneBar;
   private machineModal!: MachineModal;
   private settingsPanel!: SettingsPanel;
+  private offlineEarningsModal!: OfflineEarningsModal;
 
-  /* Fabrika Görsel Katmanı */
-  private factoryView!: FactoryView;
+  /* 2D Fabrika Zemin Izgarası ve Kamerası */
+  private gridMap!: GridMap;
+  private gridView!: GridView;
+  private cameraController!: CameraController;
+  private factoryCamera!: Phaser.Cameras.Scene2D.Camera;
+
+  /* 2D Simülasyon Motorları */
+  private logistics!: LogisticsNetwork;
+  private productionEngine!: ProductionEngine;
+
+  /* 2D Lojistik ve Makine Görselleştirme Katmanları */
+  private conveyorRenderer!: ConveyorRenderer;
+  private machineRenderer!: MachineRenderer;
+  private itemContainer!: Phaser.GameObjects.Container;
+  private itemPool!: ItemSpritePool;
+  private itemFlowAnimator!: ItemFlowAnimator;
+  private machineStatusIndicator!: MachineStatusIndicator;
+
+  /* İnşa ve Yerleşim Kontrolleri */
+  private placementController!: PlacementController;
+  private buildMenuModal!: BuildMenuModal;
+
+  /* Yıkım, Makine ve Terminal İnceleme Araçları */
+  private demolishTool!: DemolishTool;
+  private machineInspectorModal!: MachineInspectorModal;
+  private terminalModal!: TerminalInspectorModal;
 
   /* Roket Hangarı & Fırlatma Rampası (Modal Penceresi) */
   private rocketHangar!: RocketHangarView;
@@ -42,23 +99,56 @@ export class GameScene extends Phaser.Scene {
   /* Arka plan */
   private bgTile!: Phaser.GameObjects.TileSprite;
 
-  /* Alt Konsol Tablası (Arcade Control Deck) */
+  /* Alt Konsol Tablası (Arcade Control Deck Grounding) */
   private consoleDeckBg!: Phaser.GameObjects.NineSlice;
 
-  /* Alt Kontrol Butonları: Manuel Üret ve Fırlatma Modu */
-  private clickBtnContainer!: Phaser.GameObjects.Container;
-  private clickBtnBg!: Phaser.GameObjects.NineSlice;
-  private clickBtnIcon!: Phaser.GameObjects.Image;
-  private clickBtnText!: Phaser.GameObjects.Text;
-  private clickInfoText!: Phaser.GameObjects.Text;
-  private clickZone!: Phaser.GameObjects.Zone;
+  /* Alt Kontrol Butonları: 4 Butonlu İnşa & Hangar Araç Çubuğu */
+  private manualBtnContainer!: Phaser.GameObjects.Container;
+  private manualBtnBg!: Phaser.GameObjects.NineSlice;
+  private manualBtnIcon!: Phaser.GameObjects.Image;
+  private manualBtnText!: Phaser.GameObjects.Text;
+  private manualBtnSubText!: Phaser.GameObjects.Text;
+  private manualZone!: Phaser.GameObjects.Zone;
 
-  private launchModeBtnContainer!: Phaser.GameObjects.Container;
-  private launchModeBtnBg!: Phaser.GameObjects.NineSlice;
-  private launchModeBtnIcon!: Phaser.GameObjects.Image;
-  private launchModeBtnText!: Phaser.GameObjects.Text;
-  private launchModeSubText!: Phaser.GameObjects.Text;
-  private launchModeZone!: Phaser.GameObjects.Zone;
+  private conveyorBtnContainer!: Phaser.GameObjects.Container;
+  private conveyorBtnBg!: Phaser.GameObjects.NineSlice;
+  private conveyorBtnIcon!: Phaser.GameObjects.Image;
+  private conveyorBtnText!: Phaser.GameObjects.Text;
+  private conveyorBtnSubText!: Phaser.GameObjects.Text;
+  private conveyorZone!: Phaser.GameObjects.Zone;
+
+  private buildBtnContainer!: Phaser.GameObjects.Container;
+  private buildBtnBg!: Phaser.GameObjects.NineSlice;
+  private buildBtnIcon!: Phaser.GameObjects.Image;
+  private buildBtnText!: Phaser.GameObjects.Text;
+  private buildBtnSubText!: Phaser.GameObjects.Text;
+  private buildZone!: Phaser.GameObjects.Zone;
+
+  private hangarBtnContainer!: Phaser.GameObjects.Container;
+  private hangarBtnBg!: Phaser.GameObjects.NineSlice;
+  private hangarBtnIcon!: Phaser.GameObjects.Image;
+  private hangarBtnText!: Phaser.GameObjects.Text;
+  private hangarBtnSubText!: Phaser.GameObjects.Text;
+  private hangarZone!: Phaser.GameObjects.Zone;
+
+  /* Aktif Yerleşim Çubuğu (Active Placement Action Bar) */
+  private placementBarContainer!: Phaser.GameObjects.Container;
+  private placementBarBg!: Phaser.GameObjects.NineSlice;
+  private placementBarText!: Phaser.GameObjects.Text;
+  private placementRotateBg!: Phaser.GameObjects.NineSlice;
+  private placementRotateText!: Phaser.GameObjects.Text;
+  private placementRotateZone!: Phaser.GameObjects.Zone;
+  private placementCancelBg!: Phaser.GameObjects.NineSlice;
+  private placementCancelIcon!: Phaser.GameObjects.Image;
+  private placementCancelZone!: Phaser.GameObjects.Zone;
+
+  /* Aktif Yıkım Çubuğu (Active Demolish Action Bar) */
+  private demolishBarContainer!: Phaser.GameObjects.Container;
+  private demolishBarBg!: Phaser.GameObjects.NineSlice;
+  private demolishBarText!: Phaser.GameObjects.Text;
+  private demolishCancelBg!: Phaser.GameObjects.NineSlice;
+  private demolishCancelIcon!: Phaser.GameObjects.Image;
+  private demolishCancelZone!: Phaser.GameObjects.Zone;
 
   /* Bildirim */
   private notificationText!: Phaser.GameObjects.Text;
@@ -70,8 +160,8 @@ export class GameScene extends Phaser.Scene {
   private lastUnlockState: boolean[] = [];
 
   /* Düğme boyutları */
-  private clickBtnW = 180;
-  private clickBtnH = 46;
+  private dockBtnW = 120;
+  private dockBtnH = 44;
 
   constructor() {
     super({ key: 'GameScene' });
@@ -258,8 +348,8 @@ export class GameScene extends Phaser.Scene {
       });
     }
 
-    /* Kayıt yükle */
-    this.loadGame();
+    /* CrazyGames oyun döngüsü başlangıcı */
+    crazyGames.gameplayStart();
 
     /* Arka plan dokusu */
     this.bgTile = this.add.tileSprite(0, 0, 100, 100, 'factory_bg').setOrigin(0, 0).setDepth(0);
@@ -268,94 +358,518 @@ export class GameScene extends Phaser.Scene {
       fontFamily: FONT_FAMILY,
     };
 
-    /* Merkezde Fabrika Görünümü (Doğrudan cihazlara tıklanabilir) */
-    this.factoryView = new FactoryView(
+    /* Hangar Tedarik Köprüsü ve Fabrika Simülasyon Ekonomisi */
+    this.factoryEconomy = new FactoryEconomy(0, undefined, this.economy);
+    this.hangarBridge = new RocketHangarBridge();
+    this.hangarBridge.syncModuleLevels(this.economy.getAllRocketUpgrades());
+
+    /* 2D Fabrika Mekânsal Izgarası ve Simülasyon Motorları */
+    this.gridMap = new GridMap(24, 24);
+    this.plotManager = new PlotExpansionManager(this.factoryEconomy, this.gridMap);
+    this.logistics = new LogisticsNetwork(this.gridMap);
+    this.productionEngine = new ProductionEngine(this.gridMap, this.logistics);
+
+    /* 2D Fabrika Zemin ve Render Katmanları */
+    this.gridView = new GridView(this, this.gridMap, this.factoryEconomy);
+    this.conveyorRenderer = new ConveyorRenderer(this, this.logistics, this.gridMap);
+    this.machineRenderer = new MachineRenderer(this, this.productionEngine);
+
+    this.itemContainer = this.add.container(0, 0);
+    this.itemPool = new ItemSpritePool(this, defaultItemRegistry, this.itemContainer, {
+      fallbackTextureKey: 'pickup_gear',
+      defaultScale: 1.0,
+    });
+    this.itemFlowAnimator = new ItemFlowAnimator(
       this,
-      this.economy,
-      () => this.onClickProduce(),
-      (amount, fromX, fromY) => this.onProductDeliveredToShipping(amount, fromX, fromY),
-      (machineIdx) => this.machineModal.show(machineIdx),
+      this.logistics,
+      this.itemPool,
+      this.conveyorRenderer,
     );
+
+    this.machineStatusIndicator = new MachineStatusIndicator(
+      this,
+      this.productionEngine,
+      this.machineRenderer,
+    );
+
+    // Derinlik katmanları
+    this.gridView.rootContainer.setDepth(1);
+    this.conveyorRenderer.rootContainer.setDepth(5);
+    this.machineRenderer.rootContainer.setDepth(10);
+    this.itemContainer.setDepth(15);
+    this.machineStatusIndicator.rootContainer.setDepth(20);
+
+    // Tıklama ve Etkileşim Dinleyicileri (Yerleşim ve Yıkım modları aktifken engellenir)
+    this.gridView.onCellClicked = (coord) => {
+      if (this.placementController?.isActive || this.demolishTool?.isActive) return;
+
+      const cell = this.gridMap.getCell(coord.x, coord.y);
+      if (cell?.type === 'INTAKE') {
+        this.terminalModal.open('INTAKE', coord);
+        return;
+      }
+      if (cell?.type === 'EXPORT') {
+        this.terminalModal.open('EXPORT', coord);
+        return;
+      }
+
+      this.onClickProduce();
+    };
+    this.conveyorRenderer.onConveyorClicked = (_coord) => {
+      if (this.placementController?.isActive || this.demolishTool?.isActive) return;
+      this.onClickProduce();
+    };
+    this.machineRenderer.onMachineClicked = (machine) => {
+      if (this.placementController?.isActive || this.demolishTool?.isActive) return;
+      this.machineInspectorModal.open(machine);
+    };
+
+    this.gridView.onPlotUnlockRequested = (plotIndex) => {
+      const res = this.plotManager.unlockPlot(plotIndex);
+      if (res.success) {
+        sound.playMilestone();
+        PlotExpansionManager.playUnlockCelebration(this, res, 32);
+        this.gridView.refresh();
+        this.cameraController.setWorldSize(
+          this.gridView.getActivePixelWidth(),
+          this.gridView.getActivePixelHeight(),
+        );
+        this.saveGame();
+        this.refreshUI();
+        this.showNotification(`PARSEL AÇILDI! ${res.plotName} (${res.newBounds.width}x${res.newBounds.height})`);
+      } else {
+        if (res.error === 'PREVIOUS_PLOT_REQUIRED') {
+          this.showNotification('Önce önceki parseli açmalısın!');
+        } else if (res.error === 'INSUFFICIENT_FUNDS') {
+          this.showNotification(`Yetersiz bakiye! Parsel bedeli: $${res.cost}`);
+        } else if (res.error === 'ALREADY_UNLOCKED') {
+          this.showNotification('Bu parsel zaten açık!');
+        }
+      }
+    };
+
+    // İhracat Teslimatı (EXPORT Delivery Event)
+    this.logistics.onItemDelivered = (event: DeliveredItemEvent) => {
+      const earned = this.factoryEconomy.exportItem(event.itemId);
+      const exportWorld = GridCoordinates.gridToWorldCenter(event.exportCoord, 32);
+      fx.emitSparkles(this, exportWorld.x, exportWorld.y, 8, PALETTE.resourceGold);
+      sound.playCoin();
+      fx.emitFloatingText(
+        this,
+        exportWorld.x,
+        exportWorld.y - 12,
+        `+$${earned}`,
+        PALETTE.resourceGoldHex,
+      );
+      this.onProductDeliveredToShipping(earned, exportWorld.x, exportWorld.y);
+      this.refreshUI();
+    };
+
+    /* Bağımsız Fabrika Katı Viewport Kamerası */
+    this.factoryCamera = this.cameras.add(0, 0, this.scale.width, this.scale.height);
+    this.factoryCamera.setBackgroundColor(PALETTE.bgDeepHex);
+    this.cameraController = new CameraController(
+      this,
+      {
+        enableKeyboard: true,
+        enableWheelZoom: true,
+        enableDragPan: true,
+      },
+      this.factoryCamera,
+    );
+    this.cameraController.attachGridView(this.gridView);
+    this.cameraController.centerOnFactory();
+
+    // Kamera Katmanlama Sırası:
+    // factoryCamera (dünya) önce çizilir (index 0).
+    // cameras.main (UI, HUD ve Modallar) onun ÜSTÜNE çizilir (index 1).
+    const mainIdx = this.cameras.cameras.indexOf(this.cameras.main);
+    const factoryIdx = this.cameras.cameras.indexOf(this.factoryCamera);
+    if (mainIdx !== -1 && factoryIdx !== -1 && mainIdx < factoryIdx) {
+      this.cameras.cameras[mainIdx] = this.factoryCamera;
+      this.cameras.cameras[factoryIdx] = this.cameras.main;
+    }
+
+    /* İnşa ve Yerleşim Kontrolcüsü */
+    this.placementController = new PlacementController(
+      this,
+      this.gridMap,
+      this.logistics,
+      this.productionEngine,
+      this.factoryEconomy,
+      {
+        camera: this.factoryCamera,
+        autoCloseMachines: true,
+        onPlaced: (result) => {
+          if (result.itemType === 'INTAKE_MOVE' || this.placementController.currentItem?.type === 'INTAKE_MOVE') {
+            this.gridView.refresh();
+            this.showNotification(`Hammadde Girişi (${result.coord.x}, ${result.coord.y}) konumuna taşındı!`);
+          } else if (result.itemType === 'EXPORT_MOVE' || this.placementController.currentItem?.type === 'EXPORT_MOVE') {
+            this.gridView.refresh();
+            this.showNotification(`Sevkiyat Sandığı (${result.coord.x}, ${result.coord.y}) konumuna taşındı!`);
+          } else if (result.instanceId) {
+            this.machineRenderer.rebuild();
+            this.machineStatusIndicator.rebuild();
+            const machineDef = this.productionEngine.getMachine(result.instanceId)?.def;
+            const name = machineDef?.name ?? 'Makine';
+            this.showNotification(`${name} kuruldu! (-$${result.spentMoney})`);
+          } else {
+            this.conveyorRenderer.rebuild();
+            this.showNotification(`Bant döşendi! (-$${result.spentMoney})`);
+          }
+          sound.playUpgrade();
+          const worldPos = GridCoordinates.gridToWorldCenter(result.coord, 32);
+          fx.emitSparkles(this, worldPos.x, worldPos.y, 14, PALETTE.resourceGold);
+          this.saveGame();
+          this.refreshUI();
+          if (!this.placementController.isActive) {
+            this.placementBarContainer.setVisible(false);
+          } else {
+            this.updatePlacementBarVisuals();
+          }
+        },
+        onCancel: () => {
+          this.placementBarContainer.setVisible(false);
+        },
+      },
+    );
+
+    /* Makine İnceleme ve Yükseltme Modalı */
+    this.machineInspectorModal = new MachineInspectorModal(
+      this,
+      this.productionEngine,
+      this.factoryEconomy,
+      {
+        onUpgrade: (machine, level) => {
+          this.machineRenderer.rebuild();
+          this.machineStatusIndicator.rebuild();
+          sound.playUpgrade();
+          fx.emitSparkles(this, this.scale.width / 2, this.scale.height / 2, 16, PALETTE.resourceGold);
+          this.saveGame();
+          this.refreshUI();
+          this.showNotification(`${machine.def.name} Seviye ${level}'e yükseltildi!`);
+        },
+        onRecipeChanged: (machine, _recipeId) => {
+          this.saveGame();
+          sound.playCoin();
+          this.showNotification(`${machine.def.name}: Tarif güncellendi!`);
+        },
+        onDemolishRequested: (machine) => {
+          const result = DemolishMath.executeDemolish({
+            grid: this.gridMap,
+            logistics: this.logistics,
+            engine: this.productionEngine,
+            economy: this.factoryEconomy,
+            coord: machine.coord,
+          });
+          if (result.success) {
+            this.machineRenderer.rebuild();
+            this.machineStatusIndicator.rebuild();
+            sound.playDemolish();
+            const worldPos = GridCoordinates.gridToWorldCenter(machine.coord, 32);
+            fx.emitSparkles(this, worldPos.x, worldPos.y, 16, PALETTE.dangerRed);
+            this.saveGame();
+            this.refreshUI();
+            this.showNotification(`${result.name} söküldü! (+$${result.refundAmount} İade)`);
+          }
+        },
+      },
+    );
+
+    /* Yıkım ve Taşıma Aracı */
+    this.demolishTool = new DemolishTool(
+      this,
+      this.gridMap,
+      this.logistics,
+      this.productionEngine,
+      this.factoryEconomy,
+      {
+        camera: this.factoryCamera,
+        onDemolished: (result) => {
+          if (result.targetType === 'MACHINE') {
+            this.machineRenderer.rebuild();
+            this.machineStatusIndicator.rebuild();
+            this.showNotification(`${result.name} söküldü! (+$${result.refundAmount} İade)`);
+          } else {
+            this.conveyorRenderer.rebuild();
+            this.showNotification(`${result.name} söküldü! (+$${result.refundAmount} İade)`);
+          }
+          sound.playDemolish();
+          const firstCoord = result.freedCoords[0];
+          if (firstCoord) {
+            const worldPos = GridCoordinates.gridToWorldCenter(firstCoord, 32);
+            fx.emitSparkles(this, worldPos.x, worldPos.y, 14, PALETTE.dangerRed);
+          }
+          this.saveGame();
+          this.refreshUI();
+        },
+        onCancel: () => {
+          this.demolishBarContainer.setVisible(false);
+        },
+        onProtectedClicked: (name) => {
+          sound.playDemolish();
+          this.showNotification(`⚠️ ${name} silinemez! Taşımak için TAŞI seçeneğini kullanın.`);
+        },
+      },
+    );
+
+    // Yerleşim veya Yıkım modunda sol tık ile sürükleme yerine ilgili araç işlemi yapılır
+    this.cameraController.canPan = () => !this.placementController.isActive && !this.demolishTool.isActive;
+
+    /* Terminal İnceleme ve Taşıma Modalı */
+    this.terminalModal = new TerminalInspectorModal(this, {
+      onRelocate: (type, sourceCoord) => {
+        const placementType = type === 'INTAKE' ? 'INTAKE_MOVE' : 'EXPORT_MOVE';
+        const src =
+          sourceCoord ??
+          (type === 'INTAKE'
+            ? this.gridMap.getIntakeCells()[0]?.coord
+            : this.gridMap.getExportCells()[0]?.coord);
+        this.startPlacement({
+          type: placementType,
+          sourceCoord: src,
+        });
+      },
+    });
+
+    /* İnşa ve Makine Kataloğu Modalı */
+    this.buildMenuModal = new BuildMenuModal(this, this.factoryEconomy, {
+      onSelectItem: (item) => {
+        this.buildMenuModal.hide();
+        this.startPlacement(item);
+      },
+      onDemolishRequested: () => {
+        this.buildMenuModal.hide();
+        this.startDemolishMode();
+      },
+      onRelocateRequested: () => {
+        this.buildMenuModal.hide();
+        this.terminalModal.open('CHOICE');
+      },
+    });
+
+    // Ana kamera (HUD & UI) fabrikayı, zemin arka planını, yerleşim hayaletini ve yıkım katmanını çizmez
+    this.cameras.main.ignore([
+      this.bgTile,
+      this.gridView.rootContainer,
+      this.conveyorRenderer.rootContainer,
+      this.machineRenderer.rootContainer,
+      this.itemContainer,
+      this.machineStatusIndicator.rootContainer,
+      this.placementController.ghostContainer,
+      this.demolishTool.overlayContainer,
+    ]);
 
     /* Alt Konsol Gövdesi (Arcade Control Deck Grounding) */
     this.consoleDeckBg = PixelUIHelper.createPanel(this, 0, 0, 100, 60).setDepth(40);
 
-    /* Tıklama / Manuel Üretim Düğmesi (Büyük Arcade Konsol Butonu) */
-    this.clickBtnContainer = this.add.container(0, 0).setDepth(45);
+    /* 1. Manuel Üretim Düğmesi */
+    this.manualBtnContainer = this.add.container(0, 0).setDepth(45);
+    this.manualBtnBg = PixelUIHelper.createButton(this, 0, 0, this.dockBtnW, this.dockBtnH, 'manual');
+    this.manualBtnContainer.add(this.manualBtnBg);
 
-    this.clickBtnBg = PixelUIHelper.createButton(this, 0, 0, this.clickBtnW, this.clickBtnH, 'manual');
-    this.clickBtnContainer.add(this.clickBtnBg);
+    this.manualBtnIcon = this.add.image(-34, -4, 'icon_gear').setOrigin(0.5);
+    this.manualBtnContainer.add(this.manualBtnIcon);
 
-    this.clickBtnIcon = this.add.image(-50, -4, 'icon_gear').setOrigin(0.5);
-    this.clickBtnContainer.add(this.clickBtnIcon);
-
-    this.clickBtnText = this.add.text(12, -4, 'MANUEL ÜRET', {
-      ...font, fontSize: '14px', color: '#ffffff', fontStyle: 'bold',
+    this.manualBtnText = this.add.text(10, -5, 'MANUEL ÜRET', {
+      ...font, fontSize: '11px', color: '#ffffff', fontStyle: 'bold',
       stroke: '#381600', strokeThickness: 2,
     }).setOrigin(0.5);
-    this.clickBtnContainer.add(this.clickBtnText);
+    this.manualBtnContainer.add(this.manualBtnText);
 
-    this.clickInfoText = this.add.text(0, 10, '', {
-      ...font, fontSize: '10px', color: '#ffedd5', fontStyle: 'bold',
+    this.manualBtnSubText = this.add.text(0, 9, '+1 / tık', {
+      ...font, fontSize: '8.5px', color: '#ffedd5', fontStyle: 'bold',
       stroke: '#281000', strokeThickness: 1.5,
     }).setOrigin(0.5);
-    this.clickBtnContainer.add(this.clickInfoText);
+    this.manualBtnContainer.add(this.manualBtnSubText);
 
-    this.clickZone = this.add.zone(0, 0, this.clickBtnW, this.clickBtnH)
+    this.manualZone = this.add.zone(0, 0, this.dockBtnW, this.dockBtnH)
       .setOrigin(0.5)
       .setInteractive({ useHandCursor: true })
       .on('pointerdown', () => {
-        this.clickBtnBg.setTexture('btn_manual_pressed');
+        this.manualBtnBg.setTexture('btn_manual_pressed');
         this.onClickProduce();
       })
-      .on('pointerup', () => {
-        this.clickBtnBg.setTexture('btn_manual_hover');
-      })
-      .on('pointerover', () => {
-        this.clickBtnBg.setTexture('btn_manual_hover');
-      })
-      .on('pointerout', () => {
-        this.clickBtnBg.setTexture('btn_manual_normal');
-      });
-    this.clickBtnContainer.add(this.clickZone);
+      .on('pointerup', () => this.manualBtnBg.setTexture('btn_manual_hover'))
+      .on('pointerover', () => this.manualBtnBg.setTexture('btn_manual_hover'))
+      .on('pointerout', () => this.manualBtnBg.setTexture('btn_manual_normal'));
+    this.manualBtnContainer.add(this.manualZone);
 
-    /* 2. Fırlatma Modu Düğmesi (Manuel Üret'in yanında, fırlatma özellik sayfasını açar) */
-    this.launchModeBtnContainer = this.add.container(0, 0).setDepth(45);
-    this.launchModeBtnBg = PixelUIHelper.createButton(this, 0, 0, this.clickBtnW, this.clickBtnH, 'launch');
-    this.launchModeBtnContainer.add(this.launchModeBtnBg);
+    /* 2. Bant Döşe Butonu ($5) */
+    this.conveyorBtnContainer = this.add.container(0, 0).setDepth(45);
+    this.conveyorBtnBg = PixelUIHelper.createButton(this, 0, 0, this.dockBtnW, this.dockBtnH, 'green');
+    this.conveyorBtnContainer.add(this.conveyorBtnBg);
 
-    this.launchModeBtnIcon = this.add.image(-56, -5, 'icon_rocket').setOrigin(0.5);
-    this.launchModeBtnContainer.add(this.launchModeBtnIcon);
+    this.conveyorBtnIcon = this.add.image(-34, -4, 'icon_lightning').setOrigin(0.5);
+    this.conveyorBtnContainer.add(this.conveyorBtnIcon);
 
-    this.launchModeBtnText = this.add.text(12, -5, 'FIRLATMA MODU', {
-      ...font, fontSize: '13.5px', color: '#ffffff', fontStyle: 'bold',
-      stroke: '#042323', strokeThickness: 2,
+    this.conveyorBtnText = this.add.text(10, -5, 'BANT DÖŞE', {
+      ...font, fontSize: '11px', color: '#ffffff', fontStyle: 'bold',
+      stroke: '#082810', strokeThickness: 2,
     }).setOrigin(0.5);
-    this.launchModeBtnContainer.add(this.launchModeBtnText);
+    this.conveyorBtnContainer.add(this.conveyorBtnText);
 
-    this.launchModeSubText = this.add.text(0, 10, 'Geliştir & Uçuşa Geç', {
-      ...font, fontSize: '9.5px', color: '#cbf8f2', fontStyle: 'bold',
-      stroke: '#042323', strokeThickness: 1.5,
+    this.conveyorBtnSubText = this.add.text(0, 9, `$${CONVEYOR_BUILD_COST}`, {
+      ...font, fontSize: '8.5px', color: '#dcfce7', fontStyle: 'bold',
+      stroke: '#082810', strokeThickness: 1.5,
     }).setOrigin(0.5);
-    this.launchModeBtnContainer.add(this.launchModeSubText);
+    this.conveyorBtnContainer.add(this.conveyorBtnSubText);
 
-    this.launchModeZone = this.add.zone(0, 0, this.clickBtnW, this.clickBtnH)
+    this.conveyorZone = this.add.zone(0, 0, this.dockBtnW, this.dockBtnH)
       .setOrigin(0.5)
       .setInteractive({ useHandCursor: true })
       .on('pointerdown', () => {
-        this.launchModeBtnBg.setTexture('btn_launch_pressed');
+        this.conveyorBtnBg.setTexture('btn_green_pressed');
+        if (this.demolishTool?.isActive) this.cancelDemolishMode();
+        this.startPlacement({ type: 'CONVEYOR' });
+      })
+      .on('pointerup', () => this.conveyorBtnBg.setTexture('btn_green_hover'))
+      .on('pointerover', () => this.conveyorBtnBg.setTexture('btn_green_hover'))
+      .on('pointerout', () => this.conveyorBtnBg.setTexture('btn_green_normal'));
+    this.conveyorBtnContainer.add(this.conveyorZone);
+
+    /* 3. Makine Kur Butonu (Katalog) */
+    this.buildBtnContainer = this.add.container(0, 0).setDepth(45);
+    this.buildBtnBg = PixelUIHelper.createButton(this, 0, 0, this.dockBtnW, this.dockBtnH, 'green');
+    this.buildBtnContainer.add(this.buildBtnBg);
+
+    this.buildBtnIcon = this.add.image(-34, -4, 'icon_factory').setOrigin(0.5);
+    this.buildBtnContainer.add(this.buildBtnIcon);
+
+    this.buildBtnText = this.add.text(10, -5, 'MAKİNE KUR', {
+      ...font, fontSize: '11px', color: '#ffffff', fontStyle: 'bold',
+      stroke: '#082810', strokeThickness: 2,
+    }).setOrigin(0.5);
+    this.buildBtnContainer.add(this.buildBtnText);
+
+    this.buildBtnSubText = this.add.text(0, 9, 'Katalog', {
+      ...font, fontSize: '8.5px', color: '#dcfce7', fontStyle: 'bold',
+      stroke: '#082810', strokeThickness: 1.5,
+    }).setOrigin(0.5);
+    this.buildBtnContainer.add(this.buildBtnSubText);
+
+    this.buildZone = this.add.zone(0, 0, this.dockBtnW, this.dockBtnH)
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerdown', () => {
+        this.buildBtnBg.setTexture('btn_green_pressed');
+        if (this.placementController.isActive) this.placementController.cancelPlacement();
+        if (this.demolishTool?.isActive) this.cancelDemolishMode();
+        this.buildMenuModal.show();
+      })
+      .on('pointerup', () => this.buildBtnBg.setTexture('btn_green_hover'))
+      .on('pointerover', () => this.buildBtnBg.setTexture('btn_green_hover'))
+      .on('pointerout', () => this.buildBtnBg.setTexture('btn_green_normal'));
+    this.buildBtnContainer.add(this.buildZone);
+
+    /* 4. Roket Hangarı Butonu */
+    this.hangarBtnContainer = this.add.container(0, 0).setDepth(45);
+    this.hangarBtnBg = PixelUIHelper.createButton(this, 0, 0, this.dockBtnW, this.dockBtnH, 'launch');
+    this.hangarBtnContainer.add(this.hangarBtnBg);
+
+    this.hangarBtnIcon = this.add.image(-34, -5, 'icon_rocket').setOrigin(0.5);
+    this.hangarBtnContainer.add(this.hangarBtnIcon);
+
+    this.hangarBtnText = this.add.text(10, -5, 'HANGAR', {
+      ...font, fontSize: '11px', color: '#ffffff', fontStyle: 'bold',
+      stroke: '#042323', strokeThickness: 2,
+    }).setOrigin(0.5);
+    this.hangarBtnContainer.add(this.hangarBtnText);
+
+    this.hangarBtnSubText = this.add.text(0, 9, 'Geliştir & Uç', {
+      ...font, fontSize: '8.5px', color: '#cbf8f2', fontStyle: 'bold',
+      stroke: '#042323', strokeThickness: 1.5,
+    }).setOrigin(0.5);
+    this.hangarBtnContainer.add(this.hangarBtnSubText);
+
+    this.hangarZone = this.add.zone(0, 0, this.dockBtnW, this.dockBtnH)
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerdown', () => {
+        this.hangarBtnBg.setTexture('btn_launch_pressed');
+        if (this.placementController.isActive) this.placementController.cancelPlacement();
+        if (this.demolishTool?.isActive) this.cancelDemolishMode();
         this.rocketHangar.show();
       })
-      .on('pointerup', () => {
-        this.launchModeBtnBg.setTexture('btn_launch_hover');
+      .on('pointerup', () => this.hangarBtnBg.setTexture('btn_launch_hover'))
+      .on('pointerover', () => this.hangarBtnBg.setTexture('btn_launch_hover'))
+      .on('pointerout', () => this.hangarBtnBg.setTexture('btn_launch_normal'));
+    this.hangarBtnContainer.add(this.hangarZone);
+
+    /* Aktif Yerleşim Çubuğu (Active Placement Floating Action Bar) */
+    this.placementBarContainer = this.add.container(0, 0).setDepth(55).setVisible(false);
+    this.placementBarBg = PixelUIHelper.createToast(this, 0, 0, 460, 36);
+    this.placementBarContainer.add(this.placementBarBg);
+
+    this.placementBarText = this.add.text(-60, 0, 'YERLEŞTİRİLİYOR...', {
+      ...font, fontSize: '11.5px', color: '#ffffff', fontStyle: 'bold',
+      stroke: '#080c18', strokeThickness: 2,
+    }).setOrigin(0.5);
+    this.placementBarContainer.add(this.placementBarText);
+
+    // Döndür Butonu
+    this.placementRotateBg = PixelUIHelper.createButton(this, 134, 0, 92, 26, 'green');
+    this.placementBarContainer.add(this.placementRotateBg);
+    this.placementRotateText = this.add.text(134, 0, 'DÖNDÜR (R)', {
+      ...font, fontSize: '9.5px', color: '#ffffff', fontStyle: 'bold',
+    }).setOrigin(0.5);
+    this.placementBarContainer.add(this.placementRotateText);
+    this.placementRotateZone = this.add.zone(134, 0, 92, 26)
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerdown', () => {
+        this.placementRotateBg.setTexture('btn_green_pressed');
+        this.placementController.rotate(true);
       })
-      .on('pointerover', () => {
-        this.launchModeBtnBg.setTexture('btn_launch_hover');
+      .on('pointerup', () => this.placementRotateBg.setTexture('btn_green_hover'))
+      .on('pointerover', () => this.placementRotateBg.setTexture('btn_green_hover'))
+      .on('pointerout', () => this.placementRotateBg.setTexture('btn_green_normal'));
+    this.placementBarContainer.add(this.placementRotateZone);
+
+    // İptal Butonu
+    this.placementCancelBg = PixelUIHelper.createButton(this, 196, 0, 26, 26, 'danger');
+    this.placementBarContainer.add(this.placementCancelBg);
+    this.placementCancelIcon = this.add.image(196, 0, 'icon_close').setOrigin(0.5).setScale(0.8);
+    this.placementBarContainer.add(this.placementCancelIcon);
+    this.placementCancelZone = this.add.zone(196, 0, 26, 26)
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerdown', () => {
+        this.placementCancelBg.setTexture('btn_danger_pressed');
+        this.placementController.cancelPlacement();
       })
-      .on('pointerout', () => {
-        this.launchModeBtnBg.setTexture('btn_launch_normal');
-      });
-    this.launchModeBtnContainer.add(this.launchModeZone);
+      .on('pointerup', () => this.placementCancelBg.setTexture('btn_danger_normal'))
+      .on('pointerover', () => this.placementCancelBg.setTexture('btn_danger_pressed'))
+      .on('pointerout', () => this.placementCancelBg.setTexture('btn_danger_normal'));
+    this.placementBarContainer.add(this.placementCancelZone);
+
+    /* Aktif Yıkım Çubuğu (Active Demolish Floating Action Bar) */
+    this.demolishBarContainer = this.add.container(0, 0).setDepth(55).setVisible(false);
+    this.demolishBarBg = PixelUIHelper.createToast(this, 0, 0, 460, 36);
+    this.demolishBarContainer.add(this.demolishBarBg);
+
+    this.demolishBarText = this.add.text(-40, 0, '⚠️ SÖKÜM MODU (X) | Sökmek istediğin nesneye tıkla (%100 İade)', {
+      ...font, fontSize: '11px', color: '#ffb4b4', fontStyle: 'bold',
+      stroke: '#280c0c', strokeThickness: 2,
+    }).setOrigin(0.5);
+    this.demolishBarContainer.add(this.demolishBarText);
+
+    // Yıkım İptal Butonu
+    this.demolishCancelBg = PixelUIHelper.createButton(this, 196, 0, 26, 26, 'danger');
+    this.demolishBarContainer.add(this.demolishCancelBg);
+    this.demolishCancelIcon = this.add.image(196, 0, 'icon_close').setOrigin(0.5).setScale(0.8);
+    this.demolishBarContainer.add(this.demolishCancelIcon);
+    this.demolishCancelZone = this.add.zone(196, 0, 26, 26)
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerdown', () => {
+        this.demolishCancelBg.setTexture('btn_danger_pressed');
+        this.cancelDemolishMode();
+      })
+      .on('pointerup', () => this.demolishCancelBg.setTexture('btn_danger_normal'))
+      .on('pointerover', () => this.demolishCancelBg.setTexture('btn_danger_pressed'))
+      .on('pointerout', () => this.demolishCancelBg.setTexture('btn_danger_normal'));
+    this.demolishBarContainer.add(this.demolishCancelZone);
 
     /* Bildirim alanı (Raster 9-Slice Toast) */
     this.notificationBgSlice = PixelUIHelper.createToast(this, 0, 0, 100, 32).setDepth(150).setAlpha(0);
@@ -365,7 +879,13 @@ export class GameScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(151).setAlpha(0);
 
     /* Roket Hangarı & Fırlatma Rampası (Pop-up Modal Penceresi) */
-    this.rocketHangar = new RocketHangarView(this, this.economy, () => this.startFlight());
+    this.rocketHangar = new RocketHangarView(
+      this,
+      this.economy,
+      () => this.startFlight(),
+      this.hangarBridge,
+      this.factoryEconomy,
+    );
 
     /* HUD */
     this.hud = new HUD(this, () => this.settingsPanel.show());
@@ -377,12 +897,60 @@ export class GameScene extends Phaser.Scene {
     this.machineModal = new MachineModal(this, this.economy, (idx) => {
       this.saveGame();
       this.refreshUI();
-      this.factoryView.playMachineUpgradeEffect(idx);
+      sound.playUpgrade();
+      fx.emitSparkles(this, this.scale.width / 2, this.scale.height / 2, 16, PALETTE.resourceGold);
       this.showNotification(`${MACHINES[idx].name} başarıyla geliştirildi!`);
     });
 
     /* Ayarlar paneli */
     this.settingsPanel = new SettingsPanel(this, () => this.resetGame());
+
+    /* Çevrimdışı İlerleme / Hoş Geldin Modalı */
+    this.offlineEarningsModal = new OfflineEarningsModal(this, {
+      onClaim: (gained) => {
+        this.economy.addResources(gained);
+        this.saveGame();
+        this.refreshUI();
+        this.showNotification(`+${formatNumber(gained)} ${RESOURCE_NAME} kasana eklendi!`);
+      },
+      onDoubleClaim: async (gained) => {
+        // CrazyGames Rewarded Video Reklamı
+        const watched = await crazyGames.requestAd('rewarded');
+        if (!watched) {
+          this.showNotification('Reklam tamamlanamadı, ödül verilemedi.');
+          return;
+        }
+        this.economy.addResources(gained);
+        this.saveGame();
+        this.refreshUI();
+        this.showNotification(`🎉 2X ÖDÜL! +${formatNumber(gained)} ${RESOURCE_NAME} kasana eklendi!`);
+      },
+    });
+
+    /* Fabrika kamerası UI bileşenlerini çizmez */
+    this.hud.ignoreCamera(this.factoryCamera);
+    this.milestoneBar.ignoreCamera(this.factoryCamera);
+    this.buildMenuModal.ignoreCamera(this.factoryCamera);
+    this.machineInspectorModal.ignoreCamera(this.factoryCamera);
+    this.terminalModal.ignoreCamera(this.factoryCamera);
+    this.factoryCamera.ignore([
+      this.bgTile,
+      this.consoleDeckBg,
+      this.manualBtnContainer,
+      this.conveyorBtnContainer,
+      this.buildBtnContainer,
+      this.hangarBtnContainer,
+      this.placementBarContainer,
+      this.demolishBarContainer,
+      this.notificationBgSlice,
+      this.notificationText,
+      this.machineModal.container,
+      this.rocketHangar.container,
+      this.machineInspectorModal.container,
+      this.terminalModal.container,
+      this.settingsPanel.container,
+      this.offlineEarningsModal.rootContainer,
+    ]);
 
     /* Kilit açılma durumları */
     this.lastUnlockState = MACHINES.map((_, i) => this.economy.isUnlocked(i));
@@ -394,23 +962,32 @@ export class GameScene extends Phaser.Scene {
     /* Ekonomi olayları */
     this.economy.on((evt) => {
       if (evt.type === 'purchase' || evt.type === 'upgrade') {
+        sound.playUpgrade();
+        fx.emitSparkles(this, this.scale.width / 2, this.scale.height / 2, 16, PALETTE.resourceGold);
         const idx = MACHINES.findIndex(m => m.id === evt.machineId);
         if (idx >= 0) {
-          this.factoryView.playMachineUpgradeEffect(idx);
-          // Layout'u yeniden çalıştır: satın alım sonrası makine sprite'ları doğru texture/scale alır
           this.layoutAll();
           if (this.machineModal.isOpen()) {
             this.machineModal.refresh();
           }
         }
       } else if (evt.type === 'goal_reached') {
+        crazyGames.happytime();
+        sound.playMilestone();
+        fx.emitConfetti(this, this.scale.width / 2, 80, 32);
         this.milestoneBar.playGoalReachedEffect();
         this.showNotification(`HEDEF TAMAMLANDI! Fabrika gücü arttı.`);
       } else if (evt.type === 'rocket_upgrade') {
+        sound.playUpgrade();
+        fx.emitSparkles(this, this.scale.width / 2, this.scale.height / 2, 20, PALETTE.rocketCyan);
+        this.saveGame();
         this.rocketHangar.refresh();
         this.showNotification(`Roket geliştirildi! Seviye ${evt.newLevel}`);
       }
     });
+
+    /* Kayıt yükle */
+    this.loadGame();
 
     /* İlk UI güncellemesi */
     this.refreshUI();
@@ -421,19 +998,46 @@ export class GameScene extends Phaser.Scene {
    * ================================================================ */
 
   private startFlight(): void {
+    if (this.placementController?.isActive) {
+      this.placementController.cancelPlacement();
+    }
+    if (this.demolishTool?.isActive) {
+      this.cancelDemolishMode();
+    }
+    if (this.machineInspectorModal?.isOpen) {
+      this.machineInspectorModal.close();
+    }
+    if (this.terminalModal?.isOpen) {
+      this.terminalModal.close();
+    }
+    sound.playLaunch();
+    this.cameraController.setEnabled(false);
     this.saveGame();
+    crazyGames.gameplayStop();
     this.scene.pause('GameScene');
-    this.scene.launch('FlightScene', { economy: this.economy });
+    this.scene.launch('FlightScene', {
+      economy: this.economy,
+      bridge: this.hangarBridge,
+      factoryEconomy: this.factoryEconomy,
+    });
   }
 
   /** Uçuş tamamlandığında FlightScene'den çağrılır */
   onReturnFromFlight(totalResources: number, distance: number): void {
+    crazyGames.gameplayStart();
+    sound.playCoin();
+    fx.emitSparkles(this, this.scale.width / 2, 120, 20, PALETTE.successGreen);
+    this.cameraController.setEnabled(true);
+    this.gridView.refresh();
     this.saveGame();
     this.refreshUI();
     this.rocketHangar.refresh();
 
+    const multiplier = this.factoryEconomy ? this.factoryEconomy.revenueMultiplier : 1.0;
+    const bonusText = multiplier > 1.0 ? ` (x${multiplier.toFixed(2)} Fabrika Çarpanı)` : '';
+
     this.showNotification(
-      `Uçuş tamamlandı! +${formatNumber(totalResources)} ${RESOURCE_NAME} (${distance}m)`,
+      `Uçuş tamamlandı! +${formatNumber(totalResources)} ${RESOURCE_NAME} (${distance}m)${bonusText}`,
     );
 
     // HUD'a doğru kutlama parçacıkları
@@ -459,9 +1063,49 @@ export class GameScene extends Phaser.Scene {
 
     /* Otomatik üretim (zaman temelli ekonomi hesabı) */
     this.economy.tick(dt);
+    this.factoryEconomy.tick(dt);
 
-    /* Fabrika animasyonlarını güncelle */
-    this.factoryView.update(_time, delta);
+    /* 2D Simülasyon adımları */
+    this.logistics.tick(dt);
+    this.productionEngine.tick(dt);
+
+    /* 2D Görsel akış ve animasyonlar (60 FPS) */
+    this.conveyorRenderer.update(dt);
+    this.itemFlowAnimator.update(dt);
+    this.machineRenderer.update(dt);
+    this.machineStatusIndicator.update(dt);
+
+    /* Makine İnceleme Modalı Canlı Yenileme */
+    if (this.machineInspectorModal?.isOpen) {
+      this.machineInspectorModal.update(_time, delta);
+    }
+
+    /* Yıkım çubuğu görünürlük senkronizasyonu (Klavye X veya ESC ile açılıp kapandığında) */
+    if (this.demolishTool?.isActive !== this.demolishBarContainer.visible) {
+      this.demolishBarContainer.setVisible(this.demolishTool.isActive);
+    }
+
+    /* Kamera kontrolleri (Herhangi bir modal açık değilse) */
+    const isAnyModalOpen =
+      this.settingsPanel.visible ||
+      this.machineModal.isOpen() ||
+      this.buildMenuModal.isOpen() ||
+      this.machineInspectorModal?.isOpen ||
+      this.terminalModal?.isOpen ||
+      this.rocketHangar.isOpen() ||
+      this.offlineEarningsModal.isOpen();
+
+    if (isAnyModalOpen && this.placementController?.isActive) {
+      this.placementController.cancelPlacement();
+    }
+    if (isAnyModalOpen && this.demolishTool?.isActive) {
+      this.cancelDemolishMode();
+    }
+
+    this.cameraController.setEnabled(!isAnyModalOpen);
+    if (!isAnyModalOpen) {
+      this.cameraController.update(dt);
+    }
 
     /* Kilit açılma kontrolü */
     this.checkUnlocks();
@@ -482,36 +1126,26 @@ export class GameScene extends Phaser.Scene {
    * ================================================================ */
 
   private onClickProduce(): void {
+    sound.initContext();
+    sound.playCoin();
     const gained = this.economy.produceByClick();
 
     /* Düğme esneme animasyonu */
     this.tweens.add({
-      targets: this.clickBtnContainer,
+      targets: this.manualBtnContainer,
       scaleX: 0.94, scaleY: 0.94,
       duration: 60, yoyo: true,
       ease: 'Quad.easeOut',
     });
 
-    /* Fabrikada görsel ürün akışını tetikle */
-    this.factoryView.triggerManualProduction(gained.toNumber());
-
     /* HUD titreşimi */
     this.hud.pulse();
 
-    /* Yüzen +N metni */
-    const cx = this.clickBtnContainer.x + Phaser.Math.Between(-10, 10);
-    const cy = this.clickBtnContainer.y - this.clickBtnH / 2;
-    const floatText = this.add.text(cx, cy, `+${formatNumber(gained)}`, {
-      fontFamily: 'Arial, Helvetica, sans-serif',
-      fontSize: '18px', color: '#2ecc71', fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(100);
-
-    this.tweens.add({
-      targets: floatText,
-      y: cy - 40, alpha: 0,
-      duration: 550, ease: 'Quad.easeOut',
-      onComplete: () => floatText.destroy(),
-    });
+    /* Yüzen +N metni ve kıvılcım */
+    const cx = this.manualBtnContainer.x + Phaser.Math.Between(-10, 10);
+    const cy = this.manualBtnContainer.y - this.dockBtnH / 2;
+    fx.emitFloatingText(this, cx, cy, `+${formatNumber(gained)}`, PALETTE.resourceGoldHex);
+    fx.emitSparkles(this, cx, cy, 6, PALETTE.resourceGold);
   }
 
   /* ================================================================
@@ -546,6 +1180,8 @@ export class GameScene extends Phaser.Scene {
       onComplete: () => {
         coin.destroy();
         this.hud.pulse();
+        sound.playCoin();
+        fx.emitSparkles(this, target.x, target.y, 6, PALETTE.resourceGold);
       },
     });
   }
@@ -572,7 +1208,6 @@ export class GameScene extends Phaser.Scene {
       if (nowUnlocked && !this.lastUnlockState[i]) {
         this.lastUnlockState[i] = true;
         this.showNotification(`YENİ CİHAZ: ${MACHINES[i].name} kuruluma hazır!`);
-        this.factoryView.refreshBays();
         if (this.machineModal && this.machineModal.isOpen()) {
           this.machineModal.refresh();
         }
@@ -599,16 +1234,19 @@ export class GameScene extends Phaser.Scene {
     /* Manuel üretim bilgisi */
     const globalMul = this.economy.getGlobalMultiplier();
     const effectiveClick = this.economy.clickPower.mul(globalMul);
-    this.clickInfoText.setText(
-      `+${formatNumber(effectiveClick)} ${RESOURCE_NAME} / tık`,
+    this.manualBtnSubText.setText(
+      `+${formatNumber(effectiveClick)} / tık`,
     );
 
-    /* Fabrika cihazlarının durumunu ve rozetlerini yenile */
-    this.factoryView.refreshBays();
-
-    /* Açık ise makine modalını yenile */
+    /* Açık ise makine ve inşa modallarını yenile */
     if (this.machineModal && this.machineModal.isOpen()) {
       this.machineModal.refresh();
+    }
+    if (this.buildMenuModal && this.buildMenuModal.isOpen()) {
+      this.buildMenuModal.refresh();
+    }
+    if (this.machineInspectorModal && this.machineInspectorModal.isOpen) {
+      this.machineInspectorModal.refresh();
     }
 
     /* Roket Hangarı Kartları ve Verileri */
@@ -619,12 +1257,56 @@ export class GameScene extends Phaser.Scene {
    * KAYIT / YÜKLEME
    * ================================================================ */
 
+  /**
+   * Yeni oyunda 8x8 başlangıç parselinde çalışan starter konveyör ve kırıcı hattını kurar.
+   */
+  private setupStarterFactoryLayout(): void {
+    // 1. Sabit Giriş ve Çıkış
+    this.gridMap.setIntake(1, 0, 'iron_ore', 1.0);
+    this.gridMap.setExport(6, 7);
+
+    // 2. Kırıcı Makine at (1, 3) (1x1 makine)
+    const crusherDef = defaultMachineRegistry.getOrThrow('crusher');
+    const crusher = new MachineEntity('starter_crusher', crusherDef, { x: 1, y: 3 }, 0);
+    crusher.setRecipe('recipe_crush_iron_ore');
+    this.productionEngine.addMachine(crusher);
+
+    // 3. Konveyör hatları:
+    // Giriş: (1, 0) -> (1, 1) -> (1, 2) -> Kırıcı (1, 3)
+    this.logistics.addConveyor({ x: 1, y: 1 }, 'SOUTH', 1.0);
+    this.logistics.addConveyor({ x: 1, y: 2 }, 'SOUTH', 1.0);
+
+    // Çıkış: Kırıcı (1, 3) -> (1, 4) -> (1, 5) -> (1, 6) -> (1, 7)
+    this.logistics.addConveyor({ x: 1, y: 4 }, 'SOUTH', 1.0);
+    this.logistics.addConveyor({ x: 1, y: 5 }, 'SOUTH', 1.0);
+    this.logistics.addConveyor({ x: 1, y: 6 }, 'SOUTH', 1.0);
+
+    // Viraj: (1, 7) EAST
+    this.logistics.addConveyor({ x: 1, y: 7 }, 'EAST', 1.0);
+
+    // İhracata doğru ilerleme: (2, 7), (3, 7), (4, 7), (5, 7) -> EXPORT (6, 7)
+    this.logistics.addConveyor({ x: 2, y: 7 }, 'EAST', 1.0);
+    this.logistics.addConveyor({ x: 3, y: 7 }, 'EAST', 1.0);
+    this.logistics.addConveyor({ x: 4, y: 7 }, 'EAST', 1.0);
+    this.logistics.addConveyor({ x: 5, y: 7 }, 'EAST', 1.0);
+  }
+
   private saveGame(): void {
-    SaveManager.save(this.economy.serialize());
+    const factoryLayout = FactorySerializer.serialize(
+      this.gridMap,
+      this.logistics,
+      this.productionEngine,
+      this.factoryEconomy,
+    );
+    SaveManager.save(this.economy.serialize(), {
+      factoryEconomy: this.factoryEconomy,
+      hangar: this.hangarBridge,
+      factoryLayout,
+    });
   }
 
   private loadGame(): void {
-    const { data, wasCorrupted } = SaveManager.load();
+    const { data, wasCorrupted } = SaveManager.loadUnified();
 
     if (wasCorrupted) {
       this.time.delayedCall(500, () => {
@@ -632,23 +1314,70 @@ export class GameScene extends Phaser.Scene {
       });
     }
 
-    this.economy.deserialize(data);
+    this.economy.deserialize(data.economy);
+
+    if (this.hangarBridge && data.hangar) {
+      this.hangarBridge.deserialize(data.hangar);
+    } else if (this.hangarBridge) {
+      this.hangarBridge.syncModuleLevels(this.economy.getAllRocketUpgrades());
+    }
+
+    if (this.factoryEconomy && data.factoryEconomy?.unlockedPlots) {
+      this.factoryEconomy.unlockedPlots = new Set(data.factoryEconomy.unlockedPlots);
+      if (data.factoryEconomy.revenueMultiplier) {
+        this.factoryEconomy.revenueMultiplier = data.factoryEconomy.revenueMultiplier;
+      }
+    }
+
+    // 2D Fabrika yerleşimi (Conveyors, Machines, Intakes, Exports)
+    if (data.factoryLayout) {
+      if (data.factoryLayout.intakes) {
+        for (const intake of data.factoryLayout.intakes) {
+          if (this.gridMap.isInBounds(intake.coord.x, intake.coord.y)) {
+            this.gridMap.setIntake(intake.coord.x, intake.coord.y, intake.itemId, intake.intervalSec);
+          }
+        }
+      }
+      if (data.factoryLayout.exports) {
+        for (const exp of data.factoryLayout.exports) {
+          if (this.gridMap.isInBounds(exp.x, exp.y)) {
+            this.gridMap.setExport(exp.x, exp.y);
+          }
+        }
+      }
+      this.logistics.loadFromSerialized(data.factoryLayout.conveyors);
+      this.productionEngine.loadFromSerialized(data.factoryLayout.machines);
+    } else {
+      this.setupStarterFactoryLayout();
+    }
+
+    if (this.gridView) {
+      this.gridView.refresh();
+      if (this.cameraController) {
+        this.cameraController.setWorldSize(
+          this.gridView.getActivePixelWidth(),
+          this.gridView.getActivePixelHeight(),
+        );
+      }
+    }
+    if (this.conveyorRenderer) {
+      this.conveyorRenderer.rebuild();
+    }
+    if (this.machineRenderer) {
+      this.machineRenderer.rebuild();
+    }
+    if (this.machineStatusIndicator) {
+      this.machineStatusIndicator.rebuild();
+    }
 
     /* Offline ilerleme */
     if (data.timestamp > 0) {
       const pps = this.economy.getTotalProductionPerSecond();
       if (pps.gt(0)) {
-        const { gained, elapsedSec } = SaveManager.calculateOfflineGains(
-          data.timestamp,
-          pps,
-        );
-        if (gained.gt(0)) {
-          this.economy.addResources(gained);
-
-          this.time.delayedCall(800, () => {
-            this.showNotification(
-              `${formatDuration(elapsedSec)} uzaktaydın!\n+${formatNumber(gained)} ${RESOURCE_NAME} kazandın.`,
-            );
+        const report = calculateOfflineReport(data.timestamp, Date.now(), pps);
+        if (report.isEligible) {
+          this.time.delayedCall(400, () => {
+            this.offlineEarningsModal.show(report);
           });
         }
       }
@@ -697,6 +1426,80 @@ export class GameScene extends Phaser.Scene {
   }
 
   /* ================================================================
+   * YERLEŞİM VE İNŞA YÖNETİMİ
+   * ================================================================ */
+
+  private startPlacement(item: PlacementItem): void {
+    if (this.buildMenuModal.isOpen()) {
+      this.buildMenuModal.hide();
+    }
+    if (this.demolishTool?.isActive) {
+      this.cancelDemolishMode();
+    }
+    this.placementController.startPlacement(item);
+    this.updatePlacementBarVisuals();
+    this.placementBarContainer.setVisible(true);
+  }
+
+  private startDemolishMode(): void {
+    if (this.buildMenuModal.isOpen()) {
+      this.buildMenuModal.hide();
+    }
+    if (this.placementController?.isActive) {
+      this.placementController.cancelPlacement();
+      this.placementBarContainer.setVisible(false);
+    }
+    if (this.machineInspectorModal?.isOpen) {
+      this.machineInspectorModal.close();
+    }
+    this.demolishTool.activate();
+    this.demolishBarContainer.setVisible(true);
+  }
+
+  private cancelDemolishMode(): void {
+    if (this.demolishTool?.isActive) {
+      this.demolishTool.cancelTool();
+    }
+    this.demolishBarContainer.setVisible(false);
+  }
+
+  private updatePlacementBarVisuals(): void {
+    const item = this.placementController.currentItem;
+    if (!item) return;
+
+    if (item.type === 'INTAKE_MOVE') {
+      this.placementBarText.setText('📦 HAMMADDE GİRİŞİ TAŞINIYOR | Boş bir hücreye tıkla');
+      this.placementRotateBg.setVisible(false);
+      this.placementRotateText.setVisible(false);
+      this.placementRotateZone.disableInteractive();
+    } else if (item.type === 'EXPORT_MOVE') {
+      this.placementBarText.setText('🚚 SEVKİYAT SANDIĞI TAŞINIYOR | Boş bir hücreye tıkla');
+      this.placementRotateBg.setVisible(false);
+      this.placementRotateText.setVisible(false);
+      this.placementRotateZone.disableInteractive();
+    } else {
+      this.placementRotateBg.setVisible(true);
+      this.placementRotateText.setVisible(true);
+      this.placementRotateZone.setInteractive({ useHandCursor: true });
+
+      let itemName = 'Konveyör Bandı';
+      let cost = 5;
+      if (item.type === 'MACHINE' && item.machineDef) {
+        itemName = item.machineDef.name;
+        cost = item.machineDef.baseCost;
+      } else if (item.type === 'SPLITTER') {
+        itemName = 'Ayırıcı (Splitter)';
+        cost = 25;
+      } else if (item.type === 'MERGER') {
+        itemName = 'Birleştirici (Merger)';
+        cost = 25;
+      }
+
+      this.placementBarText.setText(`🏗️ ${itemName.toUpperCase()} ($${cost}) | Izgaraya tıkla`);
+    }
+  }
+
+  /* ================================================================
    * YERLEŞİM (RESPONSIVE LAYOUT)
    * ================================================================ */
 
@@ -719,50 +1522,97 @@ export class GameScene extends Phaser.Scene {
     this.milestoneBar.layout(14, contentTop + 2, w - 28, sf);
     this.milestoneBar.setVisible(true);
 
-    /* Alt Butonlar: Manuel Üret ve Fırlatma Modu yan yana */
+    /* Alt Butonlar: 4 Butonlu Arcade Dock ([MANUEL], [BANT], [MAKİNE], [HANGAR]) */
     const btnH = Math.round(44 * sf);
-    const maxBtnW = Math.min(230 * sf, (w - 36) / 2);
-    this.clickBtnW = maxBtnW;
-    this.clickBtnH = btnH;
-
-    const bottomPad = Math.round(14 * sf);
+    const gap = Math.round(8 * sf);
+    const bottomPad = Math.round(10 * sf);
     const btnCy = h - bottomPad - btnH / 2;
-    const gap = Math.round(14 * sf);
-    const cx = w / 2;
 
-    const leftBtnX = cx - maxBtnW / 2 - gap / 2;
-    const rightBtnX = cx + maxBtnW / 2 + gap / 2;
+    const totalAvailableW = w - 24;
+    const btnW = Math.min(136 * sf, (totalAvailableW - 3 * gap) / 4);
+    this.dockBtnW = btnW;
+    this.dockBtnH = btnH;
+
+    const totalDockW = 4 * btnW + 3 * gap;
+    const dockStartX = (w - totalDockW) / 2 + btnW / 2;
+
+    // Deck arka plan paneli
+    this.consoleDeckBg.setPosition((w - totalDockW) / 2 - 8, btnCy - btnH / 2 - 6);
+    this.consoleDeckBg.setSize(totalDockW + 16, btnH + 12);
 
     // 1. Manuel Üret
-    this.clickBtnContainer.setPosition(leftBtnX, btnCy);
-    this.clickBtnBg.setSize(maxBtnW, btnH);
-    this.clickBtnIcon.setPosition(-maxBtnW * 0.28, -4);
-    this.clickBtnText.setPosition(12, -4);
-    this.clickBtnText.setFontSize(`${Math.max(11, Math.round(12.5 * sf))}px`);
-    this.clickZone.setSize(maxBtnW, btnH);
-    this.clickInfoText.setPosition(0, 9);
-    this.clickInfoText.setFontSize(`${Math.max(8.5, Math.round(9.5 * sf))}px`);
+    const x0 = dockStartX;
+    this.manualBtnContainer.setPosition(x0, btnCy);
+    this.manualBtnBg.setSize(btnW, btnH);
+    this.manualBtnIcon.setPosition(-btnW * 0.32, -4).setScale(0.85 * sf);
+    this.manualBtnText.setPosition(10, -5).setFontSize(`${Math.max(9, Math.round(10.5 * sf))}px`);
+    this.manualBtnSubText.setPosition(0, 9).setFontSize(`${Math.max(7.5, Math.round(8.5 * sf))}px`);
+    this.manualZone.setSize(btnW, btnH);
 
-    // 2. Fırlatma Modu
-    this.launchModeBtnContainer.setPosition(rightBtnX, btnCy);
-    this.launchModeBtnBg.setSize(maxBtnW, btnH);
-    this.launchModeBtnIcon.setPosition(-maxBtnW * 0.30, -5);
-    this.launchModeBtnText.setPosition(12, -5);
-    this.launchModeBtnText.setFontSize(`${Math.max(11, Math.round(12.5 * sf))}px`);
-    this.launchModeZone.setSize(maxBtnW, btnH);
-    this.launchModeSubText.setPosition(0, 9);
-    this.launchModeSubText.setFontSize(`${Math.max(8.5, Math.round(9.5 * sf))}px`);
+    // 2. Bant Döşe
+    const x1 = dockStartX + btnW + gap;
+    this.conveyorBtnContainer.setPosition(x1, btnCy);
+    this.conveyorBtnBg.setSize(btnW, btnH);
+    this.conveyorBtnIcon.setPosition(-btnW * 0.32, -4).setScale(0.85 * sf);
+    this.conveyorBtnText.setPosition(10, -5).setFontSize(`${Math.max(9, Math.round(10.5 * sf))}px`);
+    this.conveyorBtnSubText.setPosition(0, 9).setFontSize(`${Math.max(7.5, Math.round(8.5 * sf))}px`);
+    this.conveyorZone.setSize(btnW, btnH);
 
-    /* Fabrika Alanı (Ekranın tüm orta kısmını ferahça kaplar) */
+    // 3. Makine Kur
+    const x2 = dockStartX + 2 * (btnW + gap);
+    this.buildBtnContainer.setPosition(x2, btnCy);
+    this.buildBtnBg.setSize(btnW, btnH);
+    this.buildBtnIcon.setPosition(-btnW * 0.32, -4).setScale(0.85 * sf);
+    this.buildBtnText.setPosition(10, -5).setFontSize(`${Math.max(9, Math.round(10.5 * sf))}px`);
+    this.buildBtnSubText.setPosition(0, 9).setFontSize(`${Math.max(7.5, Math.round(8.5 * sf))}px`);
+    this.buildZone.setSize(btnW, btnH);
+
+    // 4. Roket Hangarı
+    const x3 = dockStartX + 3 * (btnW + gap);
+    this.hangarBtnContainer.setPosition(x3, btnCy);
+    this.hangarBtnBg.setSize(btnW, btnH);
+    this.hangarBtnIcon.setPosition(-btnW * 0.32, -4).setScale(0.85 * sf);
+    this.hangarBtnText.setPosition(10, -5).setFontSize(`${Math.max(9, Math.round(10.5 * sf))}px`);
+    this.hangarBtnSubText.setPosition(0, 9).setFontSize(`${Math.max(7.5, Math.round(8.5 * sf))}px`);
+    this.hangarZone.setSize(btnW, btnH);
+
+    // Aktif Yerleşim Çubuğu (Active Placement Floating Action Bar)
+    const barW = Math.min(480, w - 24);
+    const barH = 34;
+    const barY = btnCy - btnH / 2 - barH / 2 - 8;
+    this.placementBarContainer.setPosition(w / 2, barY);
+    this.placementBarBg.setSize(barW, barH);
+    this.placementBarText.setPosition(-barW * 0.16, 0);
+
+    // Aktif Yıkım Çubuğu (Active Demolish Floating Action Bar)
+    this.demolishBarContainer.setPosition(w / 2, barY);
+    this.demolishBarBg.setSize(barW, barH);
+    this.demolishBarText.setPosition(-barW * 0.08, 0);
+    this.demolishCancelBg.setPosition(barW / 2 - 20, 0);
+    this.demolishCancelIcon.setPosition(barW / 2 - 20, 0);
+    this.demolishCancelZone.setPosition(barW / 2 - 20, 0);
+
+    /* 2D Fabrika Katı Viewport & Kamera Hizalama */
     const factoryTop = contentTop + milestoneH + 8;
-    const factoryH = btnCy - btnH / 2 - factoryTop - 10;
+    const factoryH = barY - barH / 2 - factoryTop - 6;
 
-    this.factoryView.setVisible(true);
-    this.factoryView.layout(8, factoryTop, w - 16, factoryH, sf);
+    if (this.factoryCamera && this.cameraController) {
+      this.factoryCamera.setViewport(0, factoryTop, w, factoryH);
+      this.cameraController.setViewport(0, factoryTop, w, factoryH);
+      this.cameraController.setWorldSize(
+        this.gridView.getActivePixelWidth(),
+        this.gridView.getActivePixelHeight(),
+      );
+      this.cameraController.centerOnFactory();
+    }
 
     /* Modallar (Ekran boyutuna göre kendini ortalar) */
     this.machineModal.layout(w, h);
+    this.buildMenuModal.layout(w, h);
+    this.machineInspectorModal.layout(w, h);
+    this.terminalModal.layout(w, h);
     this.rocketHangar.layout(w, h);
     this.settingsPanel.layout(w, h);
+    this.offlineEarningsModal.layout(w, h);
   }
 }

@@ -17,8 +17,9 @@ export class MachineModal {
   private economy: EconomyManager;
   private onUpgradeSuccess: (index: number) => void;
 
-  private container: Phaser.GameObjects.Container;
+  public container: Phaser.GameObjects.Container;
   private backdrop: Phaser.GameObjects.Rectangle;
+  private panelBlocker: Phaser.GameObjects.Rectangle;
   private modalBg: Phaser.GameObjects.NineSlice;
 
   /* Başlık ve Kapat */
@@ -65,14 +66,23 @@ export class MachineModal {
 
     this.container = scene.add.container(0, 0).setDepth(200).setVisible(false);
 
-    // 1. Ekran Karartma Katmanı
+    // 1. Ekran Karartma Katmanı (Yalnızca dışarı tıklanınca kapatır)
     this.backdrop = scene.add.rectangle(0, 0, 100, 100, 0x05070e, 0.72)
       .setOrigin(0, 0)
       .setInteractive()
       .on('pointerdown', () => this.hide());
     this.container.add(this.backdrop);
 
-    // 2. Modal Çerçevesi (Raster 9-Slice)
+    // 2. Modal Gövdesi Tıklama Engelleyici (Pencere içine tıklanınca kapanmasını önler)
+    this.panelBlocker = scene.add.rectangle(0, 0, 360, 380, 0x000000, 0.001)
+      .setOrigin(0, 0)
+      .setInteractive()
+      .on('pointerdown', (_pointer: any, _lx: number, _ly: number, event?: Phaser.Types.Input.EventData) => {
+        event?.stopPropagation();
+      });
+    this.container.add(this.panelBlocker);
+
+    // 3. Modal Çerçevesi (Raster 9-Slice)
     this.modalBg = PixelUIHelper.createModal(scene, 0, 0, 360, 380).setOrigin(0, 0);
     this.container.add(this.modalBg);
 
@@ -372,6 +382,9 @@ export class MachineModal {
     const modalH = Math.min(370, h - 40);
     const cx = w / 2;
     const cy = h / 2;
+
+    this.panelBlocker.setPosition(cx - modalW / 2, cy - modalH / 2);
+    this.panelBlocker.setSize(modalW, modalH);
 
     this.modalBg.setPosition(cx - modalW / 2, cy - modalH / 2);
     this.modalBg.setSize(modalW, modalH);

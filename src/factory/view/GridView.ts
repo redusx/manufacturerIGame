@@ -194,6 +194,26 @@ export class GridView {
     borderGraphics.lineStyle(1, PALETTE.borderHighlight, 0.9);
     borderGraphics.strokeRect(0, 0, pixelW, pixelH);
     this.floorContainer.add(borderGraphics);
+
+    // Zemin tıklama alanı (manuel üretim ve hücre etkileşimi için)
+    const floorZone = this.scene.add.zone(0, 0, pixelW, pixelH)
+      .setOrigin(0, 0)
+      .setInteractive()
+      .on('pointerup', (pointer: Phaser.Input.Pointer) => {
+        const dragDist = Phaser.Math.Distance.Between(
+          pointer.downX, pointer.downY,
+          pointer.upX, pointer.upY,
+        );
+        if (dragDist < 6 && this.onCellClicked) {
+          const localX = pointer.worldX - this.originX;
+          const localY = pointer.worldY - this.originY;
+          const coord = this.worldToGrid(localX, localY);
+          if (this.grid.isInBounds(coord.x, coord.y)) {
+            this.onCellClicked(coord);
+          }
+        }
+      });
+    this.floorContainer.add(floorZone);
   }
 
   /**

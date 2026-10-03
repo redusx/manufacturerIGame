@@ -48,8 +48,9 @@ export class MachineInspectorModal {
   private readonly MODAL_HEIGHT = 460;
 
   /** Görsel Bileşenler */
-  private container: Phaser.GameObjects.Container;
+  readonly container: Phaser.GameObjects.Container;
   private backdrop: Phaser.GameObjects.Rectangle;
+  private panelBlocker: Phaser.GameObjects.Rectangle;
   private panelGraphics: Phaser.GameObjects.Graphics;
   private bufferGraphics: Phaser.GameObjects.Graphics;
 
@@ -108,7 +109,7 @@ export class MachineInspectorModal {
     // Ana konteyner (ScrollFactor 0 = ekrana sabit, Depth 200 = en üst katman)
     this.container = this.scene.add.container(0, 0).setDepth(200).setScrollFactor(0).setVisible(false);
 
-    // 1. Karartma Perdesi (Backdrop)
+    // 1. Karartma Perdesi (Backdrop) - Sadece dışına tıklanınca kapatır
     const { width, height } = this.scene.scale;
     this.backdrop = this.scene.add
       .rectangle(0, 0, width, height, PALETTE.modalOverlay, 0.7)
@@ -116,7 +117,16 @@ export class MachineInspectorModal {
       .setInteractive()
       .on('pointerdown', () => this.close());
 
-    // 2. Çizim Grafikleri
+    // 2. Modal Gövdesi Tıklama Engelleyici (Pencere içine tıklanınca kapanmasını önler)
+    this.panelBlocker = this.scene.add
+      .rectangle(0, 0, this.MODAL_WIDTH, this.MODAL_HEIGHT, 0x000000, 0.001)
+      .setOrigin(0, 0)
+      .setInteractive()
+      .on('pointerdown', (_pointer: any, _lx: number, _ly: number, event?: Phaser.Types.Input.EventData) => {
+        event?.stopPropagation();
+      });
+
+    // 3. Çizim Grafikleri
     this.panelGraphics = this.scene.add.graphics();
     this.bufferGraphics = this.scene.add.graphics();
 
@@ -227,6 +237,7 @@ export class MachineInspectorModal {
     // Tüm öğeleri konteynere ekle
     this.container.add([
       this.backdrop,
+      this.panelBlocker,
       this.panelGraphics,
       this.bufferGraphics,
       this.titleText,
@@ -300,6 +311,16 @@ export class MachineInspectorModal {
     }
   }
 
+  ignoreCamera(camera: Phaser.Cameras.Scene2D.Camera): void {
+    camera.ignore([this.container]);
+  }
+
+  layout(_width?: number, _height?: number): void {
+    if (this._isOpen) {
+      this.refresh();
+    }
+  }
+
   /**
    * Modal içeriğini anlık simülasyon ve ekonomi verilerine göre yeniden çizer.
    */
@@ -319,6 +340,9 @@ export class MachineInspectorModal {
 
     const panelX = Math.round((width - this.MODAL_WIDTH) / 2);
     const panelY = Math.round((height - this.MODAL_HEIGHT) / 2);
+
+    this.panelBlocker.setPosition(panelX, panelY);
+    this.panelBlocker.setSize(this.MODAL_WIDTH, this.MODAL_HEIGHT);
 
     // 1. Ana Panel Arka Planı
     this.panelGraphics.clear();

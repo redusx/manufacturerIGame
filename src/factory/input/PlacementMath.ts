@@ -24,7 +24,13 @@ import { getRotatedPort, ROTATE_DIRECTION_CW } from '../simulation/MachineRegist
 import { FactoryEconomy } from '../simulation/FactoryEconomy.ts';
 import { GridCoordinates } from '../view/GridCoordinates.ts';
 
-export type PlacementItemType = 'MACHINE' | 'CONVEYOR' | 'SPLITTER' | 'MERGER';
+export type PlacementItemType =
+  | 'MACHINE'
+  | 'CONVEYOR'
+  | 'SPLITTER'
+  | 'MERGER'
+  | 'INTAKE_MOVE'
+  | 'EXPORT_MOVE';
 
 export const CONVEYOR_BUILD_COST = 5;
 export const SPLITTER_BUILD_COST = 25;
@@ -44,6 +50,7 @@ export interface PlacementValidationParams {
   direction: Direction;
   machineDef?: MachineDefinition;
   unlockedBounds?: { width: number; height: number };
+  sourceCoord?: GridCoord;
 }
 
 export interface PlacementValidationResult {
@@ -67,6 +74,7 @@ export interface PlacementExecuteResult {
   instanceId?: string;
   spentMoney: number;
   coord: GridCoord;
+  itemType?: PlacementItemType;
 }
 
 export class PlacementMath {
@@ -263,7 +271,13 @@ export class PlacementMath {
 
     // 6. Hücre boşluk denetimi
     for (const c of occupiedCoords) {
-      if (!grid.isCellEmpty(c.x, c.y)) {
+      const isSelfSource =
+        (itemType === 'INTAKE_MOVE' || itemType === 'EXPORT_MOVE') &&
+        params.sourceCoord &&
+        c.x === params.sourceCoord.x &&
+        c.y === params.sourceCoord.y;
+
+      if (!isSelfSource && !grid.isCellEmpty(c.x, c.y)) {
         return {
           isValid: false,
           reason: 'CELL_OCCUPIED',
@@ -315,6 +329,7 @@ export class PlacementMath {
     }
 
     const {
+      grid,
       economy,
       rootCoord,
       itemType,
@@ -323,6 +338,49 @@ export class PlacementMath {
       engine,
       logistics,
     } = params;
+
+    // Hammadde Giriş Silosu Taşıma
+    if (itemType === 'INTAKE_MOVE') {
+      const source = params.sourceCoord ?? grid.getIntakeCells()[0]?.coord;
+      if (!source) {
+        return {
+          success: false,
+          reason: 'CELL_OCCUPIED',
+          spentMoney: 0,
+          coord: rootCoord,
+        };
+      }
+      const moved = grid.moveIntake(source.x, source.y, rootCoord.x, rootCoord.y);
+      return {
+        success: moved,
+        reason: moved ? undefined : 'CELL_OCCUPIED',
+        spentMoney: 0,
+        coord: rootCoord,
+        itemType: 'INTAKE_MOVE',
+      };
+    }
+
+    // Sevkiyat Sandığı Taşıma
+    if (itemType === 'EXPORT_MOVE') {
+      const source = params.sourceCoord ?? grid.getExportCells()[0]?.coord;
+      if (!source) {
+        return {
+          success: false,
+          reason: 'CELL_OCCUPIED',
+          spentMoney: 0,
+          coord: rootCoord,
+          itemType: 'EXPORT_MOVE',
+        };
+      }
+      const moved = grid.moveExport(source.x, source.y, rootCoord.x, rootCoord.y);
+      return {
+        success: moved,
+        reason: moved ? undefined : 'CELL_OCCUPIED',
+        spentMoney: 0,
+        coord: rootCoord,
+        itemType: 'EXPORT_MOVE',
+      };
+    }
 
     // Parayı harca
     const spent = economy.spendMoney(validation.cost);
@@ -365,6 +423,28 @@ export class PlacementMath {
     // Konveyör yerleşimi
     if (itemType === 'CONVEYOR') {
       logistics.addConveyor(rootCoord, direction);
+      return {
+        success: true,
+        spentMoney: validation.cost,
+        coord: rootCoord,
+      };
+    }
+
+    // Splitter yerleşimi
+    if (itemType === 'SPLITTER') {
+      const cw = ROTATE_DIRECTION_CW[direction];
+      logistics.addSplitter(rootCoord, direction, [direction, cw]);
+      return {
+        success: true,
+        spentMoney: validation.cost,
+        coord: rootCoord,
+      };
+    }
+
+    // Merger yerleşimi
+    if (itemType === 'MERGER') {
+      const cw = ROTATE_DIRECTION_CW[direction];
+      logistics.addMerger(rootCoord, [direction, cw], direction);
       return {
         success: true,
         spentMoney: validation.cost,

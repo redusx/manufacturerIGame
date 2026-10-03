@@ -119,6 +119,62 @@ export class GridMap {
     cell.type = 'EXPORT';
   }
 
+  /**
+   * Hammadde giriş silosu yerini değiştirir (taşır).
+   * Kaynak hücre INTAKE, hedef hücre ise boş (EMPTY) olmalıdır.
+   */
+  moveIntake(fromX: number, fromY: number, toX: number, toY: number): boolean {
+    if (!this.isInBounds(fromX, fromY) || !this.isInBounds(toX, toY)) {
+      return false;
+    }
+    const fromCell = this.getCell(fromX, fromY);
+    if (!fromCell || fromCell.type !== 'INTAKE') {
+      return false;
+    }
+    if (fromX === toX && fromY === toY) {
+      return true;
+    }
+    if (!this.isCellEmpty(toX, toY)) {
+      return false;
+    }
+
+    const toCell = this.getCell(toX, toY)!;
+    toCell.type = 'INTAKE';
+    toCell.intakeData = fromCell.intakeData
+      ? { ...fromCell.intakeData }
+      : { itemId: 'iron_ore', intervalSec: 1.0, timerSec: 0 };
+
+    fromCell.type = 'EMPTY';
+    fromCell.intakeData = undefined;
+    return true;
+  }
+
+  /**
+   * Sevkiyat sandığı yerini değiştirir (taşır).
+   * Kaynak hücre EXPORT, hedef hücre ise boş (EMPTY) olmalıdır.
+   */
+  moveExport(fromX: number, fromY: number, toX: number, toY: number): boolean {
+    if (!this.isInBounds(fromX, fromY) || !this.isInBounds(toX, toY)) {
+      return false;
+    }
+    const fromCell = this.getCell(fromX, fromY);
+    if (!fromCell || fromCell.type !== 'EXPORT') {
+      return false;
+    }
+    if (fromX === toX && fromY === toY) {
+      return true;
+    }
+    if (!this.isCellEmpty(toX, toY)) {
+      return false;
+    }
+
+    const toCell = this.getCell(toX, toY)!;
+    toCell.type = 'EXPORT';
+
+    fromCell.type = 'EMPTY';
+    return true;
+  }
+
   // -------------------------------------------------------------
   // KONVEYÖR YERLEŞİMİ
   // -------------------------------------------------------------

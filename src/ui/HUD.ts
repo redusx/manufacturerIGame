@@ -277,4 +277,23 @@ export class HUD {
     }
     return { x: 30, y: 24 };
   }
+
+  ignoreCamera(camera: Phaser.Cameras.Scene2D.Camera): void {
+    const list: (Phaser.GameObjects.GameObject | null)[] = [
+      this.bg,
+      this.resourcePillBg,
+      this.ratePillBg,
+      this.flightPillBg,
+      this.coinSprite,
+      this.resourceText,
+      this.gearIcon,
+      this.rateText,
+      this.trophyIcon,
+      this.flightBadgeText,
+      this.settingsBtnBg,
+      this.settingsBtnIcon,
+      this.settingsZone,
+    ];
+    camera.ignore(list.filter((x): x is Phaser.GameObjects.GameObject => x !== null));
+  }
 }

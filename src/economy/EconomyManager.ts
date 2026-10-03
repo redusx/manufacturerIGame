@@ -6,7 +6,7 @@
  * ====================================================================== */
 
 import Decimal, { type DecimalSource } from 'break_eternity.js';
-import { D, D_ZERO, D_ONE } from '../utils/decimal';
+import { D, D_ZERO, D_ONE } from '../utils/decimal.ts';
 import {
   MACHINES,
   MACHINE_LEVEL_MILESTONES,
@@ -15,8 +15,8 @@ import {
   type MachineDefinition,
   type FactoryGoal,
   type LevelMilestone,
-} from '../data/MachineData';
-import { ROCKET_UPGRADES, type RocketUpgradeDef } from '../data/RocketData';
+} from '../data/MachineData.ts';
+import { ROCKET_UPGRADES, type RocketUpgradeDef } from '../data/RocketData.ts';
 
 /* ---- Çalışma zamanı makine durumu ---- */
 
@@ -281,6 +281,20 @@ export class EconomyManager {
     this.checkGoals();
   }
 
+  /** Belirtilen miktarda kaynak harcanabilir mi? */
+  canAffordAmount(cost: DecimalSource): boolean {
+    return this._resources.gte(D(cost));
+  }
+
+  /** Kaynak harca; yetersizse false döner */
+  spendResources(amount: DecimalSource): boolean {
+    const dec = D(amount);
+    if (dec.lte(0)) return true;
+    if (this._resources.lt(dec)) return false;
+    this._resources = this._resources.sub(dec);
+    return true;
+  }
+
   /** Hedef tamamlama kontrolü */
   private checkGoals(): void {
     for (const goal of FACTORY_GOALS) {
@@ -334,6 +348,19 @@ export class EconomyManager {
       newLevel: newLvl,
     });
     return true;
+  }
+
+  /**
+   * Roket modül seviyesini doğrudan belirler ve senkronizasyon olayını tetikler
+   * (RocketHangarBridge entegrasyonu için)
+   */
+  setRocketUpgradeLevel(id: string, level: number): void {
+    this.rocketUpgrades[id] = Math.min(3, Math.max(1, level));
+    this.emit({
+      type: 'rocket_upgrade',
+      upgradeId: id,
+      newLevel: this.rocketUpgrades[id],
+    });
   }
 
   recordFlightResult(distance: number, score: number, resourcesGained: number): void {

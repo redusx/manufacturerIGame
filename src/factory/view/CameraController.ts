@@ -140,20 +140,38 @@ export class CameraController {
   // FARE VE DOKUNMATİK ETKİLEŞİMİ (WHEEL & DRAG)
   // -------------------------------------------------------------
 
+  isPointerInViewport(pointer: Phaser.Input.Pointer): boolean {
+    const cam = this.camera;
+    return (
+      pointer.x >= cam.x &&
+      pointer.x <= cam.x + cam.width &&
+      pointer.y >= cam.y &&
+      pointer.y <= cam.y + cam.height
+    );
+  }
+
   private handleWheel(
     pointer: Phaser.Input.Pointer,
     _gameObjects: Phaser.GameObjects.GameObject[],
     _deltaX: number,
     deltaY: number,
   ): void {
-    if (!this.enabled) return;
+    if (!this.enabled || !this.isPointerInViewport(pointer)) return;
 
     const direction = deltaY < 0 ? 1 : -1;
     this.zoomStepAtPointer(direction, pointer.x, pointer.y);
   }
 
+  /** Dışarıdan sol tık pan izni denetleyicisi (örn. inşa modunda sol tık yerleşim içindir) */
+  public canPan?: () => boolean;
+
   private handlePointerDown(pointer: Phaser.Input.Pointer): void {
-    if (!this.enabled) return;
+    if (!this.enabled || !this.isPointerInViewport(pointer)) return;
+
+    // Eğer sol tık pan devre dışı bırakılmışsa (örn. yerleşim aktif), sadece orta tuşa (button 1) izin ver
+    if (this.canPan && !this.canPan() && pointer.button !== 1) {
+      return;
+    }
 
     // Orta tuş (wheel button) veya sol tık ile sürükleme
     // Sürükleme başlangıcı: sol tık (button 0) veya orta tuş (button 1)
@@ -286,6 +304,14 @@ export class CameraController {
   setWorldSize(width: number, height: number): void {
     this.worldWidth = Math.max(32, width);
     this.worldHeight = Math.max(32, height);
+    this.clampCurrentPosition();
+  }
+
+  /**
+   * Kamera viewport alanını belirler ve sınırları günceller.
+   */
+  setViewport(x: number, y: number, width: number, height: number): void {
+    this.camera.setViewport(Math.round(x), Math.round(y), Math.round(width), Math.round(height));
     this.clampCurrentPosition();
   }
 

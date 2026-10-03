@@ -29,17 +29,34 @@ export const FACTORY_PLOTS: PlotDefinition[] = [
   { index: 4, name: 'Havacılık Mega Kompleksi', cost: 50000, targetWidth: 24, targetHeight: 24 },
 ];
 
+export interface BackingEconomyProvider {
+  canAffordAmount(amount: number): boolean;
+  spendResources(amount: number): boolean;
+  addResources(amount: number): void;
+  readonly resources: { toNumber(): number; gte(val: any): boolean };
+  readonly totalEarned: { toNumber(): number };
+}
+
 export class FactoryEconomy {
   private itemRegistry: ItemRegistry;
+  private backingEconomy?: BackingEconomyProvider;
 
-  /** Mevcut nakit sermaye ($) */
-  money: number;
+  /** Dahili nakit sermaye ($) — backingEconomy yokken kullanılır */
+  private _money: number;
 
-  /** Oyuncunun kariyeri boyunca kazandığı toplam brüt gelir ($) */
-  totalEarned: number;
+  /** Dahili toplam brüt gelir ($) — backingEconomy yokken kullanılır */
+  private _totalEarned: number;
 
   /** Açılmış fabrika genişleme parsel indeksleri */
-  private unlockedPlots = new Set<number>([0]);
+  public unlockedPlots = new Set<number>([0]);
+
+  getUnlockedPlots(): number[] {
+    return Array.from(this.unlockedPlots);
+  }
+
+  setUnlockedPlots(plots: number[]): void {
+    this.unlockedPlots = new Set(plots);
+  }
 
   /** Global gelir çarpanı (roket ve prestij ödülleriyle artar) */
   revenueMultiplier = 1.0;
@@ -51,10 +68,40 @@ export class FactoryEconomy {
   private recentEarnings: Array<{ ageSec: number; amount: number }> = [];
   private readonly REVENUE_WINDOW_SEC = 5.0;
 
-  constructor(initialMoney = 0, itemRegistry: ItemRegistry = defaultItemRegistry) {
-    this.money = initialMoney;
-    this.totalEarned = initialMoney;
+  constructor(
+    initialMoney = 0,
+    itemRegistry: ItemRegistry = defaultItemRegistry,
+    backingEconomy?: BackingEconomyProvider,
+  ) {
+    this._money = initialMoney;
+    this._totalEarned = initialMoney;
     this.itemRegistry = itemRegistry;
+    this.backingEconomy = backingEconomy;
+  }
+
+  /** Tekil kaynak sağlayıcısını bağlar */
+  setBackingEconomy(backing?: BackingEconomyProvider): void {
+    this.backingEconomy = backing;
+  }
+
+  get money(): number {
+    return this.backingEconomy ? this.backingEconomy.resources.toNumber() : this._money;
+  }
+
+  set money(val: number) {
+    if (!this.backingEconomy) {
+      this._money = val;
+    }
+  }
+
+  get totalEarned(): number {
+    return this.backingEconomy ? this.backingEconomy.totalEarned.toNumber() : this._totalEarned;
+  }
+
+  set totalEarned(val: number) {
+    if (!this.backingEconomy) {
+      this._totalEarned = val;
+    }
   }
 
   // -------------------------------------------------------------
@@ -65,9 +112,13 @@ export class FactoryEconomy {
   addMoney(amount: number, source: 'EXPORT' | 'CLICK' | 'ROCKET' | 'CONTRACT' | 'REFUND' = 'EXPORT'): void {
     if (amount <= 0) return;
 
-    this.money += amount;
-    if (source !== 'REFUND') {
-      this.totalEarned += amount;
+    if (this.backingEconomy) {
+      this.backingEconomy.addResources(amount);
+    } else {
+      this._money += amount;
+      if (source !== 'REFUND') {
+        this._totalEarned += amount;
+      }
     }
 
     if (source === 'EXPORT') {
@@ -77,15 +128,21 @@ export class FactoryEconomy {
 
   /** Belirtilen tutar için yeterli bakiye var mı? */
   canAfford(cost: number): boolean {
-    return this.money >= cost;
+    if (this.backingEconomy) {
+      return this.backingEconomy.canAffordAmount(cost);
+    }
+    return this._money >= cost;
   }
 
   /** Belirtilen tutarı harcar; yetersizse false döner */
   spendMoney(amount: number): boolean {
     if (amount <= 0) return true;
+    if (this.backingEconomy) {
+      return this.backingEconomy.spendResources(amount);
+    }
     if (!this.canAfford(amount)) return false;
 
-    this.money -= amount;
+    this._money -= amount;
     return true;
   }
 
