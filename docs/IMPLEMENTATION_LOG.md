@@ -1038,6 +1038,36 @@
 * **Kalan Önemli Belirsizlikler / Sırada:**
   - Yok. Master Plan kapsamındaki tüm 7 Faz ve 33 görev %100 başarıyla tamamlanmış, entegre edilmiş ve test edilmiştir. Proje oyunculara sunulmaya hazırdır.
 
+---
+
+> **2026-10-06 — REVIVAL:** Yukarıdaki "tamamlandı / oyunculara hazır" kayıtları gerçek tarayıcı denetiminde doğrulanamadı (bkz. `PROJECT_STATUS.md`). Bu noktadan sonraki girdiler kurtarma yol haritasına (M1..M10) aittir ve her biri tarayıcıda oynanarak doğrulanmıştır.
+
+### [2026-10-06 16:33] — REVIVAL M1: Girdi ve Açılış Hataları
+* **Görev:** M1
+* **Durum:** TAMAMLANDI (tarayıcıda doğrulandı)
+* **Değiştirilen / Oluşturulan Dosyalar:**
+  - `src/factory/input/WorldPointer.ts` (Oluşturuldu — basışın UI'a mı zemine mi ait olduğunu ayıran yardımcılar, işaretçi → hücre dönüşümü)
+  - `src/factory/input/PlacementController.ts` (UI basışı yoksayılır; her basışta gerçek hücre; dokunmatikte iki adımlı onay; `update()` ile imleç eşlemesi)
+  - `src/factory/input/DemolishTool.ts` (aynı korumalar; dokunmatikte işaretle → sök)
+  - `src/factory/view/GridView.ts` (zemin tıklaması yalnız zeminde başlayan basışta sayılır)
+  - `src/scenes/GameScene.ts` (göreli varlık yolları, araç `update()` çağrıları, dar ekranda araç çubuğu düzeni ve dokunmatik ipuçları)
+  - `src/main.ts` (0x0 pencerede yeniden boyutlandırmayı atla; taban 360x640; CSS boyutu `resize()`'dan önce)
+* **Çözülen Hatalar:**
+  1. Katalogdaki "İNŞA ET" / "SÖK" / "TERMİNALİ TAŞI" tıklaması aynı anda zeminde işlem yapıyordu (sahne düzeyi `pointerdown` UI tıklamasını da alıyordu).
+  2. Yerleşim/söküm hücresi yalnız imleç hareketinde güncelleniyordu; dokunuşta ve hareketsiz tıklamada eski hücre kullanılıyordu.
+  3. Modal kapatma veya araç basışının bırakışı zemin tıklaması (+$1 / terminal penceresi) sayılıyordu.
+  4. 0x0 pencerede açılış "Framebuffer status: Incomplete Attachment" ile çöküyor, boyut gelse de toparlanmıyordu.
+  5. Kanvas ortalaması bir önceki pencere boyutuna göre hesaplanıyordu (boyut değişiminde kayma).
+  6. Varlıklar `/assets/...` mutlak yoluyla yükleniyordu; alt klasörde barındırmada 87/87 görsel 404 veriyordu.
+* **Test Doğrulaması:**
+  - `npm test` -> 285/285 geçti (62 suit); `npx tsc --noEmit` -> 0 hata; `npm run build` -> başarılı
+  - Tarayıcı (sıfır kayıt, 1024x768): satın al → hayalet imleci izler → dolu hücre reddedilir → seçilen hücreye kurulur; bant, söküm, terminal taşıma, modal kapatma ve yakınlaştırma sonrası eşleme doğrulandı.
+  - Dokunmatik (375x812, sentetik `TouchEvent`): iki adımlı makine/terminal yerleşimi, tek dokunuşla bant, iki adımlı söküm doğrulandı.
+  - 0x0 iframe → 20x20 → 120x90 → 800x600 → 500x700: hatasız açılış, her adımda kanvas çerçeveyi dolduruyor.
+  - `vite preview --base /sub/game/`: 87/87 görsel 200, uçuş sahnesi dahil dokular tam.
+* **Bu görevde yeni test eklenmedi** (AGENTS.md: kullanıcı istemedikçe test eklenmez); değişen kod Phaser girdi katmanıdır.
+* **Kalan / Sırada:** M2 (kamera ve okunabilirlik). Mobilde katalog penceresi 540px genişliğinde olduğu için 360px ekranda taşıyor; sağ sütundaki "İNŞA ET" düğmeleri ekran dışında.
+
 
 
 

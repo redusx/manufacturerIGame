@@ -163,6 +163,9 @@ export class GameScene extends Phaser.Scene {
   private dockBtnW = 120;
   private dockBtnH = 44;
 
+  /** Araç çubuğu dar mı? (mobil; metin iki satıra bölünür) */
+  private barIsNarrow = false;
+
   constructor() {
     super({ key: 'GameScene' });
   }
@@ -173,141 +176,141 @@ export class GameScene extends Phaser.Scene {
 
   preload(): void {
     // Roket Gövdeleri
-    this.load.image('rocket_hull_1', '/assets/rocket_hull_1.png');
-    this.load.image('rocket_hull_2', '/assets/rocket_hull_2.png');
-    this.load.image('rocket_hull_3', '/assets/rocket_hull_3.png');
+    this.load.image('rocket_hull_1', 'assets/rocket_hull_1.png');
+    this.load.image('rocket_hull_2', 'assets/rocket_hull_2.png');
+    this.load.image('rocket_hull_3', 'assets/rocket_hull_3.png');
 
     // Roket Motorları
-    this.load.image('rocket_engine_1', '/assets/rocket_engine_1.png');
-    this.load.image('rocket_engine_2', '/assets/rocket_engine_2.png');
-    this.load.image('rocket_engine_3', '/assets/rocket_engine_3.png');
+    this.load.image('rocket_engine_1', 'assets/rocket_engine_1.png');
+    this.load.image('rocket_engine_2', 'assets/rocket_engine_2.png');
+    this.load.image('rocket_engine_3', 'assets/rocket_engine_3.png');
 
     // Roket Kanatları
-    this.load.image('rocket_wings_1', '/assets/rocket_wings_1.png');
-    this.load.image('rocket_wings_2', '/assets/rocket_wings_2.png');
-    this.load.image('rocket_wings_3', '/assets/rocket_wings_3.png');
+    this.load.image('rocket_wings_1', 'assets/rocket_wings_1.png');
+    this.load.image('rocket_wings_2', 'assets/rocket_wings_2.png');
+    this.load.image('rocket_wings_3', 'assets/rocket_wings_3.png');
 
     // Roket Boost Tankları
-    this.load.image('rocket_tank_1', '/assets/rocket_tank_1.png');
-    this.load.image('rocket_tank_2', '/assets/rocket_tank_2.png');
-    this.load.image('rocket_tank_3', '/assets/rocket_tank_3.png');
+    this.load.image('rocket_tank_1', 'assets/rocket_tank_1.png');
+    this.load.image('rocket_tank_2', 'assets/rocket_tank_2.png');
+    this.load.image('rocket_tank_3', 'assets/rocket_tank_3.png');
 
     // Alev Sprite'ları
-    this.load.image('flame_idle', '/assets/flame_idle.png');
-    this.load.image('flame_boost', '/assets/flame_boost.png');
+    this.load.image('flame_idle', 'assets/flame_idle.png');
+    this.load.image('flame_boost', 'assets/flame_boost.png');
 
     // Uçuş Parçaları ve Nesneleri
-    this.load.image('pickup_gear', '/assets/pickup_gear.png');
-    this.load.image('pickup_crystal', '/assets/pickup_crystal.png');
-    this.load.image('pickup_repair', '/assets/pickup_repair.png');
+    this.load.image('pickup_gear', 'assets/pickup_gear.png');
+    this.load.image('pickup_crystal', 'assets/pickup_crystal.png');
+    this.load.image('pickup_repair', 'assets/pickup_repair.png');
 
     // Engeller
-    this.load.image('obstacle_asteroid', '/assets/obstacle_asteroid.png');
-    this.load.image('obstacle_drone', '/assets/obstacle_drone.png');
-    this.load.image('obstacle_debris', '/assets/obstacle_debris.png');
+    this.load.image('obstacle_asteroid', 'assets/obstacle_asteroid.png');
+    this.load.image('obstacle_drone', 'assets/obstacle_drone.png');
+    this.load.image('obstacle_debris', 'assets/obstacle_debris.png');
 
     // Rampa ve Çevre
-    this.load.image('launch_pad', '/assets/launch_pad.png');
-    this.load.image('cloud_pixel', '/assets/cloud_pixel.png');
-    this.load.image('mountain_pixel', '/assets/mountain_pixel.png');
-    this.load.image('star_pixel', '/assets/star_pixel.png');
+    this.load.image('launch_pad', 'assets/launch_pad.png');
+    this.load.image('cloud_pixel', 'assets/cloud_pixel.png');
+    this.load.image('mountain_pixel', 'assets/mountain_pixel.png');
+    this.load.image('star_pixel', 'assets/star_pixel.png');
 
     // Fabrika Çevresi ve Zemin
-    this.load.image('factory_bg', '/assets/factory_bg.png');
-    this.load.image('factory_floor', '/assets/factory_floor.png');
-    this.load.image('conveyor_belt', '/assets/conveyor_belt.png');
-    this.load.image('factory_intake', '/assets/factory_intake.png');
-    this.load.image('shipping_crate', '/assets/shipping_crate.png');
+    this.load.image('factory_bg', 'assets/factory_bg.png');
+    this.load.image('factory_floor', 'assets/factory_floor.png');
+    this.load.image('conveyor_belt', 'assets/conveyor_belt.png');
+    this.load.image('factory_intake', 'assets/factory_intake.png');
+    this.load.image('shipping_crate', 'assets/shipping_crate.png');
 
     // 4 Makine ve Parçaları
-    this.load.image('machine_bench', '/assets/machine_bench.png');
-    this.load.image('machine_bench_part', '/assets/machine_bench_part.png');
-    this.load.image('machine_press', '/assets/machine_press.png');
-    this.load.image('machine_press_part', '/assets/machine_press_part.png');
-    this.load.image('machine_welder', '/assets/machine_welder.png');
-    this.load.image('machine_welder_part', '/assets/machine_welder_part.png');
-    this.load.image('machine_automation', '/assets/machine_automation.png');
-    this.load.image('machine_automation_part', '/assets/machine_automation_part.png');
-    this.load.image('machine_empty_slot', '/assets/machine_empty_slot.png');
+    this.load.image('machine_bench', 'assets/machine_bench.png');
+    this.load.image('machine_bench_part', 'assets/machine_bench_part.png');
+    this.load.image('machine_press', 'assets/machine_press.png');
+    this.load.image('machine_press_part', 'assets/machine_press_part.png');
+    this.load.image('machine_welder', 'assets/machine_welder.png');
+    this.load.image('machine_welder_part', 'assets/machine_welder_part.png');
+    this.load.image('machine_automation', 'assets/machine_automation.png');
+    this.load.image('machine_automation_part', 'assets/machine_automation_part.png');
+    this.load.image('machine_empty_slot', 'assets/machine_empty_slot.png');
 
     // Uçuş & Pist & Uzay Dokuları
-    this.load.image('flight_ground', '/assets/flight_ground.png');
-    this.load.image('launch_platform', '/assets/launch_platform.png');
-    this.load.image('sky_band_day', '/assets/sky_band_day.png');
-    this.load.image('sky_band_sunset', '/assets/sky_band_sunset.png');
-    this.load.image('sky_band_space', '/assets/sky_band_space.png');
+    this.load.image('flight_ground', 'assets/flight_ground.png');
+    this.load.image('launch_platform', 'assets/launch_platform.png');
+    this.load.image('sky_band_day', 'assets/sky_band_day.png');
+    this.load.image('sky_band_sunset', 'assets/sky_band_sunset.png');
+    this.load.image('sky_band_space', 'assets/sky_band_space.png');
 
     // UI Panelleri & Kartlar (Raster 9-Slice)
-    this.load.image('ui_panel_hud', '/assets/ui_panel_hud.png');
-    this.load.image('ui_card_bg', '/assets/ui_card_bg.png');
-    this.load.image('ui_modal_bg', '/assets/ui_modal_bg.png');
-    this.load.image('ui_toast_bg', '/assets/ui_toast_bg.png');
+    this.load.image('ui_panel_hud', 'assets/ui_panel_hud.png');
+    this.load.image('ui_card_bg', 'assets/ui_card_bg.png');
+    this.load.image('ui_modal_bg', 'assets/ui_modal_bg.png');
+    this.load.image('ui_toast_bg', 'assets/ui_toast_bg.png');
 
     // Butonlar
-    this.load.image('btn_green_normal', '/assets/btn_green_normal.png');
-    this.load.image('btn_green_hover', '/assets/btn_green_hover.png');
-    this.load.image('btn_green_pressed', '/assets/btn_green_pressed.png');
-    this.load.image('btn_disabled', '/assets/btn_disabled.png');
-    this.load.image('btn_danger_normal', '/assets/btn_danger_normal.png');
-    this.load.image('btn_danger_pressed', '/assets/btn_danger_pressed.png');
-    this.load.image('btn_manual_normal', '/assets/btn_manual_normal.png');
-    this.load.image('btn_manual_hover', '/assets/btn_manual_hover.png');
-    this.load.image('btn_manual_pressed', '/assets/btn_manual_pressed.png');
-    this.load.image('btn_launch_normal', '/assets/btn_launch_normal.png');
-    this.load.image('btn_launch_hover', '/assets/btn_launch_hover.png');
-    this.load.image('btn_launch_pressed', '/assets/btn_launch_pressed.png');
-    this.load.image('btn_tab_active', '/assets/btn_tab_active.png');
-    this.load.image('btn_tab_inactive', '/assets/btn_tab_inactive.png');
+    this.load.image('btn_green_normal', 'assets/btn_green_normal.png');
+    this.load.image('btn_green_hover', 'assets/btn_green_hover.png');
+    this.load.image('btn_green_pressed', 'assets/btn_green_pressed.png');
+    this.load.image('btn_disabled', 'assets/btn_disabled.png');
+    this.load.image('btn_danger_normal', 'assets/btn_danger_normal.png');
+    this.load.image('btn_danger_pressed', 'assets/btn_danger_pressed.png');
+    this.load.image('btn_manual_normal', 'assets/btn_manual_normal.png');
+    this.load.image('btn_manual_hover', 'assets/btn_manual_hover.png');
+    this.load.image('btn_manual_pressed', 'assets/btn_manual_pressed.png');
+    this.load.image('btn_launch_normal', 'assets/btn_launch_normal.png');
+    this.load.image('btn_launch_hover', 'assets/btn_launch_hover.png');
+    this.load.image('btn_launch_pressed', 'assets/btn_launch_pressed.png');
+    this.load.image('btn_tab_active', 'assets/btn_tab_active.png');
+    this.load.image('btn_tab_inactive', 'assets/btn_tab_inactive.png');
 
     // Göstergeler & Barlar
-    this.load.image('ui_bar_slot', '/assets/ui_bar_slot.png');
-    this.load.image('ui_bar_fill_green', '/assets/ui_bar_fill_green.png');
-    this.load.image('ui_bar_fill_red', '/assets/ui_bar_fill_red.png');
-    this.load.image('ui_bar_fill_cyan', '/assets/ui_bar_fill_cyan.png');
-    this.load.image('ui_bar_fill_gold', '/assets/ui_bar_fill_gold.png');
+    this.load.image('ui_bar_slot', 'assets/ui_bar_slot.png');
+    this.load.image('ui_bar_fill_green', 'assets/ui_bar_fill_green.png');
+    this.load.image('ui_bar_fill_red', 'assets/ui_bar_fill_red.png');
+    this.load.image('ui_bar_fill_cyan', 'assets/ui_bar_fill_cyan.png');
+    this.load.image('ui_bar_fill_gold', 'assets/ui_bar_fill_gold.png');
 
     // İkonlar
-    this.load.image('icon_coin', '/assets/icon_coin.png');
-    this.load.image('icon_gear', '/assets/icon_gear.png');
-    this.load.image('icon_settings', '/assets/icon_settings.png');
-    this.load.image('icon_rocket', '/assets/icon_rocket.png');
-    this.load.image('icon_factory', '/assets/icon_factory.png');
-    this.load.image('icon_heart', '/assets/icon_heart.png');
-    this.load.image('icon_lightning', '/assets/icon_lightning.png');
-    this.load.image('icon_flag', '/assets/icon_flag.png');
-    this.load.image('icon_trophy', '/assets/icon_trophy.png');
-    this.load.image('icon_close', '/assets/icon_close.png');
-    this.load.image('icon_check', '/assets/icon_check.png');
+    this.load.image('icon_coin', 'assets/icon_coin.png');
+    this.load.image('icon_gear', 'assets/icon_gear.png');
+    this.load.image('icon_settings', 'assets/icon_settings.png');
+    this.load.image('icon_rocket', 'assets/icon_rocket.png');
+    this.load.image('icon_factory', 'assets/icon_factory.png');
+    this.load.image('icon_heart', 'assets/icon_heart.png');
+    this.load.image('icon_lightning', 'assets/icon_lightning.png');
+    this.load.image('icon_flag', 'assets/icon_flag.png');
+    this.load.image('icon_trophy', 'assets/icon_trophy.png');
+    this.load.image('icon_close', 'assets/icon_close.png');
+    this.load.image('icon_check', 'assets/icon_check.png');
 
     // Piksel Sanat Varlıkları (Pixelart Koleksiyonu)
-    this.load.spritesheet('coin_gold', '/assets/pixelart/coins/spr_coin_ama.png', {
+    this.load.spritesheet('coin_gold', 'assets/pixelart/coins/spr_coin_ama.png', {
       frameWidth: 16,
       frameHeight: 16,
     });
-    this.load.spritesheet('coin_blue', '/assets/pixelart/coins/spr_coin_azu.png', {
+    this.load.spritesheet('coin_blue', 'assets/pixelart/coins/spr_coin_azu.png', {
       frameWidth: 16,
       frameHeight: 16,
     });
-    this.load.spritesheet('coin_red', '/assets/pixelart/coins/spr_coin_roj.png', {
+    this.load.spritesheet('coin_red', 'assets/pixelart/coins/spr_coin_roj.png', {
       frameWidth: 16,
       frameHeight: 16,
     });
-    this.load.spritesheet('coin_gray', '/assets/pixelart/coins/spr_coin_gri.png', {
+    this.load.spritesheet('coin_gray', 'assets/pixelart/coins/spr_coin_gri.png', {
       frameWidth: 16,
       frameHeight: 16,
     });
 
-    this.load.image('ui_buttons', '/assets/pixelart/ui/ui_buttons_elements.png');
-    this.load.image('ui_banners', '/assets/pixelart/ui/ui_banners_badges.png');
-    this.load.image('ui_cards', '/assets/pixelart/ui/ui_card_frames.png');
-    this.load.image('ui_bars_gauges', '/assets/pixelart/ui/ui_bars_gauges.png');
+    this.load.image('ui_buttons', 'assets/pixelart/ui/ui_buttons_elements.png');
+    this.load.image('ui_banners', 'assets/pixelart/ui/ui_banners_badges.png');
+    this.load.image('ui_cards', 'assets/pixelart/ui/ui_card_frames.png');
+    this.load.image('ui_bars_gauges', 'assets/pixelart/ui/ui_bars_gauges.png');
 
     // FX Spritesheets
-    this.load.spritesheet('hit_spark', '/assets/pixelart/fx/hit_spark_spritesheet.png', {
+    this.load.spritesheet('hit_spark', 'assets/pixelart/fx/hit_spark_spritesheet.png', {
       frameWidth: 100,
       frameHeight: 100,
     });
-    this.load.spritesheet('fire_explosion', '/assets/pixelart/fx/fire_explosion_spritesheet.png', {
+    this.load.spritesheet('fire_explosion', 'assets/pixelart/fx/fire_explosion_spritesheet.png', {
       frameWidth: 100,
       frameHeight: 100,
     });
@@ -400,6 +403,9 @@ export class GameScene extends Phaser.Scene {
     this.machineStatusIndicator.rootContainer.setDepth(20);
 
     // Tıklama ve Etkileşim Dinleyicileri (Yerleşim ve Yıkım modları aktifken engellenir)
+    // Araç basışı tüketip aynı basışta kapansa bile bırakış hücre tıklaması sayılmasın
+    this.gridView.canStartCellClick = () =>
+      !this.placementController?.isActive && !this.demolishTool?.isActive;
     this.gridView.onCellClicked = (coord) => {
       if (this.placementController?.isActive || this.demolishTool?.isActive) return;
 
@@ -1107,6 +1113,10 @@ export class GameScene extends Phaser.Scene {
       this.cameraController.update(dt);
     }
 
+    /* Kamera hareketinden sonra araç önizlemelerini imleçle yeniden eşle */
+    this.placementController.update();
+    this.demolishTool.update();
+
     /* Kilit açılma kontrolü */
     this.checkUnlocks();
 
@@ -1453,6 +1463,12 @@ export class GameScene extends Phaser.Scene {
       this.machineInspectorModal.close();
     }
     this.demolishTool.activate();
+    // Dokunmatikte söküm iki adımlıdır (bkz. DemolishTool)
+    this.demolishBarText.setText(
+      this.input.activePointer.wasTouch
+        ? '⚠️ SÖKÜM MODU\nDokun: işaretle, tekrar dokun: sök'
+        : '⚠️ SÖKÜM MODU (X) | Sökmek istediğin nesneye tıkla (%100 İade)',
+    );
     this.demolishBarContainer.setVisible(true);
   }
 
@@ -1467,13 +1483,18 @@ export class GameScene extends Phaser.Scene {
     const item = this.placementController.currentItem;
     if (!item) return;
 
+    // Dokunmatikte hover olmadığı için yerleşim iki adımlıdır (bkz. PlacementController)
+    const isTouch = this.input.activePointer.wasTouch;
+    const moveHint = isTouch ? 'Dokun: önizle, tekrar dokun: taşı' : 'Boş bir hücreye tıkla';
+    const sep = this.barIsNarrow ? '\n' : ' | ';
+
     if (item.type === 'INTAKE_MOVE') {
-      this.placementBarText.setText('📦 HAMMADDE GİRİŞİ TAŞINIYOR | Boş bir hücreye tıkla');
+      this.placementBarText.setText(`📦 HAMMADDE GİRİŞİ TAŞINIYOR${sep}${moveHint}`);
       this.placementRotateBg.setVisible(false);
       this.placementRotateText.setVisible(false);
       this.placementRotateZone.disableInteractive();
     } else if (item.type === 'EXPORT_MOVE') {
-      this.placementBarText.setText('🚚 SEVKİYAT SANDIĞI TAŞINIYOR | Boş bir hücreye tıkla');
+      this.placementBarText.setText(`🚚 SEVKİYAT SANDIĞI TAŞINIYOR${sep}${moveHint}`);
       this.placementRotateBg.setVisible(false);
       this.placementRotateText.setVisible(false);
       this.placementRotateZone.disableInteractive();
@@ -1495,7 +1516,12 @@ export class GameScene extends Phaser.Scene {
         cost = 25;
       }
 
-      this.placementBarText.setText(`🏗️ ${itemName.toUpperCase()} ($${cost}) | Izgaraya tıkla`);
+      const hint = !isTouch
+        ? 'Izgaraya tıkla'
+        : this.placementController.needsTouchConfirm
+          ? 'Dokun: önizle, tekrar dokun: kur'
+          : 'Izgaraya dokun';
+      this.placementBarText.setText(`🏗️ ${itemName.toUpperCase()} ($${cost})${sep}${hint}`);
     }
   }
 
@@ -1582,15 +1608,43 @@ export class GameScene extends Phaser.Scene {
     const barY = btnCy - btnH / 2 - barH / 2 - 8;
     this.placementBarContainer.setPosition(w / 2, barY);
     this.placementBarBg.setSize(barW, barH);
-    this.placementBarText.setPosition(-barW * 0.16, 0);
+
+    // Düğmeler çubuğun sağ kenarına sabitlenir (dar ekranda dışarı taşmasın), metin kalan alana sığar
+    this.barIsNarrow = barW < 420;
+    const barFontSize = this.barIsNarrow ? '9px' : '11.5px';
+    const barTextLeft = -barW / 2 + 10;
+    const cancelX = barW / 2 - 20;
+    const rotateX = cancelX - 13 - 8 - 46;
+    this.placementCancelBg.setPosition(cancelX, 0);
+    this.placementCancelIcon.setPosition(cancelX, 0);
+    this.placementCancelZone.setPosition(cancelX, 0);
+    this.placementRotateBg.setPosition(rotateX, 0);
+    this.placementRotateText.setPosition(rotateX, 0);
+    this.placementRotateZone.setPosition(rotateX, 0);
+
+    const placementTextRight = rotateX - 46 - 8;
+    this.placementBarText
+      .setPosition((barTextLeft + placementTextRight) / 2, 0)
+      .setFontSize(barFontSize)
+      .setAlign('center')
+      .setWordWrapWidth(placementTextRight - barTextLeft);
+    if (this.placementController?.isActive) {
+      this.updatePlacementBarVisuals();
+    }
 
     // Aktif Yıkım Çubuğu (Active Demolish Floating Action Bar)
     this.demolishBarContainer.setPosition(w / 2, barY);
     this.demolishBarBg.setSize(barW, barH);
-    this.demolishBarText.setPosition(-barW * 0.08, 0);
-    this.demolishCancelBg.setPosition(barW / 2 - 20, 0);
-    this.demolishCancelIcon.setPosition(barW / 2 - 20, 0);
-    this.demolishCancelZone.setPosition(barW / 2 - 20, 0);
+    this.demolishCancelBg.setPosition(cancelX, 0);
+    this.demolishCancelIcon.setPosition(cancelX, 0);
+    this.demolishCancelZone.setPosition(cancelX, 0);
+
+    const demolishTextRight = cancelX - 13 - 8;
+    this.demolishBarText
+      .setPosition((barTextLeft + demolishTextRight) / 2, 0)
+      .setFontSize(this.barIsNarrow ? '9px' : '11px')
+      .setAlign('center')
+      .setWordWrapWidth(demolishTextRight - barTextLeft);
 
     /* 2D Fabrika Katı Viewport & Kamera Hizalama */
     const factoryTop = contentTop + milestoneH + 8;

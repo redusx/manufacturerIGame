@@ -56,6 +56,12 @@ export class GridView {
   /** Hücre tıklama dinleyicisi */
   onCellClicked?: (coord: GridCoord) => void;
 
+  /** Basış anında sorulur: bu basış bir hücre tıklaması başlatabilir mi? (ör. inşa aracı açıkken hayır) */
+  canStartCellClick?: () => boolean;
+
+  /** Basış zeminde başladı mı? Başka yerde başlayıp zeminde biten bırakışlar tıklama sayılmaz. */
+  private floorPressArmed = false;
+
   constructor(
     scene: Phaser.Scene,
     grid: GridMap,
@@ -85,8 +91,15 @@ export class GridView {
       this.lockedPlotsContainer,
     ]);
 
+    // Zeminde başlayıp başka yerde biten basışlar da burada sıfırlanır
+    this.scene.input.on('pointerup', this.disarmFloorPress, this);
+
     // İlk çizimi gerçekleştir
     this.refresh();
+  }
+
+  private disarmFloorPress(): void {
+    this.floorPressArmed = false;
   }
 
   // -------------------------------------------------------------
@@ -199,7 +212,13 @@ export class GridView {
     const floorZone = this.scene.add.zone(0, 0, pixelW, pixelH)
       .setOrigin(0, 0)
       .setInteractive()
+      .on('pointerdown', () => {
+        this.floorPressArmed = this.canStartCellClick ? this.canStartCellClick() : true;
+      })
       .on('pointerup', (pointer: Phaser.Input.Pointer) => {
+        if (!this.floorPressArmed) return;
+        this.floorPressArmed = false;
+
         const dragDist = Phaser.Math.Distance.Between(
           pointer.downX, pointer.downY,
           pointer.upX, pointer.upY,
@@ -481,6 +500,7 @@ export class GridView {
   // -------------------------------------------------------------
 
   destroy(): void {
+    this.scene.input.off('pointerup', this.disarmFloorPress, this);
     this.rootContainer.destroy(true);
   }
 }

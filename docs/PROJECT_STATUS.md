@@ -5,6 +5,34 @@
 
 ---
 
+## GÜNCEL DURUM — REVIVAL (2026-10-06)
+
+2026-10-06'da kod ve gerçek tarayıcı oynanışı üzerinden denetim yapıldı. Aşağıdaki "TARİHSEL DURUM" bölümündeki "%100 tamamlandı / yayına hazır" iddiaları **doğrulanamadı**: teknik iskelet sağlam, ama oyun döngüsü kırık (fabrika $1/sn, 20 sn'lik uçuş $1.750; 21 eşyanın 6'sı üretilebiliyor; fabrika rokete parça göndermiyor; ~5.500 satır sahneye bağlı olmayan kod).
+
+**Çalışma kuralı:** Dokümana değil koda ve tarayıcıdaki oynanışa güven. Birim testinin geçmesi oynanışın çalıştığı anlamına gelmez. Her milestone tarayıcıda sıfır kayıtla doğrulanır, sonra durulur.
+
+**Sabit tasarım kararları:** `DECISIONS.md` DEC-011 … DEC-016.
+
+| # | Milestone | Durum |
+|---|---|---|
+| M1 | Girdi ve açılış hataları | **TAMAMLANDI** (2026-10-06, tarayıcıda doğrulandı) |
+| M2 | Kamera ve okunabilirlik (ortalama/yakınlaştırma, tarif adları, hangar metni, mobil katalog taşması) | Sırada |
+| M3 | Tek ekonomi (iade istismarı, gerçek $/sn, eski 4 makinenin kaldırılması, çevrimdışı gelir) | Bekliyor |
+| M4 | İlerleme omurgası (`MilestoneManager`'ın sahneye bağlanması, makine kilitleri) | Bekliyor |
+| M5 | Hammaddeler (bakır, kum, polimer girişleri; giriş hızı yükseltmesi) | Bekliyor |
+| M6 | Roket bağlantısı (fabrika → hangar parça akışı, uçuş ödülü, uçuşta fabrika çalışır) | Bekliyor |
+| M7 | Denge geçişi | Bekliyor |
+| M8 | Sürükleyerek bant çizimi | Bekliyor |
+| M9 | Uzun vade (kontratlar, roket sonrası kademeler) | Bekliyor |
+| M10 | Temizlik ve yayın (ölü kod, doküman eşitleme, mobil düzen) | Bekliyor |
+
+* **Son doğrulama:** 2026-10-06 16:33 — `npm test` 285/285 (62 suit), `npx tsc --noEmit` 0 hata, `npm run build` başarılı; ayrıntı `IMPLEMENTATION_LOG.md` son girdi.
+* **Bilinen açık sorunlar (denetimden):** iade "toplam kazanç" sayılıyor (hedef istismarı); üst çubukta hep "0 /sn"; çevrimdışı gelir hiç tetiklenmiyor; kamera fabrikayı ortalamıyor; mobilde katalog penceresi ekrandan taşıyor.
+
+---
+
+## TARİHSEL DURUM (2026-10-02, doğrulanmamış — yalnızca arşiv)
+
 * **Current Phase:** MASTER PLAN VE OYNANABİLİR OYUN ENTEGRASYONU TAMAMLANDI (%100 Complete)
 * **Current Task:** TASK-INT-07: Uçtan Uca Oynanış Doğrulaması (Full Loop Verification & Polish)
 * **Task Status:** TAMAMLANDI VE %100 DOĞRULANDI (274/274 TEST GEÇTİ, 60 SUITE, 0 TS HATASI, VITE PRODUCTION BUILD BAŞARILI)

@@ -28,6 +28,7 @@ import {
   type PlacementExecuteResult,
 } from './PlacementMath.ts';
 import { PALETTE } from '../../ui/theme.ts';
+import { isPointerInsideViewport, isPointerOverUi, pointerToGrid } from './WorldPointer.ts';
 
 export interface PlacementItem {
   type: PlacementItemType;
@@ -172,8 +173,32 @@ export class PlacementController {
     this.currentRotation = 'NORTH';
     this.ghostContainer.setVisible(true);
 
+    // Hayalet önceki oturumun hücresinde kalmasın: farede imlecin altına,
+    // dokunmatikte (hover olmadığı için) görünen alanın ortasına al.
+    const pointer = this.scene.input.activePointer;
+    this.currentCoord = pointer.wasTouch ? this.getViewCenterCoord() : this.coordUnder(pointer);
+    this.updateGhostPosition();
+
     this.setupGhostSprite();
     this.updateGhostVisuals();
+  }
+
+  /**
+   * Dokunmatikte yerleşim iki adımlıdır (önce önizle, sonra aynı yere dokunup onayla).
+   * Ucuz ve seri döşenen düz bant bunun dışındadır; tek dokunuşla kurulur.
+   */
+  get needsTouchConfirm(): boolean {
+    return this.selectedItem !== null && this.selectedItem.type !== 'CONVEYOR';
+  }
+
+  /** Kamera kaydığında/yakınlaştığında fare imlecinin altındaki hücreyi yeniden eşler. */
+  update(): void {
+    if (!this._isActive || !this.selectedItem) return;
+
+    const pointer = this.scene.input.activePointer;
+    if (pointer.wasTouch) return;
+
+    this.moveGhostTo(this.coordUnder(pointer));
   }
 
   /**
@@ -206,37 +231,55 @@ export class PlacementController {
   // FARE VE DOKUNMA DİNLENMESİ
   // -------------------------------------------------------------
 
-  private handlePointerMove(pointer: Phaser.Input.Pointer): void {
-    if (!this._isActive || !this.selectedItem) return;
+  private coordUnder(pointer: Phaser.Input.Pointer): GridCoord {
+    return pointerToGrid(pointer, this.camera, this.tileSize, this.originX, this.originY);
+  }
 
-    const worldPoint = pointer.positionToCamera(this.camera) as Phaser.Math.Vector2;
-    const gridCoord = GridCoordinates.worldToGrid(
-      worldPoint.x,
-      worldPoint.y,
+  private getViewCenterCoord(): GridCoord {
+    const view = this.camera.worldView;
+    return GridCoordinates.worldToGrid(
+      view.centerX,
+      view.centerY,
       this.tileSize,
       this.originX,
       this.originY,
     );
-
-    if (gridCoord.x !== this.currentCoord.x || gridCoord.y !== this.currentCoord.y) {
-      this.currentCoord = gridCoord;
-      this.updateGhostPosition();
-      this.updateGhostVisuals();
-    }
   }
 
-  private handlePointerDown(pointer: Phaser.Input.Pointer): void {
+  private moveGhostTo(coord: GridCoord): void {
+    if (coord.x === this.currentCoord.x && coord.y === this.currentCoord.y) return;
+
+    this.currentCoord = coord;
+    this.updateGhostPosition();
+    this.updateGhostVisuals();
+  }
+
+  /** Hücre, hayaletin şu an kapladığı alanın içinde mi? */
+  private isInsideGhost(coord: GridCoord): boolean {
+    const footprint = this.lastValidation?.effectiveFootprint ?? { width: 1, height: 1 };
+    return (
+      coord.x >= this.currentCoord.x &&
+      coord.x < this.currentCoord.x + footprint.width &&
+      coord.y >= this.currentCoord.y &&
+      coord.y < this.currentCoord.y + footprint.height
+    );
+  }
+
+  private handlePointerMove(pointer: Phaser.Input.Pointer): void {
     if (!this._isActive || !this.selectedItem) return;
 
-    // Viewport kontrolü (Kamera dışındaki HUD ve alt deck alanlarına tıklanmasını yoksay)
-    if (
-      pointer.x < this.camera.x ||
-      pointer.x > this.camera.x + this.camera.width ||
-      pointer.y < this.camera.y ||
-      pointer.y > this.camera.y + this.camera.height
-    ) {
-      return;
-    }
+    this.moveGhostTo(this.coordUnder(pointer));
+  }
+
+  private handlePointerDown(
+    pointer: Phaser.Input.Pointer,
+    currentlyOver?: Phaser.GameObjects.GameObject[],
+  ): void {
+    if (!this._isActive || !this.selectedItem) return;
+
+    // UI'a yapılan basış (ör. katalogdaki "İNŞA ET") zemine yerleşim sayılmaz
+    if (isPointerOverUi(currentlyOver, this.camera)) return;
+    if (!isPointerInsideViewport(pointer, this.camera)) return;
 
     // Sağ tık: İptal
     if (pointer.button === 2) {
@@ -244,10 +287,23 @@ export class PlacementController {
       return;
     }
 
-    // Sol tık veya dokunma: İnşa et
-    if (pointer.button === 0 || pointer.button === -1) {
-      this.tryPlaceCurrent();
+    // Sol tık veya dokunma dışındaki tuşları yoksay
+    if (pointer.button !== 0 && pointer.button !== -1) return;
+
+    const pressed = this.coordUnder(pointer);
+
+    if (pointer.wasTouch && this.needsTouchConfirm) {
+      // İlk dokunuş hayaleti taşır; hayaletin üstüne ikinci dokunuş kurar
+      if (!this.isInsideGhost(pressed)) {
+        this.moveGhostTo(pressed);
+        return;
+      }
+    } else {
+      // Her zaman gerçekten basılan hücreye kur (imleç hareketi gelmemiş olabilir)
+      this.moveGhostTo(pressed);
     }
+
+    this.tryPlaceCurrent();
   }
 
   /**

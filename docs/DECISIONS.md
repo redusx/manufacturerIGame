@@ -76,3 +76,34 @@
 * **Karar:** Oyuna hardcore simülasyon unsurları (elektrik şebekesi, makine arızaları/bakım, işçi yönetimi, karmaşık dinamik borsa fiyatları, gerçekçi fizik kısıtları) eklenmeyecektir. Her sistem *"Bu özellik oyuncunun ekonomik büyümesini veya roket ilerlemesini anlamlı şekilde güçlendiriyor mu?"* sorusundan geçmek zorundadır. Üretim zincirleri maksimum 3-4 adımla sınırlı tutulacaktır.
 * **Gerekçe:** "Kolay öğren, sürekli geliştir, sürekli yeni bir şey aç" vizyonunu korumak ve aşırı tasarımdan (over-engineering) kaçınmak.
 
+---
+
+> **REVIVAL KARARLARI (2026-10-06):** Aşağıdaki kararlar, gerçek tarayıcı denetiminden sonra kullanıcı tarafından sabitlenmiştir. Önceki kararlarla çeliştiği yerde bunlar geçerlidir.
+
+### [DEC-011] Uçuş Ödülü: Kabiliyet Açar, Para Basmaz
+* **Tarih:** 2026-10-06
+* **Karar:** Uçuş ana para kaynağı değildir. Büyük nakit ödülleri kaldırılır; uçuş esas olarak yeni kabiliyet / hammadde / tarif / parsel / ilerleme açar. Yanında mütevazı nakit verilebilir, ancak tek uçuş fabrikanın birkaç dakikada üreteceği parayı aşmamalıdır.
+* **Gerekçe:** Denetimde Sv.1 roketle 20 saniyelik uçuş $1.750 verirken fabrika $1/sn kazanıyordu; fabrika anlamsızlaşıyordu.
+
+### [DEC-012] Hızlı İnşa: Pahalı Kestirme
+* **Tarih:** 2026-10-06
+* **Karar:** Roket modüllerinde eksik parçayı parayla tamamlama (hızlı inşa) kalır, ama pahalıdır: başlangıç oranı parça satış değerinin yaklaşık 4 katı (sonradan dengelenebilir). Hiçbir zaman normal fabrika üretiminin yerini almaz.
+* **Gerekçe:** Rokete giden yol fabrikadan geçmelidir.
+
+### [DEC-013] Tıklama: Yalnızca Erken Oyun Yardımcısı
+* **Tarih:** 2026-10-06
+* **Karar:** Tıklama kalıcı ana gelir sistemi değildir. İlk dakikalarda yardımcı olur; fabrika üretimi ilerledikçe ekonomik önemi hızla azalır. Ana ilerleme otomatik fabrika ekonomisidir.
+
+### [DEC-014] Kayıt Uyumluluğu: Temiz Başlangıç
+* **Tarih:** 2026-10-06
+* **Karar:** Oyun henüz yayında olmadığı için eski kayıtlar korunmaya çalışılmaz. Gerekirse göç yazmak yerine kayıt sürümü yükseltilip temiz başlangıç uygulanır.
+
+### [DEC-015] Roket Sonrası: Prestij Yok, Yeni Kademeler
+* **Tarih:** 2026-10-06
+* **Karar:** Prestij / sıfırlama sistemi şimdilik yoktur; fırlatma fabrikayı sıfırlamaz. Uzun vadeli yapı: Fabrika → Roket → Yörünge → daha uzak görevler → yeni kabiliyetler → daha güçlü fabrika. Ay / Mars gibi kademeler sonradan eklenebilir; şu aşamada gereksiz içerik üretilmez.
+* **Not:** DEC-006 ve `OPEN_QUESTIONS.md` MQ-1'deki prestij önerisinin yerine geçer.
+
+### [DEC-016] Uçuş Sırasında Fabrika Durmaz
+* **Tarih:** 2026-10-06
+* **Karar:** Uçuş sırasında fabrika üretimi arka planda devam eder; oyuncu dönüşte geçen süre kadar fabrika ilerlemesini alır. Uçuş, fabrikanın yerine geçen bir mini oyun olmamalıdır.
+

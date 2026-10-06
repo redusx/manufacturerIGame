@@ -22,6 +22,10 @@ import {
   type DemolishExecuteResult,
 } from './DemolishMath.ts';
 import { PALETTE, FONT_FAMILY } from '../../ui/theme.ts';
+import { isPointerInsideViewport, isPointerOverUi, pointerToGrid } from './WorldPointer.ts';
+
+/** Hiçbir hücreyi göstermeyen koordinat (dokunmatikte ilk dokunuşa kadar hedef yok) */
+const NO_COORD: GridCoord = { x: -1, y: -1 };
 
 export interface DemolishToolConfig {
   tileSize?: number;
@@ -148,7 +152,21 @@ export class DemolishTool {
   activate(): void {
     this._isActive = true;
     this.overlayContainer.setVisible(true);
+
+    // Önceki oturumdan kalan hedefle başlama: farede imlecin altını, dokunmatikte hiçbir şeyi hedefle
+    const pointer = this.scene.input.activePointer;
+    this.currentCoord = pointer.wasTouch ? NO_COORD : this.coordUnder(pointer);
     this.updateTarget();
+  }
+
+  /** Kamera kaydığında/yakınlaştığında fare imlecinin altındaki hedefi yeniden eşler. */
+  update(): void {
+    if (!this._isActive) return;
+
+    const pointer = this.scene.input.activePointer;
+    if (pointer.wasTouch) return;
+
+    this.moveTargetTo(this.coordUnder(pointer));
   }
 
   deactivate(): void {
@@ -168,36 +186,32 @@ export class DemolishTool {
   // İMLEÇ VE TIKLAMA İŞLEMLERİ
   // -------------------------------------------------------------
 
+  private coordUnder(pointer: Phaser.Input.Pointer): GridCoord {
+    return pointerToGrid(pointer, this.camera, this.tileSize, this.originX, this.originY);
+  }
+
+  private moveTargetTo(coord: GridCoord): void {
+    if (coord.x === this.currentCoord.x && coord.y === this.currentCoord.y) return;
+
+    this.currentCoord = coord;
+    this.updateTarget();
+  }
+
   private handlePointerMove(pointer: Phaser.Input.Pointer): void {
     if (!this._isActive) return;
 
-    const worldPoint = pointer.positionToCamera(this.camera) as Phaser.Math.Vector2;
-    const coord = GridCoordinates.worldToGrid(
-      worldPoint.x,
-      worldPoint.y,
-      this.tileSize,
-      this.originX,
-      this.originY,
-    );
-
-    if (coord.x !== this.currentCoord.x || coord.y !== this.currentCoord.y) {
-      this.currentCoord = coord;
-      this.updateTarget();
-    }
+    this.moveTargetTo(this.coordUnder(pointer));
   }
 
-  private handlePointerDown(pointer: Phaser.Input.Pointer): void {
+  private handlePointerDown(
+    pointer: Phaser.Input.Pointer,
+    currentlyOver?: Phaser.GameObjects.GameObject[],
+  ): void {
     if (!this._isActive) return;
 
-    // Viewport kontrolü (Kamera dışındaki HUD ve alt deck tıklamalarını yoksay)
-    if (
-      pointer.x < this.camera.x ||
-      pointer.x > this.camera.x + this.camera.width ||
-      pointer.y < this.camera.y ||
-      pointer.y > this.camera.y + this.camera.height
-    ) {
-      return;
-    }
+    // UI'a yapılan basış (ör. katalogdaki "SÖK") zeminde söküm sayılmaz
+    if (isPointerOverUi(currentlyOver, this.camera)) return;
+    if (!isPointerInsideViewport(pointer, this.camera)) return;
 
     // Sağ tık: Araçtan çık
     if (pointer.button === 2) {
@@ -205,10 +219,21 @@ export class DemolishTool {
       return;
     }
 
-    // Sol tık: Yıkımı onayla
-    if (pointer.button === 0 || pointer.button === -1) {
-      this.executeDemolishCurrent();
-    }
+    // Sol tık veya dokunma dışındaki tuşları yoksay
+    if (pointer.button !== 0 && pointer.button !== -1) return;
+
+    const pressed = this.coordUnder(pointer);
+    const wasHighlighted =
+      this.currentTarget?.occupiedCoords.some((c) => c.x === pressed.x && c.y === pressed.y) ??
+      false;
+
+    // Her zaman gerçekten basılan hücreyi hedefle (imleç hareketi gelmemiş olabilir)
+    this.moveTargetTo(pressed);
+
+    // Dokunmatikte ilk dokunuş sökülecek nesneyi işaretler, ikincisi söker
+    if (pointer.wasTouch && !wasHighlighted && this.currentTarget?.canDemolish) return;
+
+    this.executeDemolishCurrent();
   }
 
   private updateTarget(): void {
