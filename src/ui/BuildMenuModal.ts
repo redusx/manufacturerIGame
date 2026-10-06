@@ -8,7 +8,7 @@
  * Özellikler:
  * - Kayar pencere (Scrollable viewport, GeometryMask, MouseWheel & Drag desteği)
  * - Kartların üzerinde gerçek piksel sanat makine görselleri ve boyut rozetleri
- * - İki sütunlu düzen, şık piksel kaydırma çubuğu (scrollbar)
+ * - Geniş ekranda iki, dar (mobil) ekranda tek sütunlu düzen; piksel kaydırma çubuğu
  * - Tıklama yalıtımı: Sadece dışarı veya [X] butonuna tıklandığında kapanır.
  *
  * docs/ART_DIRECTION.md ve src/ui/theme.ts standartlarına tam uyumludur.
@@ -94,10 +94,20 @@ export class BuildMenuModal {
   }> = [];
 
   private _isOpen = false;
-  private modalW = 540;
-  private modalH = 460;
+
+  /** Tasarım boyutları; ekran daha darsa/kısaysa pencere küçülür ve kartlar tek sütuna iner */
+  private static readonly MAX_MODAL_W = 540;
+  private static readonly MAX_MODAL_H = 460;
+  private static readonly CARD_H = 82;
+  private static readonly CARD_GAP_X = 14;
+  private static readonly CARD_GAP_Y = 10;
+
+  private modalW = BuildMenuModal.MAX_MODAL_W;
+  private modalH = BuildMenuModal.MAX_MODAL_H;
   private readonly viewportY = 56;
-  private readonly viewportH = 384;
+  private viewportH = 384;
+  private cols = 2;
+  private cardW = 240;
 
   constructor(
     scene: Phaser.Scene,
@@ -459,11 +469,11 @@ export class BuildMenuModal {
     const font = { fontFamily: FONT_FAMILY };
 
     const startX = 18;
-    const cardW = 240;
-    const cardH = 82;
-    const gapX = 14;
-    const gapY = 10;
-    const cols = 2;
+    const cardW = this.cardW;
+    const cardH = BuildMenuModal.CARD_H;
+    const gapX = BuildMenuModal.CARD_GAP_X;
+    const gapY = BuildMenuModal.CARD_GAP_Y;
+    const cols = this.cols;
 
     for (let i = 0; i < items.length; i++) {
       const it = items[i];
@@ -539,7 +549,7 @@ export class BuildMenuModal {
       // Açıklama
       const desc = this.scene.add.text(contentX, cy + 24, it.desc, {
         ...font,
-        fontSize: '8.5px',
+        fontSize: '9px',
         color: PALETTE.textMuted,
         wordWrap: { width: cardW - 72 },
         lineSpacing: 2,
@@ -608,10 +618,16 @@ export class BuildMenuModal {
       });
     }
 
-    // Toplam içerik yüksekliği ve maksimum kaydırma mesafesi
-    const totalRows = Math.ceil(items.length / cols);
-    const totalContentHeight = totalRows * (cardH + gapY) + 12;
+    this.updateScrollRange();
+  }
+
+  /** Toplam içerik yüksekliğine göre maksimum kaydırma mesafesini günceller */
+  private updateScrollRange(): void {
+    const totalRows = Math.ceil(this.cardButtons.length / this.cols);
+    const totalContentHeight =
+      totalRows * (BuildMenuModal.CARD_H + BuildMenuModal.CARD_GAP_Y) + 12;
     this.maxScrollY = Math.max(0, totalContentHeight - this.viewportH);
+    this.scrollY = Math.min(this.scrollY, this.maxScrollY);
   }
 
   refresh(): void {
@@ -640,6 +656,23 @@ export class BuildMenuModal {
 
   layout(screenWidth: number, screenHeight: number): void {
     this.backdrop.setSize(screenWidth, screenHeight);
+
+    // Pencereyi ekrana sığdır; iki sütun sığmıyorsa kartları tek sütuna indir
+    this.modalW = Math.min(BuildMenuModal.MAX_MODAL_W, screenWidth - 16);
+    this.modalH = Math.min(BuildMenuModal.MAX_MODAL_H, screenHeight - 16);
+    this.viewportH = this.modalH - 76;
+
+    const cols = this.modalW >= BuildMenuModal.MAX_MODAL_W ? 2 : 1;
+    const cardW = cols === 2 ? 240 : this.modalW - 48;
+    if (cols !== this.cols || cardW !== this.cardW) {
+      this.cols = cols;
+      this.cardW = cardW;
+      this.buildCards();
+      this.refresh();
+    } else {
+      this.updateScrollRange();
+    }
+    this.titleText.setText(cols === 2 ? 'İNŞA VE MAKİNE KATALOĞU' : 'KATALOG');
 
     const x = Math.round((screenWidth - this.modalW) / 2);
     const y = Math.round((screenHeight - this.modalH) / 2);

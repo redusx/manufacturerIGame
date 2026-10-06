@@ -15,9 +15,9 @@
 
 | # | Milestone | Durum |
 |---|---|---|
-| M1 | Girdi ve açılış hataları | **TAMAMLANDI** (2026-10-06, tarayıcıda doğrulandı) |
-| M2 | Kamera ve okunabilirlik (ortalama/yakınlaştırma, tarif adları, hangar metni, mobil katalog taşması) | Sırada |
-| M3 | Tek ekonomi (iade istismarı, gerçek $/sn, eski 4 makinenin kaldırılması, çevrimdışı gelir) | Bekliyor |
+| M1 | Girdi ve açılış hataları | **TAMAMLANDI** (2026-10-06, tarayıcıda doğrulandı, commit `4da3de2`) |
+| M2 | Kamera ve okunabilirlik (sığdırma/ortalama, imleç merkezli zoom, mobil pencereler, tarif adları ve seçimi, hangar metni) | **TAMAMLANDI** (2026-10-06, tarayıcıda doğrulandı) |
+| M3 | Tek ekonomi (iade istismarı, gerçek $/sn, eski 4 makinenin kaldırılması, çevrimdışı gelir) | Sırada |
 | M4 | İlerleme omurgası (`MilestoneManager`'ın sahneye bağlanması, makine kilitleri) | Bekliyor |
 | M5 | Hammaddeler (bakır, kum, polimer girişleri; giriş hızı yükseltmesi) | Bekliyor |
 | M6 | Roket bağlantısı (fabrika → hangar parça akışı, uçuş ödülü, uçuşta fabrika çalışır) | Bekliyor |
@@ -26,8 +26,12 @@
 | M9 | Uzun vade (kontratlar, roket sonrası kademeler) | Bekliyor |
 | M10 | Temizlik ve yayın (ölü kod, doküman eşitleme, mobil düzen) | Bekliyor |
 
-* **Son doğrulama:** 2026-10-06 16:33 — `npm test` 285/285 (62 suit), `npx tsc --noEmit` 0 hata, `npm run build` başarılı; ayrıntı `IMPLEMENTATION_LOG.md` son girdi.
-* **Bilinen açık sorunlar (denetimden):** iade "toplam kazanç" sayılıyor (hedef istismarı); üst çubukta hep "0 /sn"; çevrimdışı gelir hiç tetiklenmiyor; kamera fabrikayı ortalamıyor; mobilde katalog penceresi ekrandan taşıyor.
+* **Son doğrulama:** 2026-10-06 16:57 — `npm test` 285/285 (62 suit), `npx tsc --noEmit` 0 hata, `npm run build` başarılı; ayrıntı `IMPLEMENTATION_LOG.md` son girdi.
+* **Bilinen açık sorunlar:**
+  - Ekonomi (M3): iade "toplam kazanç" sayılıyor (hedef istismarı); üst çubukta hep "0 /sn"; çevrimdışı gelir hiç tetiklenmiyor.
+  - Dokunmatik: iki parmakla yakınlaştırma (pinch) yok; yerleştirme/söküm modunda kamera kaydırılamıyor. Büyük fabrikalarda (20x16 ve üzeri) telefonda hücreler çok küçülüyor.
+  - Yatay telefon ekranı (ör. 812x375): ana ekran çalışıyor ama pencereler (katalog, hangar, makine inceleme) dikeyde taşıyor; düzen dikey telefon ve masaüstü için doğrulandı.
+  - `factory_bg` arka plan dokusu iki kamera tarafından da yoksayıldığı için hiç çizilmiyor.
 
 ---
 

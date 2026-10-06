@@ -38,8 +38,15 @@ export class TerminalInspectorModal {
   private contentContainer: Phaser.GameObjects.Container;
 
   private _isOpen = false;
-  private modalW = 420;
+
+  /** Tasarım genişliği; ekran daha darsa pencere küçülür */
+  private static readonly MAX_MODAL_W = 420;
+  private modalW = TerminalInspectorModal.MAX_MODAL_W;
   private modalH = 320;
+
+  /** Pencere açıkken boyut değişirse içeriği yeniden çizebilmek için */
+  private shownType: TerminalType = 'CHOICE';
+  private shownCoord?: GridCoord;
 
   constructor(scene: Phaser.Scene, config: TerminalInspectorModalConfig) {
     this.scene = scene;
@@ -112,8 +119,9 @@ export class TerminalInspectorModal {
    */
   open(type: TerminalType, coord?: GridCoord): void {
     this._isOpen = true;
+    this.shownType = type;
+    this.shownCoord = coord;
     this.container.setVisible(true);
-    this.renderContent(type, coord);
     this.layout(this.scene.scale.width, this.scene.scale.height);
   }
 
@@ -129,8 +137,23 @@ export class TerminalInspectorModal {
   }
 
   layout(w: number, h: number): void {
-    this.backdrop.setPosition(0, 0).setSize(w, h);
-    this.container.setPosition(w / 2, h / 2);
+    // Konteyner ekranın ortasında durduğu için karartma (-w/2, -h/2)'den başlar;
+    // (0, 0)'dan başlarsa yalnızca sağ-alt çeyreği kapatır ve tıklamalar zemine sızar.
+    this.backdrop.setPosition(-w / 2, -h / 2).setSize(w, h);
+    this.container.setPosition(Math.round(w / 2), Math.round(h / 2));
+
+    this.modalW = Math.min(TerminalInspectorModal.MAX_MODAL_W, w - 16);
+    this.panelBlocker.setSize(this.modalW, this.modalH);
+    this.modalBg.setSize(this.modalW, this.modalH);
+
+    const closeX = this.modalW / 2 - 24;
+    this.closeBtnBg.setX(closeX);
+    this.closeBtnIcon.setX(closeX);
+    this.closeZone.setX(closeX);
+
+    if (this._isOpen) {
+      this.renderContent(this.shownType, this.shownCoord);
+    }
   }
 
   private renderContent(type: TerminalType, coord?: GridCoord): void {
@@ -149,9 +172,11 @@ export class TerminalInspectorModal {
       }).setOrigin(0.5);
       this.contentContainer.add(descText);
 
+      const choiceBtnW = Math.min(280, this.modalW - 40);
+
       // 1. Hammadde Giriş Butonu
       const btn1Y = -10;
-      const btn1Bg = PixelUIHelper.createButton(this.scene, 0, btn1Y, 280, 42, 'launch');
+      const btn1Bg = PixelUIHelper.createButton(this.scene, 0, btn1Y, choiceBtnW, 42, 'launch');
       this.contentContainer.add(btn1Bg);
 
       const btn1Text = this.scene.add.text(0, btn1Y - 6, '📦 HAMMADDE GİRİŞİNİ TAŞI', {
@@ -162,12 +187,12 @@ export class TerminalInspectorModal {
       }).setOrigin(0.5);
       const btn1Sub = this.scene.add.text(0, btn1Y + 9, 'Giriş Silosu (Demir Cevheri Tedariği)', {
         ...font,
-        fontSize: '8px',
+        fontSize: '9px',
         color: '#dcfce7',
       }).setOrigin(0.5);
       this.contentContainer.add([btn1Text, btn1Sub]);
 
-      const zone1 = this.scene.add.zone(0, btn1Y, 280, 42)
+      const zone1 = this.scene.add.zone(0, btn1Y, choiceBtnW, 42)
         .setOrigin(0.5)
         .setInteractive({ useHandCursor: true })
         .on('pointerdown', () => {
@@ -180,7 +205,7 @@ export class TerminalInspectorModal {
 
       // 2. Sevkiyat Sandığı Butonu
       const btn2Y = 48;
-      const btn2Bg = PixelUIHelper.createButton(this.scene, 0, btn2Y, 280, 42, 'green');
+      const btn2Bg = PixelUIHelper.createButton(this.scene, 0, btn2Y, choiceBtnW, 42, 'green');
       this.contentContainer.add(btn2Bg);
 
       const btn2Text = this.scene.add.text(0, btn2Y - 6, '🚚 SEVKİYAT SANDIĞINI TAŞI', {
@@ -191,12 +216,12 @@ export class TerminalInspectorModal {
       }).setOrigin(0.5);
       const btn2Sub = this.scene.add.text(0, btn2Y + 9, 'Çıkış Terminali (Satış ve Gelir Noktası)', {
         ...font,
-        fontSize: '8px',
+        fontSize: '9px',
         color: '#fef08a',
       }).setOrigin(0.5);
       this.contentContainer.add([btn2Text, btn2Sub]);
 
-      const zone2 = this.scene.add.zone(0, btn2Y, 280, 42)
+      const zone2 = this.scene.add.zone(0, btn2Y, choiceBtnW, 42)
         .setOrigin(0.5)
         .setInteractive({ useHandCursor: true })
         .on('pointerdown', () => {
@@ -235,8 +260,8 @@ export class TerminalInspectorModal {
     const isIntake = type === 'INTAKE';
     this.titleText.setText(isIntake ? 'HAMMADDE GİRİŞ SİLOSU' : 'SEVKİYAT SANDIĞI');
 
-    // Sol Taraf: Görsel Önizleme Kutusu
-    const boxX = -130;
+    // Sol Taraf: Görsel Önizleme Kutusu (pencerenin sol kenarına göre)
+    const boxX = -this.modalW / 2 + 16 + 44;
     const boxY = -15;
     const boxBg = PixelUIHelper.createCard(this.scene, boxX - 44, boxY - 44, 88, 88);
     this.contentContainer.add(boxBg);
@@ -255,15 +280,16 @@ export class TerminalInspectorModal {
 
     const typeBadge = this.scene.add.text(boxX, boxY + 28, isIntake ? 'GİRİŞ (IN)' : 'ÇIKIŞ (OUT)', {
       ...font,
-      fontSize: '8px',
+      fontSize: '9px',
       color: isIntake ? PALETTE.factoryAmberHex : PALETTE.resourceGoldHex,
       fontStyle: 'bold',
     }).setOrigin(0.5);
     this.contentContainer.add(typeBadge);
 
-    // Sağ Taraf: Bilgiler
-    const infoX = -60;
+    // Sağ Taraf: Bilgiler (kutunun sağından pencerenin sağ kenarına kadar)
+    const infoX = boxX + 44 + 14;
     const infoY = -65;
+    const infoW = this.modalW / 2 - 16 - infoX;
 
     const locStr = coord ? `(${coord.x}, ${coord.y})` : 'Mevcut Konum';
     const locText = this.scene.add.text(infoX, infoY, `Konum: ${locStr}`, {
@@ -288,16 +314,16 @@ export class TerminalInspectorModal {
 
     const descText = this.scene.add.text(infoX, infoY + 36, descMsg, {
       ...font,
-      fontSize: '8.5px',
+      fontSize: '9px',
       color: PALETTE.textMuted,
-      wordWrap: { width: 220 },
+      wordWrap: { width: infoW },
       lineSpacing: 2,
     });
     this.contentContainer.add(descText);
 
-    const costBadge = this.scene.add.text(infoX, infoY + 85, 'Taşıma Maliyeti: ÜCRETSİZ ($0)', {
+    const costBadge = this.scene.add.text(infoX, descText.y + descText.height + 8, 'Taşıma Maliyeti: ÜCRETSİZ ($0)', {
       ...font,
-      fontSize: '8.5px',
+      fontSize: '9px',
       color: PALETTE.successGreenHex,
       fontStyle: 'bold',
     });

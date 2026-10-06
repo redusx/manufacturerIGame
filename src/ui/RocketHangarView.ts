@@ -32,6 +32,7 @@ interface UpgradeCardElement {
   nameText: Phaser.GameObjects.Text;
   levelText: Phaser.GameObjects.Text;
   statText: Phaser.GameObjects.Text;
+  partsText: Phaser.GameObjects.Text;
   btnBg: Phaser.GameObjects.NineSlice;
   btnText: Phaser.GameObjects.Text;
   costText: Phaser.GameObjects.Text;
@@ -85,10 +86,10 @@ export class RocketHangarView {
   private headerText!: Phaser.GameObjects.Text;
   private statsText!: Phaser.GameObjects.Text;
 
-  private viewX = 0;
-  private viewY = 0;
-  private viewW = 0;
-  private viewH = 0;
+  /** Son yerleşimde kullanılan ekran boyutu ve başlık metni yüksekliği */
+  private layoutW = 0;
+  private layoutH = 0;
+  private laidOutStatsHeight = -1;
 
   constructor(
     scene: Phaser.Scene,
@@ -296,6 +297,12 @@ export class RocketHangarView {
       }).setOrigin(0, 0.5);
       cardCont.add(statText);
 
+      // Gerekli parça satırı (kartın tüm genişliğini kullanır, düğmenin altından geçmez)
+      const partsText = s.add.text(-60, 20, '', {
+        ...font, fontSize: '9px', color: PALETTE.factoryAmberHex,
+      }).setOrigin(0, 0.5);
+      cardCont.add(partsText);
+
       // 9-Slice Buton
       const btnBg = PixelUIHelper.createButton(s, 80, 0, 74, 28, 'green');
       cardCont.add(btnBg);
@@ -326,6 +333,7 @@ export class RocketHangarView {
         nameText,
         levelText,
         statText,
+        partsText,
         btnBg,
         btnText,
         costText,
@@ -497,6 +505,11 @@ export class RocketHangarView {
       : '';
     this.statsText.setText(statsLine + stockHeader);
 
+    // Stok satırı uzayıp metin yeni satıra taşarsa alttaki roket görseli üstüne binmesin
+    if (this.layoutW > 0 && this.statsText.height !== this.laidOutStatsHeight) {
+      this.applyLayout();
+    }
+
     const economyRef = this.factoryEconomy ?? {
       canAfford: (cost: number) => this.economy.resources.gte(cost),
       money: Number(this.economy.resources),
@@ -518,15 +531,15 @@ export class RocketHangarView {
         );
 
         card.levelText.setText(vm.levelText);
+        card.statText.setText(def.getStatText(vm.level));
+        card.partsText.setText(vm.isMax ? '' : `Parça: ${vm.partsDetailText}`);
         if (vm.isMax) {
-          card.statText.setText(def.getStatText(vm.level));
           card.btnBg.setTexture('btn_disabled');
           card.btnText.setText('MAKSİMUM');
           card.btnText.setColor(PALETTE.textMuted);
           card.costText.setText('');
           card.zone.input!.enabled = false;
         } else {
-          card.statText.setText(`${def.getStatText(vm.level)} | ${vm.partsDetailText}`);
           card.btnText.setText(vm.btnText);
           card.costText.setText(vm.costText);
 
@@ -550,6 +563,7 @@ export class RocketHangarView {
 
         card.levelText.setText(isMax ? 'MAKS' : `Sv. ${level}/${def.maxLevel}`);
         card.statText.setText(def.getStatText(level));
+        card.partsText.setText('');
 
         if (isMax) {
           card.btnBg.setTexture('btn_disabled');
@@ -613,16 +627,53 @@ export class RocketHangarView {
   }
 
   layout(w: number, h: number): void {
+    this.layoutW = w;
+    this.layoutH = h;
+    this.refresh();
+    this.applyLayout();
+  }
+
+  /**
+   * Pencereyi içeriğe göre yukarıdan aşağı yerleştirir: başlık → durum metni →
+   * rampa/roket → 4 kart → fırlatma düğmesi. Pencere yüksekliği içerikten hesaplanır.
+   */
+  private applyLayout(): void {
+    const w = this.layoutW;
+    const h = this.layoutH;
     this.backdrop.setSize(w, h);
 
     const sf = Phaser.Math.Clamp(Math.min(w, h) / 480, 0.65, 1.2);
     const modalW = Math.min(480, w - 20);
-    const modalH = Math.min(540, h - 30);
     const cx = w / 2;
-    const cy = h / 2;
-    const modalX = cx - modalW / 2;
-    const modalY = cy - modalH / 2;
 
+    // --- Ölçüler (pencerenin üst kenarına göre) ---
+    this.headerText.setFontSize(`${Math.max(12, Math.round(14 * sf))}px`);
+    this.statsText
+      .setOrigin(0.5, 0)
+      .setAlign('center')
+      .setFontSize(`${Math.max(9.5, Math.round(10.5 * sf))}px`)
+      .setWordWrapWidth(modalW - 32);
+    this.laidOutStatsHeight = this.statsText.height;
+
+    const statsTop = 36;
+    // Rampa + gantry + roket görseli merkezinden ~65px yukarı ve aşağı uzanır
+    const padHalfH = 65;
+    const padCenter = statsTop + this.statsText.height + 6 + padHalfH;
+
+    const cardW = modalW - 32;
+    const cardH = 52;
+    const cardGap = Math.max(4, Math.round(6 * sf));
+    const cardsTop = padCenter + padHalfH - 4;
+    const cardsBottom = cardsTop + this.cardElements.length * (cardH + cardGap) - cardGap;
+
+    const launchH = Math.max(36, Math.round(44 * sf));
+    const launchCenter = cardsBottom + 12 + launchH / 2;
+    const modalH = launchCenter + launchH / 2 + 14;
+
+    const modalX = cx - modalW / 2;
+    const modalY = Math.round(h / 2 - modalH / 2);
+
+    // --- Çerçeve ---
     this.panelBlocker.setPosition(modalX, modalY);
     this.panelBlocker.setSize(modalW, modalH);
 
@@ -636,75 +687,70 @@ export class RocketHangarView {
 
     // Başlık ve İstatistikler
     this.headerText.setPosition(cx, modalY + 22);
-    this.headerText.setFontSize(`${Math.max(12, Math.round(14 * sf))}px`);
-
-    this.statsText.setPosition(cx, modalY + 42);
-    this.statsText.setFontSize(`${Math.max(9.5, Math.round(10.5 * sf))}px`);
+    this.statsText.setPosition(cx, modalY + statsTop);
 
     // Rampa Alanı (Gantry + Roket)
-    const padCy = modalY + Math.round(112 * sf);
-    this.padContainer.setPosition(cx, padCy);
+    this.padContainer.setPosition(cx, modalY + padCenter);
 
-    // Geliştirme Kartları (4 kart alt alta düzenli liste)
-    const cardW = modalW - 32;
-    const cardH = Math.max(34, Math.round(38 * sf));
-    const cardGap = Math.max(4, Math.round(6 * sf));
-    const cardsTop = padCy + Math.round(52 * sf);
+    // --- Geliştirme Kartları (4 kart alt alta) ---
+    this.cardsContainer.setPosition(cx, modalY + cardsTop + cardH / 2);
 
-    this.cardsContainer.setPosition(cx, cardsTop + cardH / 2);
+    const row1Y = -cardH / 2 + 13;
+    const row2Y = row1Y + 13;
+    const row3Y = row2Y + 13;
+    const btnCenterY = (row1Y + row2Y) / 2;
 
     for (let i = 0; i < this.cardElements.length; i++) {
       const card = this.cardElements[i];
-      const cy = i * (cardH + cardGap);
-      card.container.setPosition(0, cy);
+      card.container.setPosition(0, i * (cardH + cardGap));
 
       card.bgSlice.setSize(cardW, cardH);
 
       const bW = Math.max(76, Math.round(84 * sf));
-      const bH = Math.max(26, Math.round(28 * sf));
+      const bH = 26;
       const btnX = cardW / 2 - bW / 2 - 8;
 
       card.btnX = btnX;
       card.btnW = bW;
       card.btnH = bH;
 
-      card.btnBg.setPosition(btnX, 0);
+      card.btnBg.setPosition(btnX, btnCenterY);
       card.btnBg.setSize(bW, bH);
 
-      card.zone.setPosition(btnX, 0);
+      card.zone.setPosition(btnX, btnCenterY);
       card.zone.setSize(bW, bH);
-      card.btnText.setPosition(btnX, -4);
-      card.btnText.setFontSize(`${Math.max(8.5, Math.round(9.5 * sf))}px`);
+      card.btnText.setPosition(btnX, btnCenterY - 5);
+      card.btnText.setFontSize(`${Math.max(9, Math.round(9.5 * sf))}px`);
 
-      card.costText.setPosition(btnX, 6);
-      card.costText.setFontSize(`${Math.max(7.5, Math.round(8.5 * sf))}px`);
+      card.costText.setPosition(btnX, btnCenterY + 6);
+      card.costText.setFontSize(`${Math.max(9, Math.round(8.5 * sf))}px`);
 
       const leftX = -cardW / 2 + 16;
-      card.iconSprite.setPosition(leftX, 0);
+      const textX = leftX + 22;
+      card.iconSprite.setPosition(leftX, btnCenterY);
       card.iconSprite.setScale(Math.max(0.8, sf * 1.0));
 
-      card.nameText.setPosition(leftX + 22, -6);
-      card.nameText.setFontSize(`${Math.max(9.5, Math.round(11 * sf))}px`);
+      card.nameText.setPosition(textX, row1Y);
+      card.nameText.setFontSize(`${Math.max(10, Math.round(11 * sf))}px`);
 
-      card.levelText.setPosition(btnX - bW / 2 - 8, -6);
-      card.levelText.setFontSize(`${Math.max(8.5, Math.round(9.5 * sf))}px`);
+      card.levelText.setPosition(btnX - bW / 2 - 8, row1Y);
+      card.levelText.setFontSize(`${Math.max(9, Math.round(9.5 * sf))}px`);
 
-      card.statText.setPosition(leftX + 22, 7);
-      card.statText.setFontSize(`${Math.max(8.5, Math.round(9.5 * sf))}px`);
+      card.statText.setPosition(textX, row2Y);
+      card.statText.setFontSize(`${Math.max(9, Math.round(9.5 * sf))}px`);
+
+      card.partsText.setPosition(textX, row3Y);
+      card.partsText.setFontSize(`${Math.max(9, Math.round(9 * sf))}px`);
     }
 
-    // Fırlatma Düğmesi (En Alt)
+    // --- Fırlatma Düğmesi (En Alt) ---
     const btnW = Math.min(cardW, Math.round(320 * sf));
-    const btnH = Math.round(44 * sf);
-    const btnY = modalY + modalH - Math.round(28 * sf);
 
-    this.launchBtnContainer.setPosition(cx, btnY);
-    this.launchBtnBg.setSize(btnW, btnH);
-    this.launchZone.setSize(btnW, btnH);
+    this.launchBtnContainer.setPosition(cx, modalY + launchCenter);
+    this.launchBtnBg.setSize(btnW, launchH);
+    this.launchZone.setSize(btnW, launchH);
     this.launchBtnText.setFontSize(`${Math.max(12, Math.round(14 * sf))}px`);
-    this.launchSubText.setFontSize(`${Math.max(8, Math.round(9 * sf))}px`);
-
-    this.refresh();
+    this.launchSubText.setFontSize(`${Math.max(9, Math.round(9 * sf))}px`);
   }
 
   setVisible(visible: boolean): void {

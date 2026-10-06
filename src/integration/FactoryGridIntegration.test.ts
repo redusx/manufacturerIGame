@@ -86,29 +86,37 @@ describe('TASK-INT-02: 2D Factory Floor & Camera Math Integration Tests', () => 
     const worldW = 8 * 32; // 256
     const worldH = 8 * 32; // 256
 
-    const centerAt1x = CameraMath.computeCenterPosition(worldW, worldH, viewport, 1.0);
-    // (256 - 800) / 2 = -272, (256 - 400) / 2 = -72
-    assert.strictEqual(centerAt1x.x, -272);
-    assert.strictEqual(centerAt1x.y, -72);
+    // Phaser kamerası görüş alanının merkezine göre yakınlaştığı için ortalama scroll'u
+    // zoom'dan bağımsızdır: (256 - 800) / 2 = -272, (256 - 400) / 2 = -72
+    const center = CameraMath.computeCenterPosition(worldW, worldH, viewport);
+    assert.strictEqual(center.x, -272);
+    assert.strictEqual(center.y, -72);
 
-    // Zooming in to 1.5x
+    // Zooming in one step
     const zoomNext = CameraMath.getNextDiscreteZoom(1.0, 1, 0.25, 0.5, 2.5);
     assert.strictEqual(zoomNext, 1.25);
 
-    const centerAt1_25x = CameraMath.computeCenterPosition(worldW, worldH, viewport, 1.25);
-    const effectiveW = 800 / 1.25; // 640
-    const effectiveH = 400 / 1.25; // 320
-    assert.strictEqual(centerAt1_25x.x, Math.round((256 - 640) / 2));
-    assert.strictEqual(centerAt1_25x.y, Math.round((256 - 320) / 2));
+    // 1.25x'te görünen dünya 640x320'dir; sol-üst köşesi scroll + viewport * (1 - 1/zoom) / 2
+    // olduğundan fabrika aynı scroll ile yine tam ortadadır.
+    const effectiveW = 800 / zoomNext; // 640
+    const effectiveH = 400 / zoomNext; // 320
+    const viewLeft = center.x + (viewport.width - effectiveW) / 2;
+    const viewTop = center.y + (viewport.height - effectiveH) / 2;
+    assert.strictEqual(viewLeft, (256 - 640) / 2);
+    assert.strictEqual(viewTop, (256 - 320) / 2);
 
-    // Clamping limits
+    // Fabrika ekrandan küçükken sınırlar tek noktaya çökmez (çökerse fabrika köşeye
+    // yapışır): min > max olur ve ortalanmış konum bu aralığın içinde kalır.
     const panBounds = CameraMath.computePanBounds(worldW, worldH, viewport, 1.0, 64);
-    assert.ok(panBounds.minX <= panBounds.maxX);
-    assert.ok(panBounds.minY <= panBounds.maxY);
+    assert.ok(panBounds.minX > panBounds.maxX);
+    const centered = CameraMath.clampPosition(center.x, center.y, panBounds);
+    assert.strictEqual(centered.x, center.x);
+    assert.strictEqual(centered.y, center.y);
 
+    // Aralığın dışına taşan konum en yakın sınıra çekilir
     const clamped = CameraMath.clampPosition(-1000, 1000, panBounds);
-    assert.ok(clamped.x >= panBounds.minX);
-    assert.ok(clamped.y <= panBounds.maxY);
+    assert.strictEqual(clamped.x, Math.min(panBounds.minX, panBounds.maxX));
+    assert.strictEqual(clamped.y, Math.max(panBounds.minY, panBounds.maxY));
   });
 
   it('4. GridCoordinates: Exact world pixel mapping at 32px tile size', () => {

@@ -436,10 +436,8 @@ export class GameScene extends Phaser.Scene {
         sound.playMilestone();
         PlotExpansionManager.playUnlockCelebration(this, res, 32);
         this.gridView.refresh();
-        this.cameraController.setWorldSize(
-          this.gridView.getActivePixelWidth(),
-          this.gridView.getActivePixelHeight(),
-        );
+        // Yeni açılan alan görünsün diye kamerayı büyüyen fabrikaya yeniden sığdır
+        this.cameraController.fitToFactory();
         this.saveGame();
         this.refreshUI();
         this.showNotification(`PARSEL AÇILDI! ${res.plotName} (${res.newBounds.width}x${res.newBounds.height})`);
@@ -484,7 +482,7 @@ export class GameScene extends Phaser.Scene {
       this.factoryCamera,
     );
     this.cameraController.attachGridView(this.gridView);
-    this.cameraController.centerOnFactory();
+    this.cameraController.fitToFactory();
 
     // Kamera Katmanlama Sırası:
     // factoryCamera (dünya) önce çizilir (index 0).
@@ -1261,6 +1259,9 @@ export class GameScene extends Phaser.Scene {
 
     /* Roket Hangarı Kartları ve Verileri */
     this.rocketHangar.refresh();
+
+    /* Sıradaki parsel rozeti: para yetince alınabilir görünüme geçsin */
+    this.gridView.syncLockedPlotAffordability();
   }
 
   /* ================================================================
@@ -1364,10 +1365,7 @@ export class GameScene extends Phaser.Scene {
     if (this.gridView) {
       this.gridView.refresh();
       if (this.cameraController) {
-        this.cameraController.setWorldSize(
-          this.gridView.getActivePixelWidth(),
-          this.gridView.getActivePixelHeight(),
-        );
+        this.cameraController.fitToFactory();
       }
     }
     if (this.conveyorRenderer) {
@@ -1549,7 +1547,8 @@ export class GameScene extends Phaser.Scene {
     this.milestoneBar.setVisible(true);
 
     /* Alt Butonlar: 4 Butonlu Arcade Dock ([MANUEL], [BANT], [MAKİNE], [HANGAR]) */
-    const btnH = Math.round(44 * sf);
+    // Dokunma hedefi çok küçülmesin diye yükseklik 40px'in altına inmez
+    const btnH = Math.max(40, Math.round(44 * sf));
     const gap = Math.round(8 * sf);
     const bottomPad = Math.round(10 * sf);
     const btnCy = h - bottomPad - btnH / 2;
@@ -1566,41 +1565,29 @@ export class GameScene extends Phaser.Scene {
     this.consoleDeckBg.setPosition((w - totalDockW) / 2 - 8, btnCy - btnH / 2 - 6);
     this.consoleDeckBg.setSize(totalDockW + 16, btnH + 12);
 
-    // 1. Manuel Üret
-    const x0 = dockStartX;
-    this.manualBtnContainer.setPosition(x0, btnCy);
-    this.manualBtnBg.setSize(btnW, btnH);
-    this.manualBtnIcon.setPosition(-btnW * 0.32, -4).setScale(0.85 * sf);
-    this.manualBtnText.setPosition(10, -5).setFontSize(`${Math.max(9, Math.round(10.5 * sf))}px`);
-    this.manualBtnSubText.setPosition(0, 9).setFontSize(`${Math.max(7.5, Math.round(8.5 * sf))}px`);
-    this.manualZone.setSize(btnW, btnH);
+    // Dar (mobil) düğmede ikon ile etiket üst üste biner; ikon gizlenip etiket ortalanır
+    const compactDock = btnW < 104;
+    const dockLabelSize = `${Math.max(9, Math.round(10.5 * sf))}px`;
+    const dockSubSize = `${Math.max(9, Math.round(8.5 * sf))}px`;
 
-    // 2. Bant Döşe
-    const x1 = dockStartX + btnW + gap;
-    this.conveyorBtnContainer.setPosition(x1, btnCy);
-    this.conveyorBtnBg.setSize(btnW, btnH);
-    this.conveyorBtnIcon.setPosition(-btnW * 0.32, -4).setScale(0.85 * sf);
-    this.conveyorBtnText.setPosition(10, -5).setFontSize(`${Math.max(9, Math.round(10.5 * sf))}px`);
-    this.conveyorBtnSubText.setPosition(0, 9).setFontSize(`${Math.max(7.5, Math.round(8.5 * sf))}px`);
-    this.conveyorZone.setSize(btnW, btnH);
+    const dockButtons = [
+      { container: this.manualBtnContainer, bg: this.manualBtnBg, icon: this.manualBtnIcon, label: this.manualBtnText, sub: this.manualBtnSubText, zone: this.manualZone },
+      { container: this.conveyorBtnContainer, bg: this.conveyorBtnBg, icon: this.conveyorBtnIcon, label: this.conveyorBtnText, sub: this.conveyorBtnSubText, zone: this.conveyorZone },
+      { container: this.buildBtnContainer, bg: this.buildBtnBg, icon: this.buildBtnIcon, label: this.buildBtnText, sub: this.buildBtnSubText, zone: this.buildZone },
+      { container: this.hangarBtnContainer, bg: this.hangarBtnBg, icon: this.hangarBtnIcon, label: this.hangarBtnText, sub: this.hangarBtnSubText, zone: this.hangarZone },
+    ];
 
-    // 3. Makine Kur
-    const x2 = dockStartX + 2 * (btnW + gap);
-    this.buildBtnContainer.setPosition(x2, btnCy);
-    this.buildBtnBg.setSize(btnW, btnH);
-    this.buildBtnIcon.setPosition(-btnW * 0.32, -4).setScale(0.85 * sf);
-    this.buildBtnText.setPosition(10, -5).setFontSize(`${Math.max(9, Math.round(10.5 * sf))}px`);
-    this.buildBtnSubText.setPosition(0, 9).setFontSize(`${Math.max(7.5, Math.round(8.5 * sf))}px`);
-    this.buildZone.setSize(btnW, btnH);
-
-    // 4. Roket Hangarı
-    const x3 = dockStartX + 3 * (btnW + gap);
-    this.hangarBtnContainer.setPosition(x3, btnCy);
-    this.hangarBtnBg.setSize(btnW, btnH);
-    this.hangarBtnIcon.setPosition(-btnW * 0.32, -4).setScale(0.85 * sf);
-    this.hangarBtnText.setPosition(10, -5).setFontSize(`${Math.max(9, Math.round(10.5 * sf))}px`);
-    this.hangarBtnSubText.setPosition(0, 9).setFontSize(`${Math.max(7.5, Math.round(8.5 * sf))}px`);
-    this.hangarZone.setSize(btnW, btnH);
+    dockButtons.forEach((btn, i) => {
+      btn.container.setPosition(dockStartX + i * (btnW + gap), btnCy);
+      btn.bg.setSize(btnW, btnH);
+      btn.icon
+        .setVisible(!compactDock)
+        .setPosition(-btnW * 0.32, -4)
+        .setScale(0.85 * sf);
+      btn.label.setPosition(compactDock ? 0 : 10, -5).setFontSize(dockLabelSize);
+      btn.sub.setPosition(0, 9).setFontSize(dockSubSize);
+      btn.zone.setSize(btnW, btnH);
+    });
 
     // Aktif Yerleşim Çubuğu (Active Placement Floating Action Bar)
     const barW = Math.min(480, w - 24);
@@ -1653,11 +1640,7 @@ export class GameScene extends Phaser.Scene {
     if (this.factoryCamera && this.cameraController) {
       this.factoryCamera.setViewport(0, factoryTop, w, factoryH);
       this.cameraController.setViewport(0, factoryTop, w, factoryH);
-      this.cameraController.setWorldSize(
-        this.gridView.getActivePixelWidth(),
-        this.gridView.getActivePixelHeight(),
-      );
-      this.cameraController.centerOnFactory();
+      this.cameraController.fitToFactory();
     }
 
     /* Modallar (Ekran boyutuna göre kendini ortalar) */

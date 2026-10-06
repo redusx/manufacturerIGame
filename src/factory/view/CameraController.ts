@@ -27,6 +27,9 @@ export interface CameraControllerConfig {
 }
 
 export class CameraController {
+  /** Sığdırmada fabrikanın çevresinde bırakılan ekran pikseli boşluk */
+  private static readonly FIT_MARGIN_PX = 12;
+
   readonly scene: Phaser.Scene;
   readonly camera: Phaser.Cameras.Scene2D.Camera;
 
@@ -40,9 +43,16 @@ export class CameraController {
   private enableWheelZoom: boolean;
   private enableDragPan: boolean;
 
-  /** Fabrika dünya sınırları */
+  /** Aktif (açılmış) fabrika alanı: ortalama ve sığdırma buna göre yapılır */
   private worldWidth = 256;
   private worldHeight = 256;
+
+  /** Kaydırılabilir içerik alanı: aktif alan + sıradaki kilitli parsel */
+  private contentWidth = 256;
+  private contentHeight = 256;
+
+  /** Boyutların otomatik okunduğu ızgara görünümü */
+  private gridView?: GridView;
 
   /** Sürükleme durumu */
   private isDragging = false;
@@ -220,19 +230,19 @@ export class CameraController {
 
     if (nextZoom === currentZoom) return;
 
-    // İmlecin zoom öncesi dünya koordinatı
-    const worldPointBefore = this.camera.getWorldPoint(pointerScreenX, pointerScreenY);
+    // Kamera matrisi ancak bir sonraki çizimde güncellendiği için getWorldPoint burada
+    // eski zoom'u okur; imleç sabitlemesi bu yüzden analitik hesaplanır.
+    const anchored = CameraMath.computeAnchoredScroll(
+      this.camera.scrollX,
+      this.camera.scrollY,
+      { x: pointerScreenX - this.camera.x, y: pointerScreenY - this.camera.y },
+      { width: this.camera.width, height: this.camera.height },
+      currentZoom,
+      nextZoom,
+    );
 
     this.camera.setZoom(nextZoom);
-
-    // Zoom sonrası imlecin yeni dünya koordinatı
-    const worldPointAfter = this.camera.getWorldPoint(pointerScreenX, pointerScreenY);
-
-    // Kaymayı telafi et
-    const newScrollX = this.camera.scrollX + (worldPointBefore.x - worldPointAfter.x);
-    const newScrollY = this.camera.scrollY + (worldPointBefore.y - worldPointAfter.y);
-
-    this.setScroll(newScrollX, newScrollY);
+    this.setScroll(anchored.x, anchored.y);
   }
 
   zoomIn(): void {
@@ -286,8 +296,8 @@ export class CameraController {
       height: this.camera.height,
     };
     return CameraMath.computePanBounds(
-      this.worldWidth,
-      this.worldHeight,
+      this.contentWidth,
+      this.contentHeight,
       viewport,
       this.camera.zoom,
       this.padding,
@@ -300,10 +310,18 @@ export class CameraController {
 
   /**
    * Fabrika dünya piksel boyutlarını günceller (parsel açılımlarında çağrılır).
+   * İçerik boyutu verilmezse aktif alanla aynı kabul edilir.
    */
-  setWorldSize(width: number, height: number): void {
+  setWorldSize(
+    width: number,
+    height: number,
+    contentWidth = width,
+    contentHeight = height,
+  ): void {
     this.worldWidth = Math.max(32, width);
     this.worldHeight = Math.max(32, height);
+    this.contentWidth = Math.max(this.worldWidth, contentWidth);
+    this.contentHeight = Math.max(this.worldHeight, contentHeight);
     this.clampCurrentPosition();
   }
 
@@ -319,27 +337,57 @@ export class CameraController {
    * Bir GridView nesnesine bağlanarak parsel genişliğini otomatik alır.
    */
   attachGridView(gridView: GridView): void {
+    this.gridView = gridView;
+    this.syncWorldSizeFromGrid();
+  }
+
+  private syncWorldSizeFromGrid(): void {
+    if (!this.gridView) return;
+
+    const content = this.gridView.getContentPixelSize();
     this.setWorldSize(
-      gridView.getActivePixelWidth(),
-      gridView.getActivePixelHeight(),
+      this.gridView.getActivePixelWidth(),
+      this.gridView.getActivePixelHeight(),
+      content.width,
+      content.height,
     );
   }
 
   /**
-   * Kamerayı fabrikanın tam ortasına hizalar.
+   * Kamerayı fabrikaya ortalar. Sıradaki kilitli parsel de görüş alanına sığıyorsa
+   * (o eksende) fabrika + parsel birlikte ortalanır ki satın alma rozeti kesilmesin.
    */
   centerOnFactory(): void {
     const viewport = {
       width: this.camera.width,
       height: this.camera.height,
     };
-    const centerPos = CameraMath.computeCenterPosition(
+    const visibleW = viewport.width / this.camera.zoom;
+    const visibleH = viewport.height / this.camera.zoom;
+
+    const focusWidth = this.contentWidth <= visibleW ? this.contentWidth : this.worldWidth;
+    const focusHeight = this.contentHeight <= visibleH ? this.contentHeight : this.worldHeight;
+
+    const centerPos = CameraMath.computeCenterPosition(focusWidth, focusHeight, viewport);
+    this.setScroll(centerPos.x, centerPos.y);
+  }
+
+  /**
+   * Aktif fabrikayı görüş alanına sığacak en büyük kademede yakınlaştırır ve ortalar.
+   * Açılışta, pencere boyutu değiştiğinde ve parsel açıldığında çağrılır.
+   */
+  fitToFactory(): void {
+    this.syncWorldSizeFromGrid();
+
+    const fitZoom = CameraMath.computeFitZoom(
       this.worldWidth,
       this.worldHeight,
-      viewport,
-      this.camera.zoom,
+      { width: this.camera.width, height: this.camera.height },
+      CameraController.FIT_MARGIN_PX,
+      this.gridView?.tileSize ?? GridCoordinates.DEFAULT_TILE_SIZE,
     );
-    this.setScroll(centerPos.x, centerPos.y);
+    this.camera.setZoom(CameraMath.clampZoom(fitZoom, this.minZoom, this.maxZoom));
+    this.centerOnFactory();
   }
 
   /**
@@ -359,7 +407,6 @@ export class CameraController {
       centerWorld.x,
       centerWorld.y,
       viewport,
-      this.camera.zoom,
     );
 
     const bounds = this.getPanBounds();

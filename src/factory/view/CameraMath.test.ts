@@ -77,16 +77,19 @@ describe('CameraMath Clamping, Zoom & Viewport Mathematics', () => {
     // 8x8 (256x256) fabrika 800x600 viewport ortasında:
     // scrollX = (256 - 800) / 2 = -272
     // scrollY = (256 - 600) / 2 = -172
-    const center = CameraMath.computeCenterPosition(256, 256, viewport, 1.0);
+    const center = CameraMath.computeCenterPosition(256, 256, viewport);
     assert.equal(center.x, -272);
     assert.equal(center.y, -172);
 
-    // Zoom 2x olduğunda efektif viewport 400x300 olur:
-    // scrollX = (256 - 400) / 2 = -72
-    // scrollY = (256 - 300) / 2 = -22
-    const centerZoomed = CameraMath.computeCenterPosition(256, 256, viewport, 2.0);
-    assert.equal(centerZoomed.x, -72);
-    assert.equal(centerZoomed.y, -22);
+    // Phaser kamerası görüş alanının merkezine göre yakınlaştığı için ortalama
+    // scroll değeri zoom'dan bağımsızdır. 2x zoom'da görünen dünya 400x300'dür ve
+    // sol-üst köşesi scroll + viewport * (1 - 1/zoom) / 2 = (-72, -22) olur;
+    // yani 256'lık fabrika yine tam ortadadır.
+    const zoom = 2.0;
+    const viewLeft = center.x + (viewport.width * (1 - 1 / zoom)) / 2;
+    const viewTop = center.y + (viewport.height * (1 - 1 / zoom)) / 2;
+    assert.equal(viewLeft, -72);
+    assert.equal(viewTop, -22);
   });
 
   it('computeFocusPosition should center on target world coordinates', () => {
@@ -95,7 +98,7 @@ describe('CameraMath Clamping, Zoom & Viewport Mathematics', () => {
     // Hedef nokta: (100, 150)
     // scrollX = 100 - 800/2 = -300
     // scrollY = 150 - 600/2 = -150
-    const focus = CameraMath.computeFocusPosition(100, 150, viewport, 1.0);
+    const focus = CameraMath.computeFocusPosition(100, 150, viewport);
     assert.equal(focus.x, -300);
     assert.equal(focus.y, -150);
   });

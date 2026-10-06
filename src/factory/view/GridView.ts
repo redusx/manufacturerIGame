@@ -62,6 +62,9 @@ export class GridView {
   /** Basış zeminde başladı mı? Başka yerde başlayıp zeminde biten bırakışlar tıklama sayılmaz. */
   private floorPressArmed = false;
 
+  /** Sıradaki parsel rozeti en son hangi "alınabilir" durumuyla çizildi (kilitli parsel yoksa null) */
+  private lockedPlotAffordable: boolean | null = null;
+
   constructor(
     scene: Phaser.Scene,
     grid: GridMap,
@@ -384,6 +387,7 @@ export class GridView {
    */
   private renderLockedPlots(activeW: number, activeH: number): void {
     this.lockedPlotsContainer.removeAll(true);
+    this.lockedPlotAffordable = null;
 
     for (const plot of FACTORY_PLOTS) {
       if (this.economy.isPlotUnlocked(plot.index)) continue;
@@ -395,10 +399,14 @@ export class GridView {
       // Kilitli alan konteyneri
       const plotContainer = this.scene.add.container(0, 0);
 
-      // Kilitli alan gölgesi (Yarı saydam karanlık tabaka)
+      // Kilitli alan gölgesi: yalnızca henüz açılmamış bölge (sağ şerit + alt şerit).
+      // Tüm parsel dikdörtgeni boyanırsa aktif fabrika zemini de kararır.
+      const activePixelW = activeW * this.tileSize;
+      const activePixelH = activeH * this.tileSize;
       const overlayGraphics = this.scene.add.graphics();
       overlayGraphics.fillStyle(PALETTE.bgDeep, 0.65);
-      overlayGraphics.fillRect(0, 0, plotPixelW, plotPixelH);
+      overlayGraphics.fillRect(activePixelW, 0, plotPixelW - activePixelW, plotPixelH);
+      overlayGraphics.fillRect(0, activePixelH, activePixelW, plotPixelH - activePixelH);
 
       // Uyarı / Genişleme kenarlığı (Kesikli endüstriyel çizgi hissi)
       overlayGraphics.lineStyle(1, PALETTE.warningOrange, 0.7);
@@ -413,10 +421,39 @@ export class GridView {
 
       const badgeContainer = this.scene.add.container(centerX, centerY);
 
-      // Rozet zemin dolgusu
+      // Rozet: uzun parsel adı kutudan taşmasın diye satıra bölünür, yükseklik metne göre ayarlanır
       const badgeW = 120;
-      const badgeH = 46;
       const canAfford = this.economy.canAfford(plot.cost);
+      this.lockedPlotAffordable = canAfford;
+
+      // Parsel Adı
+      const titleText = this.scene.add.text(0, 0, plot.name, {
+        fontFamily: FONT_FAMILY,
+        fontSize: '9px',
+        color: PALETTE.textPrimary,
+        align: 'center',
+        wordWrap: { width: badgeW - 12 },
+      });
+      titleText.setOrigin(0.5, 0);
+
+      // Boyut ve Maliyet
+      const costStr = plot.cost > 0 ? `$${plot.cost}` : 'Ücretsiz';
+      const costText = this.scene.add.text(
+        0,
+        0,
+        `[${plot.targetWidth}x${plot.targetHeight}]  ${costStr}`,
+        {
+          fontFamily: FONT_FAMILY,
+          fontSize: '9px',
+          color: canAfford ? PALETTE.resourceGoldHex : PALETTE.textMuted,
+        },
+      );
+      costText.setOrigin(0.5, 0);
+
+      const badgeH = Math.round(titleText.height + costText.height + 20);
+      titleText.setY(-badgeH / 2 + 8);
+      costText.setY(titleText.y + titleText.height + 4);
+
       const badgeBg = this.scene.add.rectangle(
         0,
         0,
@@ -425,33 +462,6 @@ export class GridView {
         canAfford ? PALETTE.cardBg : PALETTE.btnDisabled,
       );
       badgeBg.setStrokeStyle(1, canAfford ? PALETTE.successGreen : PALETTE.borderDark);
-
-      // Parsel Adı
-      const titleText = this.scene.add.text(
-        0,
-        -12,
-        plot.name,
-        {
-          fontFamily: FONT_FAMILY,
-          fontSize: '9px',
-          color: PALETTE.textPrimary,
-        },
-      );
-      titleText.setOrigin(0.5, 0.5);
-
-      // Boyut ve Maliyet
-      const costStr = plot.cost > 0 ? `$${plot.cost}` : 'Ücretsiz';
-      const costText = this.scene.add.text(
-        0,
-        4,
-        `[${plot.targetWidth}x${plot.targetHeight}]  ${costStr}`,
-        {
-          fontFamily: FONT_FAMILY,
-          fontSize: '8px',
-          color: canAfford ? PALETTE.resourceGoldHex : PALETTE.textMuted,
-        },
-      );
-      costText.setOrigin(0.5, 0.5);
 
       // İnteraktif tıklama alanı
       const hitZone = this.scene.add.zone(0, 0, badgeW, badgeH);
@@ -472,6 +482,22 @@ export class GridView {
     }
   }
 
+  /**
+   * Para değiştikçe çağrılır: sıradaki parselin alınabilirliği değiştiyse rozeti
+   * yeniden çizer (yeterli para birikince rozet yeşile dönsün).
+   */
+  syncLockedPlotAffordability(): void {
+    if (this.lockedPlotAffordable === null) return;
+
+    const nextPlot = FACTORY_PLOTS.find((plot) => !this.economy.isPlotUnlocked(plot.index));
+    if (!nextPlot) return;
+
+    if (this.economy.canAfford(nextPlot.cost) !== this.lockedPlotAffordable) {
+      const { width, height } = this.economy.getCurrentFactoryDimensions();
+      this.renderLockedPlots(width, height);
+    }
+  }
+
   // -------------------------------------------------------------
   // METRİKLER VE BOYUT SORGULARI
   // -------------------------------------------------------------
@@ -484,6 +510,22 @@ export class GridView {
   getActivePixelHeight(): number {
     const { height } = this.economy.getCurrentFactoryDimensions();
     return height * this.tileSize;
+  }
+
+  /**
+   * Kameranın gezebileceği içerik alanı: aktif fabrika ile sıradaki kilitli
+   * parselin (satın alma rozeti dahil) kapladığı dikdörtgen.
+   */
+  getContentPixelSize(): { width: number; height: number } {
+    let width = this.getActivePixelWidth();
+    let height = this.getActivePixelHeight();
+
+    const nextPlot = FACTORY_PLOTS.find((plot) => !this.economy.isPlotUnlocked(plot.index));
+    if (nextPlot) {
+      width = Math.max(width, nextPlot.targetWidth * this.tileSize);
+      height = Math.max(height, nextPlot.targetHeight * this.tileSize);
+    }
+    return { width, height };
   }
 
   getBounds(): { x: number; y: number; width: number; height: number } {

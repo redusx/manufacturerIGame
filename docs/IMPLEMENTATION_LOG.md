@@ -1068,24 +1068,34 @@
 * **Bu görevde yeni test eklenmedi** (AGENTS.md: kullanıcı istemedikçe test eklenmez); değişen kod Phaser girdi katmanıdır.
 * **Kalan / Sırada:** M2 (kamera ve okunabilirlik). Mobilde katalog penceresi 540px genişliğinde olduğu için 360px ekranda taşıyor; sağ sütundaki "İNŞA ET" düğmeleri ekran dışında.
 
+---
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+### [2026-10-06 16:57] — REVIVAL M2: Kamera ve Okunabilirlik
+* **Görev:** M2
+* **Durum:** TAMAMLANDI (tarayıcıda doğrulandı)
+* **Değiştirilen Dosyalar:**
+  - `src/factory/view/CameraMath.ts` (merkezden yakınlaşma modeli; `computeFitZoom`, `computeAnchoredScroll`; sınırlar artık tek noktaya çökmüyor)
+  - `src/factory/view/CameraController.ts` (`fitToFactory`, içerik alanı = aktif alan + sıradaki parsel, imleç merkezli zoom)
+  - `src/factory/view/GridView.ts` (kilitli parsel karartması yalnız kilitli bölgede; rozet metni satıra bölünür ve para yetince yeşile döner; `getContentPixelSize`)
+  - `src/factory/view/MachineInspectorModal.ts` (dar ekrana uyum; tarif düğmeleri ürün adıyla; düğmeler her karede yeniden yaratılmıyor)
+  - `src/ui/BuildMenuModal.ts` (dar ekranda tek sütun), `src/ui/TerminalInspectorModal.ts` (karartma konumu, dar ekran), `src/ui/RocketHangarView.ts` (içerikten hesaplanan düzen, kartlarda 3 satır)
+  - `src/scenes/GameScene.ts` (kamera sığdırma çağrıları, dar ekranda alt düğmeler)
+  - `src/factory/view/CameraMath.test.ts`, `src/integration/FactoryGridIntegration.test.ts` (eski kamera modelini doğrulayan beklentiler güncellendi)
+* **Çözülen Hatalar:**
+  1. Fabrika görüş alanının sol üstüne kilitleniyordu: fabrika ekrandan küçükken kaydırma sınırları tek noktaya çöküyordu.
+  2. Kamera formülleri zoom'u sol-üstten varsayıyordu; Phaser merkezden yakınlaştırıyor.
+  3. Tekerlek zoom'u imleci sabitlemiyordu: `getWorldPoint`, `setZoom` sonrası eski matrisi okuyordu.
+  4. Kilitli parsel karartması aktif fabrikanın tamamını %65 karartıyordu.
+  5. Makine inceleme penceresinde tarif değiştirilemiyordu: düğmeler her karede yeniden yaratıldığı için Phaser girdi listesine hiç giremiyordu.
+  6. Terminal penceresinin karartması yalnız sağ-alt çeyreği kapatıyordu.
+  7. Mobilde katalog (540px), makine inceleme (380px) ve terminal (420px) pencereleri 360px ekrandan taşıyordu; kırıcı dahil sağ sütunun "İNŞA ET" düğmeleri ekran dışındaydı.
+  8. Hangarda kart metni düğmenin altına giriyor, mobilde roket görseli başlık metninin üstüne biniyordu.
+  9. Mobilde alt düğmelerin etiketleri ikonlarla çakışıyordu; bazı metinler 9px'in altındaydı.
+* **Sığdırma kademeleri (ölçüm):** masaüstü 853x419 görüş alanı: 8x8→1.5x, 12x8→1.5x, 16x12→1x, 20x16→0.75x, 24x24→0.5x; telefon 360x625: 8x8→1.25x, 12x8→1x (kenarlardan 12px kırpma), 16x12→0.75x, 20x16→0.5x.
+* **Test Doğrulaması:**
+  - `npm test` -> 285/285 geçti (62 suit); `npx tsc --noEmit` -> 0 hata; `npm run build` -> başarılı
+  - Tarayıcı (1024x768 ve 1920x1080, sıfır kayıt): fabrika 1.5x ile görüş alanını dolduruyor, sıradaki parsel rozeti görünüyor; tarif gerçek tıklamayla değişiyor; satın al → hayalet → seçilen hücreye kurulum yeni kamerayla çalışıyor; parsel açılınca kamera yeniden sığıyor; sürükleyerek kaydırma ve imleç merkezli zoom doğrulandı.
+  - Mobil (375x812, sentetik dokunma): tek sütunlu katalogdan satın alma, iki adımlı yerleştirme, dokunarak kaydırma; katalog, makine inceleme, terminal ve hangar pencereleri ekrana sığıyor.
+* **Bu görevde yeni test eklenmedi;** davranışı değişen iki mevcut test güncellendi.
+* **Kalan / Sırada:** M3 (tek ekonomi). Açık konular `PROJECT_STATUS.md` içinde.
 

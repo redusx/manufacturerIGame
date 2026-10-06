@@ -43,9 +43,13 @@ export class MachineInspectorModal {
   private targetMachine: MachineEntity | null = null;
   private _isOpen = false;
 
-  /** Boyutlar */
-  private readonly MODAL_WIDTH = 380;
-  private readonly MODAL_HEIGHT = 460;
+  /** Tasarım boyutları; dar ekranda genişlik küçülür, tarif sayısı arttıkça yükseklik uzar */
+  private static readonly MAX_MODAL_WIDTH = 380;
+  private static readonly MIN_MODAL_HEIGHT = 460;
+  private modalWidth = MachineInspectorModal.MAX_MODAL_WIDTH;
+
+  /** Tarif düğmelerinin en son hangi durum için kurulduğu */
+  private recipeChipsSignature = '';
 
   /** Görsel Bileşenler */
   readonly container: Phaser.GameObjects.Container;
@@ -119,7 +123,7 @@ export class MachineInspectorModal {
 
     // 2. Modal Gövdesi Tıklama Engelleyici (Pencere içine tıklanınca kapanmasını önler)
     this.panelBlocker = this.scene.add
-      .rectangle(0, 0, this.MODAL_WIDTH, this.MODAL_HEIGHT, 0x000000, 0.001)
+      .rectangle(0, 0, this.modalWidth, MachineInspectorModal.MIN_MODAL_HEIGHT, 0x000000, 0.001)
       .setOrigin(0, 0)
       .setInteractive()
       .on('pointerdown', (_pointer: any, _lx: number, _ly: number, event?: Phaser.Types.Input.EventData) => {
@@ -181,6 +185,7 @@ export class MachineInspectorModal {
       fontSize: '9px',
       color: PALETTE.textPrimary,
       lineSpacing: 4,
+      wordWrap: { width: this.modalWidth - 32 },
     });
 
     this.recipeChipsContainer = this.scene.add.container(0, 0);
@@ -305,6 +310,7 @@ export class MachineInspectorModal {
     this.targetMachine = null;
     this.container.setVisible(false);
     this.recipeChipsContainer.removeAll(true);
+    this.recipeChipsSignature = '';
 
     if (this.onClose) {
       this.onClose();
@@ -338,11 +344,30 @@ export class MachineInspectorModal {
     const { width, height } = this.scene.scale;
     this.backdrop.setSize(width, height);
 
-    const panelX = Math.round((width - this.MODAL_WIDTH) / 2);
-    const panelY = Math.round((height - this.MODAL_HEIGHT) / 2);
+    this.modalWidth = Math.min(MachineInspectorModal.MAX_MODAL_WIDTH, width - 16);
+
+    // Önce içerik ölçülür: tarif düğmesi satırları ve tarif metni uzadıkça alttaki
+    // bölümler aşağı kayar ve pencere uzar (5 tarifli montaj istasyonu sığsın diye).
+    const recipeRows = this.getRecipeRowCount(data.availableRecipes.length);
+    this.recipeDetailsText
+      .setWordWrapWidth(this.modalWidth - 32)
+      .setText(this.formatRecipeDetails(data));
+    const recipeBlockH =
+      recipeRows * (MachineInspectorModal.CHIP_HEIGHT + MachineInspectorModal.CHIP_GAP) +
+      4 +
+      this.recipeDetailsText.height;
+
+    const recipeOffset = 104;
+    const bufferOffset = Math.max(230, recipeOffset + 18 + recipeBlockH + 12);
+    const upgradeOffset = Math.max(368, bufferOffset + 86 + 12);
+    const demolishOffset = upgradeOffset + 48;
+    const modalHeight = demolishOffset + 28 + 16;
+
+    const panelX = Math.round((width - this.modalWidth) / 2);
+    const panelY = Math.round((height - modalHeight) / 2);
 
     this.panelBlocker.setPosition(panelX, panelY);
-    this.panelBlocker.setSize(this.MODAL_WIDTH, this.MODAL_HEIGHT);
+    this.panelBlocker.setSize(this.modalWidth, modalHeight);
 
     // 1. Ana Panel Arka Planı
     this.panelGraphics.clear();
@@ -350,8 +375,8 @@ export class MachineInspectorModal {
       this.panelGraphics,
       panelX,
       panelY,
-      this.MODAL_WIDTH,
-      this.MODAL_HEIGHT,
+      this.modalWidth,
+      modalHeight,
       PALETTE.panelBg,
       0.98,
     );
@@ -361,7 +386,7 @@ export class MachineInspectorModal {
     this.levelBadgeText
       .setPosition(panelX + 16 + this.titleText.width + 8, panelY + 16)
       .setText(`Lv.${data.level}`);
-    this.closeButtonText.setPosition(panelX + this.MODAL_WIDTH - 36, panelY + 14);
+    this.closeButtonText.setPosition(panelX + this.modalWidth - 36, panelY + 14);
 
     // 2. Makine Durum Kartı (Panel)
     const cardY = panelY + 38;
@@ -369,7 +394,7 @@ export class MachineInspectorModal {
       this.panelGraphics,
       panelX + 16,
       cardY,
-      this.MODAL_WIDTH - 32,
+      this.modalWidth - 32,
       56,
       PALETTE.cardBg,
       1,
@@ -390,13 +415,13 @@ export class MachineInspectorModal {
       .setText(`Üretim Hızı: ${MachineInspectorHelper.formatSpeed(data.speedMultiplier)} (+%20/Lv)`);
 
     // 3. Reçete Alanı
-    const recipeY = panelY + 104;
+    const recipeY = panelY + recipeOffset;
     this.recipeSectionTitle.setPosition(panelX + 16, recipeY);
 
     this.renderRecipeSelector(panelX + 16, recipeY + 18, data);
 
     // 4. Dahili Tamponlar Alanı
-    const bufferY = panelY + 230;
+    const bufferY = panelY + bufferOffset;
     this.bufferSectionTitle.setPosition(panelX + 16, bufferY);
 
     this.bufferGraphics.clear();
@@ -416,7 +441,7 @@ export class MachineInspectorModal {
       this.bufferGraphics,
       panelX + 16,
       bufferY + 34,
-      this.MODAL_WIDTH - 32,
+      this.modalWidth - 32,
       14,
       inRatio,
       PALETTE.rocketCyan,
@@ -437,16 +462,16 @@ export class MachineInspectorModal {
       this.bufferGraphics,
       panelX + 16,
       bufferY + 72,
-      this.MODAL_WIDTH - 32,
+      this.modalWidth - 32,
       14,
       outRatio,
       PALETTE.successGreen,
     );
 
     // 5. Yükseltme Butonu
-    const upgradeY = panelY + 368;
+    const upgradeY = panelY + upgradeOffset;
     this.upgradeButtonBg.clear();
-    const upgradeBtnW = this.MODAL_WIDTH - 32;
+    const upgradeBtnW = this.modalWidth - 32;
     const upgradeBtnH = 38;
 
     if (data.canAffordUpgrade) {
@@ -490,9 +515,9 @@ export class MachineInspectorModal {
     }
 
     // 6. Yıkım / İade Butonu (DEC-007: %100 Sermaye İadesi)
-    const demolishY = panelY + 416;
+    const demolishY = panelY + demolishOffset;
     this.demolishButtonBg.clear();
-    const demolishBtnW = this.MODAL_WIDTH - 32;
+    const demolishBtnW = this.modalWidth - 32;
     const demolishBtnH = 28;
 
     PixelUIHelper.drawButton(
@@ -517,77 +542,103 @@ export class MachineInspectorModal {
       .setSize(demolishBtnW, demolishBtnH);
   }
 
+  private static readonly CHIP_HEIGHT = 22;
+  private static readonly CHIP_GAP = 6;
+  private static readonly CHIPS_PER_ROW = 2;
+
+  private getRecipeRowCount(recipeCount: number): number {
+    return Math.max(1, Math.ceil(recipeCount / MachineInspectorModal.CHIPS_PER_ROW));
+  }
+
+  private formatRecipeDetails(data: MachineInspectorData): string {
+    const activeRec = data.availableRecipes.find((r) => r.isActive);
+    if (!activeRec) return 'Aktif reçete seçilmedi.';
+
+    const inputsStr = activeRec.inputs.map((i) => `${i.count}x ${i.name}`).join(', ');
+    const outputsStr = activeRec.outputs.map((o) => `${o.count}x ${o.name}`).join(', ');
+
+    return (
+      `${activeRec.name}\n` +
+      `• Girdi: ${inputsStr || 'Yok'}\n` +
+      `• Çıktı: ${outputsStr}\n` +
+      `• Çevrim Süresi: ${activeRec.processingTimeSec.toFixed(1)} sn`
+    );
+  }
+
+  /** Metni verilen genişliğe sığana kadar sondan kısaltır */
+  private fitLabel(label: Phaser.GameObjects.Text, fullText: string, maxWidth: number): void {
+    label.setText(fullText);
+    let text = fullText;
+    while (label.width > maxWidth && text.length > 1) {
+      text = text.slice(0, -1);
+      label.setText(`${text.trimEnd()}…`);
+    }
+  }
+
   /**
-   * Reçete seçim düğmelerini ve detaylarını çizer.
+   * Reçete seçim düğmelerini çizer ve tarif metnini konumlandırır.
+   * Düğmeler ne ürettiklerinin adıyla etiketlenir (ör. "Demir Tozu").
    */
   private renderRecipeSelector(
     startX: number,
     startY: number,
     data: MachineInspectorData,
   ): void {
-    this.recipeChipsContainer.removeAll(true);
-
     const availableRecipes = data.availableRecipes;
-    const chipWidth = Math.floor((this.MODAL_WIDTH - 32 - (availableRecipes.length - 1) * 6) / Math.max(1, availableRecipes.length));
-    const chipHeight = 22;
+    const perRow = Math.min(MachineInspectorModal.CHIPS_PER_ROW, Math.max(1, availableRecipes.length));
+    const chipGap = MachineInspectorModal.CHIP_GAP;
+    const chipHeight = MachineInspectorModal.CHIP_HEIGHT;
+    const chipWidth = Math.floor((this.modalWidth - 32 - (perRow - 1) * chipGap) / perRow);
+    const rows = this.getRecipeRowCount(availableRecipes.length);
 
-    availableRecipes.forEach((recipe, idx) => {
-      const chipX = startX + idx * (chipWidth + 6);
-      const isSelected = recipe.isActive;
+    // Düğmeler yalnızca içerik veya konum değiştiğinde yeniden kurulur. Her karede
+    // yeniden yaratılırlarsa Phaser girdi listesine hiç giremez ve tıklanamazlar.
+    const signature =
+      `${startX},${startY},${chipWidth}|` +
+      availableRecipes.map((r) => `${r.recipeId}:${r.isActive ? 1 : 0}`).join(',');
 
-      const g = this.scene.add.graphics();
-      PixelUIHelper.drawButton(
-        g,
-        chipX,
-        startY,
-        chipWidth,
-        chipHeight,
-        isSelected ? PALETTE.factoryAmber : PALETTE.cardBg,
-        isSelected ? PALETTE.resourceGold : PALETTE.borderDark,
-        0xffffff,
-        isSelected ? 0.3 : 0.1,
-      );
+    if (signature !== this.recipeChipsSignature) {
+      this.recipeChipsSignature = signature;
+      this.recipeChipsContainer.removeAll(true);
 
-      const label = this.scene.add
-        .text(chipX + chipWidth / 2, startY + chipHeight / 2, `Reçete ${idx + 1}`, {
-          fontFamily: FONT_FAMILY,
-          fontSize: '9px',
-          color: isSelected ? '#0b0e17' : PALETTE.textPrimary,
-        })
-        .setOrigin(0.5);
+      availableRecipes.forEach((recipe, idx) => {
+        const chipX = startX + (idx % perRow) * (chipWidth + chipGap);
+        const chipY = startY + Math.floor(idx / perRow) * (chipHeight + chipGap);
+        const isSelected = recipe.isActive;
 
-      const hit = this.scene.add
-        .rectangle(chipX + chipWidth / 2, startY + chipHeight / 2, chipWidth, chipHeight, 0, 0)
-        .setOrigin(0.5)
-        .setInteractive({ useHandCursor: true })
-        .on('pointerdown', () => this.handleRecipeSelect(recipe.recipeId));
-
-      this.recipeChipsContainer.add([g, label, hit]);
-    });
-
-    // Aktif reçete detayları (Girdiler -> Çıktı (Süre))
-    const activeRec = availableRecipes.find((r) => r.isActive);
-    if (activeRec) {
-      const inputsStr = activeRec.inputs
-        .map((i) => `${i.count}x ${i.name}`)
-        .join(', ');
-      const outputsStr = activeRec.outputs
-        .map((o) => `${o.count}x ${o.name}`)
-        .join(', ');
-
-      this.recipeDetailsText
-        .setPosition(startX, startY + chipHeight + 8)
-        .setText(
-          `${activeRec.name}\n` +
-          `• Girdi: ${inputsStr || 'Yok'}\n` +
-          `• Çıktı: ${outputsStr}\n` +
-          `• Çevrim Süresi: ${activeRec.processingTimeSec.toFixed(1)} sn`,
+        const g = this.scene.add.graphics();
+        PixelUIHelper.drawButton(
+          g,
+          chipX,
+          chipY,
+          chipWidth,
+          chipHeight,
+          isSelected ? PALETTE.factoryAmber : PALETTE.cardBg,
+          isSelected ? PALETTE.resourceGold : PALETTE.borderDark,
+          0xffffff,
+          isSelected ? 0.3 : 0.1,
         );
-    } else {
-      this.recipeDetailsText
-        .setPosition(startX, startY + chipHeight + 8)
-        .setText('Aktif reçete seçilmedi.');
+
+        const label = this.scene.add
+          .text(chipX + chipWidth / 2, chipY + chipHeight / 2, '', {
+            fontFamily: FONT_FAMILY,
+            fontSize: '9px',
+            color: isSelected ? '#0b0e17' : PALETTE.textPrimary,
+          })
+          .setOrigin(0.5);
+        this.fitLabel(label, recipe.outputs[0]?.name ?? recipe.name, chipWidth - 12);
+
+        const hit = this.scene.add
+          .rectangle(chipX + chipWidth / 2, chipY + chipHeight / 2, chipWidth, chipHeight, 0, 0)
+          .setOrigin(0.5)
+          .setInteractive({ useHandCursor: true })
+          .on('pointerdown', () => this.handleRecipeSelect(recipe.recipeId));
+
+        this.recipeChipsContainer.add([g, label, hit]);
+      });
     }
+
+    this.recipeDetailsText.setPosition(startX, startY + rows * (chipHeight + chipGap) + 4);
   }
 
   // -------------------------------------------------------------
