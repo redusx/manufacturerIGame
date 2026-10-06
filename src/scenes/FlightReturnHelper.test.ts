@@ -30,13 +30,13 @@ describe('FlightReturnHelper Headless Unit Tests', () => {
     assert.strictEqual(zeroBreakdown.dodgesCash, 0);
     assert.strictEqual(zeroBreakdown.totalCash, 0);
 
-    // Tipik bir uçuş senaryosu:
-    // Mesafe: 450m -> Math.floor(450 * 0.35) = 157
-    // İrtifa: 80m -> Math.floor(80 * 0.40) = 32
-    // Dişliler: 12 adet -> 12 * 5 = 60
-    // Kristaller: 3 adet -> 3 * 15 = 45
-    // Engeller: 6 adet -> 6 * 4 = 24
-    // Toplam: 157 + 32 + 60 + 45 + 24 = 318
+    // Tipik bir uçuş senaryosu (taban gelir $1/sn; ödül = gelir süresi):
+    // Mesafe: 450m / 40 = 11.25 sn -> $11
+    // İrtifa: 80m / 100 = 0.8 sn -> $0
+    // Dişliler: 12 adet -> 12 sn -> $12
+    // Kristaller: 3 adet * 3 = 9 sn -> $9
+    // Engeller: 6 adet * 0.5 = 3 sn -> $3
+    // Toplam: 11 + 0 + 12 + 9 + 3 = 35
     const normalBreakdown = FlightReturnHelper.calculateRewardBreakdown({
       distanceMeters: 450,
       maxAltitudeMeters: 80,
@@ -45,12 +45,26 @@ describe('FlightReturnHelper Headless Unit Tests', () => {
       dodgedObstacles: 6,
     });
 
-    assert.strictEqual(normalBreakdown.distanceCash, 157);
-    assert.strictEqual(normalBreakdown.altitudeCash, 32);
-    assert.strictEqual(normalBreakdown.gearsCash, 60);
-    assert.strictEqual(normalBreakdown.crystalsCash, 45);
-    assert.strictEqual(normalBreakdown.dodgesCash, 24);
-    assert.strictEqual(normalBreakdown.totalCash, 318);
+    assert.strictEqual(normalBreakdown.distanceCash, 11);
+    assert.strictEqual(normalBreakdown.altitudeCash, 0);
+    assert.strictEqual(normalBreakdown.gearsCash, 12);
+    assert.strictEqual(normalBreakdown.crystalsCash, 9);
+    assert.strictEqual(normalBreakdown.dodgesCash, 3);
+    assert.strictEqual(normalBreakdown.totalCash, 35);
+    assert.strictEqual(normalBreakdown.incomeSeconds, 36);
+
+    // Ödül fabrika geliriyle ölçeklenir ve 180 sn'lik gelirle sınırlanır
+    const scaled = FlightReturnHelper.calculateRewardBreakdown(
+      { distanceMeters: 450, maxAltitudeMeters: 80, gearsCollected: 12, crystalsCollected: 3, dodgedObstacles: 6 },
+      10,
+    );
+    assert.strictEqual(scaled.totalCash, 112 + 8 + 120 + 90 + 30);
+    const capped = FlightReturnHelper.calculateRewardBreakdown(
+      { distanceMeters: 40000, maxAltitudeMeters: 0, gearsCollected: 0, crystalsCollected: 0, dodgedObstacles: 0 },
+      10,
+    );
+    assert.strictEqual(capped.incomeSeconds, 180);
+    assert.strictEqual(capped.totalCash, 1800);
   });
 
   it('Should identify achieved milestones based on absolute flight distance', () => {

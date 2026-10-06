@@ -1252,13 +1252,16 @@ export class FlightScene extends Phaser.Scene {
   }
 
   private calculateTotalEarnedResources(): number {
-    const breakdown = FlightReturnHelper.calculateRewardBreakdown({
-      distanceMeters: this.distance,
-      maxAltitudeMeters: this.maxAltitude,
-      gearsCollected: this.collectedGears,
-      crystalsCollected: this.collectedCrystals,
-      dodgedObstacles: this.dodgedObstacles,
-    });
+    const breakdown = FlightReturnHelper.calculateRewardBreakdown(
+      {
+        distanceMeters: this.distance,
+        maxAltitudeMeters: this.maxAltitude,
+        gearsCollected: this.collectedGears,
+        crystalsCollected: this.collectedCrystals,
+        dodgedObstacles: this.dodgedObstacles,
+      },
+      this.factoryEconomy?.getRevenuePerSec(),
+    );
     return breakdown.totalCash;
   }
 
@@ -1317,6 +1320,7 @@ export class FlightScene extends Phaser.Scene {
       isCrash,
       previousBestDistance: prevBest,
       currentRevenueMultiplier: currentMultiplier,
+      incomePerSec: this.factoryEconomy?.getRevenuePerSec(),
     });
 
     const panelW = Math.min(390, w - 24);
@@ -1398,8 +1402,8 @@ export class FlightScene extends Phaser.Scene {
     const gainText = this.add.text(
       0,
       gainBoxY,
-      `+${formatNumber(totalResources)} ${RESOURCE_NAME} KAZANILDI!`,
-      { ...font, fontSize: '13.5px', color: PALETTE.successGreenHex, fontStyle: 'bold' },
+      `UÇUŞ PRİMİ: +$${formatNumber(totalResources)}\n(fabrikanın ${vm.breakdown.incomeSeconds} sn'lik geliri)`,
+      { ...font, fontSize: '11px', color: PALETTE.successGreenHex, fontStyle: 'bold', align: 'center' },
     ).setOrigin(0.5);
     this.reportContainer.add(gainText);
 
@@ -1443,10 +1447,7 @@ export class FlightScene extends Phaser.Scene {
 
   private returnToFactory(totalResources: number): void {
     if (this.bridge && this.factoryEconomy) {
-      // 1. Uçuşta toplanan hurdaları havacılık parçası stoğu olarak hangara aktar
-      this.bridge.depositFlightSalvage(this.collectedGears, this.collectedCrystals);
-
-      // 2. Kilometre taşlarını ve uçuş gelirini fabrika ekonomisine aktar
+      // 1. Kilometre taşlarını ve uçuş gelirini fabrika ekonomisine aktar
       this.bridge.processFlightResult(
         {
           distanceMeters: this.distance,
@@ -1458,7 +1459,7 @@ export class FlightScene extends Phaser.Scene {
         this.factoryEconomy,
       );
 
-      // 3. Mesafe ve skor istatistiklerini kaydet (gelir zaten processFlightResult ile tek seferde eklendi)
+      // 2. Mesafe ve skor istatistiklerini kaydet (gelir zaten processFlightResult ile tek seferde eklendi)
       this.economy.recordFlightResult(
         Math.floor(this.distance),
         this.flightScore,

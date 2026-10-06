@@ -69,26 +69,26 @@ describe('TASK-INT-01: Rocket Hangar & Economy Integration Tests', () => {
     assert.strictEqual(bridge.canAffordUpgrade('hull', factoryEconomy), false);
     assert.strictEqual(bridge.canAffordQuickBuild('hull', factoryEconomy), false);
 
-    // Give player enough cash for quick build ($500 base + 5 frames * $90 = $950)
-    economy.addResources(2000);
+    // Give player enough cash for quick build ($500 base + 5 frames * $90 * 4 = $2,300)
+    economy.addResources(3000);
 
     // Standard upgrade requires physical parts
     assert.strictEqual(bridge.hasRequiredParts('hull'), false);
     assert.strictEqual(bridge.canAffordUpgrade('hull', factoryEconomy), false);
 
-    // Quick build is affordable because player has $2,000 >= $950
+    // Quick build is affordable because player has $3,000 >= $2,300
     assert.strictEqual(bridge.canAffordQuickBuild('hull', factoryEconomy), true);
-    assert.strictEqual(bridge.getMissingPartsTotalCost('hull'), 450);
-    assert.strictEqual(bridge.getTotalUpgradeCostWithMissingParts('hull'), 950);
+    assert.strictEqual(bridge.getMissingPartsTotalCost('hull'), 1800);
+    assert.strictEqual(bridge.getTotalUpgradeCostWithMissingParts('hull'), 2300);
 
     // Upgrade hull with quick build (allowProcureMissing = true)
     const upgraded = bridge.upgradeModule('hull', factoryEconomy, true);
     assert.strictEqual(upgraded, true);
     assert.strictEqual(bridge.getModuleLevel('hull'), 2);
 
-    // Check money deduction: $2,000 - $950 = $1,050 remaining
-    assert.strictEqual(economy.resources.toNumber(), 1050);
-    assert.strictEqual(factoryEconomy.money, 1050);
+    // Check money deduction: $3,000 - $2,300 = $700 remaining
+    assert.strictEqual(economy.resources.toNumber(), 700);
+    assert.strictEqual(factoryEconomy.money, 700);
 
     // Sync to EconomyManager (matching RocketHangarView behavior)
     economy.setRocketUpgradeLevel('hull', bridge.getModuleLevel('hull'));
@@ -131,7 +131,7 @@ describe('TASK-INT-01: Rocket Hangar & Economy Integration Tests', () => {
     assert.strictEqual(vmNoMoney.canAfford, false);
 
     // Give cash: becomes HIZLI İNŞA
-    economy.addResources(1500);
+    economy.addResources(2500);
     const vmQuickBuild = RocketHangarHelper.getCardViewModel(
       'hull',
       'Gövde Zırhı',
@@ -143,7 +143,7 @@ describe('TASK-INT-01: Rocket Hangar & Economy Integration Tests', () => {
     );
     assert.strictEqual(vmQuickBuild.btnText, 'HIZLI İNŞA');
     assert.strictEqual(vmQuickBuild.canAfford, true);
-    assert.strictEqual(vmQuickBuild.costText, '$950');
+    assert.strictEqual(vmQuickBuild.costText, `$${(2300).toLocaleString()}`);
 
     // Deposit parts: becomes standard İNŞA ET at base price
     bridge.depositPart('reinforced_frame', 5);
@@ -161,7 +161,7 @@ describe('TASK-INT-01: Rocket Hangar & Economy Integration Tests', () => {
     assert.strictEqual(vmStandard.costText, '$500');
   });
 
-  it('4. Flight Salvage & No Double Resource Addition', () => {
+  it('4. Flight Reward: No Free Parts, No Double Resource Addition, Not Counted As Earned', () => {
     const economy = new EconomyManager();
     const factoryEconomy = new FactoryEconomy(0, undefined, economy);
     const bridge = new RocketHangarBridge();
@@ -171,17 +171,9 @@ describe('TASK-INT-01: Rocket Hangar & Economy Integration Tests', () => {
     const collectedGears = 6;
     const collectedCrystals = 2;
 
-    bridge.depositFlightSalvage(collectedGears, collectedCrystals);
-
-    // Verify salvage was converted to physical parts in bridge inventory
-    assert.strictEqual(bridge.getPartCount('reinforced_frame'), 3);
-    assert.strictEqual(bridge.getPartCount('electric_motor'), 3);
-    assert.strictEqual(bridge.getPartCount('steel_gear'), 6);
-    assert.strictEqual(bridge.getPartCount('plastic_pellet'), 10);
-    assert.strictEqual(bridge.getPartCount('microchip'), 1);
-
     // Process flight return via bridge
     const initialCash = economy.resources.toNumber();
+    const earnedBefore = economy.totalEarned.toNumber();
     const summary = bridge.processFlightResult(
       {
         distanceMeters: 500,
@@ -194,6 +186,10 @@ describe('TASK-INT-01: Rocket Hangar & Economy Integration Tests', () => {
     );
 
     assert.ok(summary.cashGained > 0);
+    // Uçuş roket parçası vermez: rokete giden yol fabrikadan geçer
+    assert.deepStrictEqual(bridge.getInventory(), {});
+    // Uçuş primi fabrika hedeflerini ilerletmez
+    assert.strictEqual(economy.totalEarned.toNumber(), earnedBefore);
     // Money in economy increased by exactly summary.cashGained
     assert.strictEqual(economy.resources.toNumber(), initialCash + summary.cashGained);
 

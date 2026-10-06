@@ -1152,3 +1152,17 @@
 
 **Doğrulama:** `npm test` 285/285, `npx tsc --noEmit` temiz, `npm run build` başarılı. Tarayıcıda taze kayıt: kilitler doğru aşamalarda; bakır girişi arayüzden kuruldu; bakır tel hattı 7. aşamayı, elektrik motoru hattı 8. aşamayı gerçek üretimle tamamladı; plastik ve optik cam ihraç edildi; yeniden yüklemede girişler korundu. 1–6. aşamalar ve 9. aşamanın çerçeve koşulu test kısayoluyla geçildi.
 
+### [2026-10-06] — REVIVAL M6: Roket Bağlantısı
+
+**Amaç:** Roketi fabrikaya bağlamak: parçalar fabrikadan gelsin, uçuş fabrikanın önüne geçmesin, uçuş sırasında fabrika durmasın.
+
+**Yapılanlar:**
+- `GameScene`: ihracatta hangarın beklediği parça satılmak yerine hangara yatırılır ("→ HANGAR" yazısı, parçalar tamamlanınca bildirim). `stepSimulation` ayrıldı; `catchUpFactory` uçuş dönüşünde geçen süreyi 1/30 sn adımlarla simüle eder ve fabrikanın kazancını bildirir.
+- `RocketHangarBridge`: `getOutstandingNeed`, `getModulesCompletedBy`, `QUICK_BUILD_PRICE_MULTIPLIER = 4`; `depositFlightSalvage` kaldırıldı; uçuş primi fabrika gelirine göre hesaplanır.
+- `FlightReturnHelper`: prim = gelir × süre, `FLIGHT_REWARD_MAX_SECONDS = 180`; dökümde `incomeSeconds`.
+- `FactoryEconomy.addMoney`: `ROCKET` kaynağı "toplam kazanç" sayılmaz.
+- `FlightScene`: rapor "UÇUŞ PRİMİ: +$X (fabrikanın N sn'lik geliri)" gösterir; hurda yatırma çağrısı kaldırıldı.
+- Eski davranışı sınayan 8 mevcut test yeni kurallara göre güncellendi.
+
+**Doğrulama:** `npm test` 285/285, `npx tsc --noEmit` temiz, `npm run build` başarılı. Tarayıcıda (M5 sonu kaydı, 9 aşama tamam): ihraç edilen 6 motor ve 20 plastik hangara gitti, bildirim geldi; motor yükseltmesi arayüzden $750'a yapıldı; hızlı inşa gövde için $2.300 gösterdi; 62 m'lik uçuş $22 prim verdi (gelir $12,2/sn); dönüşte 44 sn için fabrika $805 kazandı; uçuş primi toplam kazanca yazılmadı; uçuştan parça gelmedi.
+

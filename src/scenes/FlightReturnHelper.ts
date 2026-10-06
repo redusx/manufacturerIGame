@@ -26,7 +26,14 @@ export interface FlightRewardBreakdown {
   crystalsCash: number;
   dodgesCash: number;
   totalCash: number;
+  /** Ödülün karşılık geldiği fabrika geliri süresi (saniye) */
+  incomeSeconds: number;
 }
+
+/** Tek uçuşun kazandırabileceği en fazla fabrika geliri süresi (saniye) — DEC-011 */
+export const FLIGHT_REWARD_MAX_SECONDS = 180;
+/** Fabrika henüz gelir üretmiyorken uçuş ödülünün dayandığı taban gelir ($/sn) */
+export const FLIGHT_REWARD_MIN_INCOME_PER_SEC = 1;
 
 export interface FlightDistanceMilestone {
   id: string;
@@ -98,25 +105,39 @@ export const FLIGHT_DISTANCE_MILESTONES: readonly FlightDistanceMilestone[] = [
 
 export class FlightReturnHelper {
   /**
-   * Uçuşta kazanılan nakit ve kaynak dökümünü hesaplar:
-   * - Mesafe: Her 10 metre $3.5 (metre başına $0.35, Math.floor(distance * 0.35))
-   * - İrtifa Bonusu: Math.floor(maxAltitude * 0.40)
-   * - Hurda Dişliler: adet * 5
-   * - Enerji Kristalleri: adet * 15
-   * - Kaçınılan Engeller: adet * 4
+   * Uçuş primini hesaplar. Ödül sabit para değil, fabrikanın o anki gelirinin
+   * belirli bir süresidir; böylece uçuş hiçbir aşamada fabrikanın önüne geçmez (DEC-011):
+   * - Mesafe: her 40 metre 1 sn
+   * - İrtifa: her 100 metre 1 sn
+   * - Hurda dişli: adet başına 1 sn
+   * - Enerji kristali: adet başına 3 sn
+   * - Kaçınılan engel: adet başına 0.5 sn
+   * Toplam süre `FLIGHT_REWARD_MAX_SECONDS` ile sınırlıdır.
    */
-  static calculateRewardBreakdown(params: FlightRewardParams): FlightRewardBreakdown {
+  static calculateRewardBreakdown(
+    params: FlightRewardParams,
+    incomePerSec = FLIGHT_REWARD_MIN_INCOME_PER_SEC,
+  ): FlightRewardBreakdown {
     const dist = Math.max(0, Math.floor(params.distanceMeters));
     const alt = Math.max(0, Math.floor(params.maxAltitudeMeters));
     const gears = Math.max(0, Math.floor(params.gearsCollected));
     const crystals = Math.max(0, Math.floor(params.crystalsCollected));
     const dodges = Math.max(0, Math.floor(params.dodgedObstacles));
 
-    const distanceCash = Math.floor(dist * 0.35);
-    const altitudeCash = Math.floor(alt * 0.40);
-    const gearsCash = gears * 5;
-    const crystalsCash = crystals * 15;
-    const dodgesCash = dodges * 4;
+    const seconds = [dist / 40, alt / 100, gears, crystals * 3, dodges * 0.5];
+    const rawSeconds = seconds.reduce((sum, s) => sum + s, 0);
+    const incomeSeconds = Math.min(FLIGHT_REWARD_MAX_SECONDS, rawSeconds);
+    // Sınır aşılırsa kalemler aynı oranda küçülür; döküm toplamla tutarlı kalır
+    const capScale = rawSeconds > 0 ? incomeSeconds / rawSeconds : 0;
+    const rate = Math.max(FLIGHT_REWARD_MIN_INCOME_PER_SEC, incomePerSec) * capScale;
+
+    // Kayan nokta hatası tam sayı sınırındaki tutarı bir aşağı düşürmesin
+    const toCash = (sec: number): number => Math.floor(sec * rate + 1e-6);
+    const distanceCash = toCash(seconds[0]);
+    const altitudeCash = toCash(seconds[1]);
+    const gearsCash = toCash(seconds[2]);
+    const crystalsCash = toCash(seconds[3]);
+    const dodgesCash = toCash(seconds[4]);
 
     const totalCash = distanceCash + altitudeCash + gearsCash + crystalsCash + dodgesCash;
 
@@ -127,6 +148,7 @@ export class FlightReturnHelper {
       crystalsCash,
       dodgesCash,
       totalCash,
+      incomeSeconds: Math.round(incomeSeconds),
     };
   }
 
@@ -194,14 +216,18 @@ export class FlightReturnHelper {
     isCrash: boolean;
     previousBestDistance: number;
     currentRevenueMultiplier?: number;
+    incomePerSec?: number;
   }): FlightReportViewModel {
-    const breakdown = this.calculateRewardBreakdown({
-      distanceMeters: data.distance,
-      maxAltitudeMeters: data.maxAltitude,
-      gearsCollected: data.gears,
-      crystalsCollected: data.crystals,
-      dodgedObstacles: data.dodgedObstacles,
-    });
+    const breakdown = this.calculateRewardBreakdown(
+      {
+        distanceMeters: data.distance,
+        maxAltitudeMeters: data.maxAltitude,
+        gearsCollected: data.gears,
+        crystalsCollected: data.crystals,
+        dodgedObstacles: data.dodgedObstacles,
+      },
+      data.incomePerSec,
+    );
 
     const isNewBestDistance = data.distance > data.previousBestDistance && data.distance > 0;
     const unlockedMilestones = this.getNewlyUnlockedMilestones(

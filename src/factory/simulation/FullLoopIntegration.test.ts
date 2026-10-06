@@ -155,17 +155,17 @@ describe('Full-Loop Integration: Factory -> Hangar -> Flight -> Expansion', () =
     const previousMoney = economy.money;
     const flightSummary = bridge.processFlightResult(flightInput, economy);
 
-    // Beklenen Uçuş Ödülü:
-    // Mesafe: floor(1200 * 0.35) = 420
-    // İrtifa: floor(120 * 0.40) = 48
-    // Dişliler: 15 * 5 = 75
-    // Kristaller: 4 * 15 = 60
-    // Kaçışlar: 6 * 4 = 24
-    // Toplam = 420 + 48 + 75 + 60 + 24 = 627
+    // Beklenen Uçuş Ödülü (gelir süresi × gelir, taban $1/sn):
+    // Mesafe: 1200 / 40 = 30
+    // İrtifa: floor(120 / 100) = 1
+    // Dişliler: 15
+    // Kristaller: 4 * 3 = 12
+    // Kaçışlar: 6 * 0.5 = 3
+    // Toplam = 30 + 1 + 15 + 12 + 3 = 61
     assert.strictEqual(flightSummary.distanceMeters, 1200);
-    assert.strictEqual(flightSummary.cashGained, 627);
+    assert.strictEqual(flightSummary.cashGained, 61);
     assert.strictEqual(flightSummary.isNewBestDistance, true);
-    assert.strictEqual(economy.money, previousMoney + 627);
+    assert.strictEqual(economy.money, previousMoney + 61);
 
     // Kalıcı Kilometre Taşları Doğrulaması:
     // 1200m ile 100m (+%5), 500m (+%10) ve 1000m (+%15) açıldı -> Toplam +%30 bonus
@@ -217,7 +217,7 @@ describe('Full-Loop Integration: Factory -> Hangar -> Flight -> Expansion', () =
     const careerStats = bridge.getFlightStats();
     assert.strictEqual(careerStats.totalFlights, 1);
     assert.strictEqual(careerStats.bestDistance, 1200);
-    assert.strictEqual(careerStats.totalCashEarned, 627);
+    assert.strictEqual(careerStats.totalCashEarned, 61);
   });
 
   it('Multi-Flight Progression and Cumulative Milestone Scaling across career', () => {

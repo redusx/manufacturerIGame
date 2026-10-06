@@ -169,11 +169,12 @@ describe('RocketHangarBridge Headless Unit Tests', () => {
     bridge.onFlightReturned = (s) => (returnedSummary = s);
 
     // Flight 1: 1000m, 10 parts, 4 crystals, 5 dodges
-    // distance: floor(1000 * 0.35) = 350
-    // parts: 10 * 5 = 50
-    // crystals: 4 * 15 = 60
-    // dodges: 5 * 4 = 20
-    // Total = 480
+    // Ödül = gelir süresi × gelir (taban $1/sn):
+    // distance: 1000 / 40 = 25
+    // parts: 10
+    // crystals: 4 * 3 = 12
+    // dodges: floor(5 * 0.5) = 2
+    // Total = 49
     const summary1 = bridge.processFlightResult(
       {
         distanceMeters: 1000,
@@ -185,14 +186,14 @@ describe('RocketHangarBridge Headless Unit Tests', () => {
     );
 
     assert.strictEqual(summary1.distanceMeters, 1000);
-    assert.strictEqual(summary1.cashGained, 480);
+    assert.strictEqual(summary1.cashGained, 49);
     assert.strictEqual(summary1.isNewBestDistance, true);
     assert.strictEqual(summary1.totalFlights, 1);
     assert.strictEqual(summary1.bestDistance, 1000);
     assert.strictEqual(summary1.milestoneBonusMultiplier, 0.30); // 100m, 500m ve 1000m bonusu: 0.05 + 0.10 + 0.15
     assert.strictEqual(economy.revenueMultiplier, 1.30);
-    assert.strictEqual(economy.money, 480);
-    assert.strictEqual(returnedSummary?.cashGained, 480);
+    assert.strictEqual(economy.money, 49);
+    assert.strictEqual(returnedSummary?.cashGained, 49);
 
     // Flight 2: 600m (less than best)
     const summary2 = bridge.processFlightResult(

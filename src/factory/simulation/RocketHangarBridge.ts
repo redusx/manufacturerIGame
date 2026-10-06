@@ -70,6 +70,12 @@ export const ACCEPTED_AEROSPACE_ITEMS = new Set<string>([
 ]);
 
 /**
+ * Hızlı inşada eksik parçanın birim bedeli = satış değeri × bu çarpan.
+ * Pahalı bir kestirmedir; fabrikada üretmenin yerini almamalıdır (DEC-012).
+ */
+export const QUICK_BUILD_PRICE_MULTIPLIER = 4;
+
+/**
  * 4 roket modülünün Seviye 1 -> 2 ve Seviye 2 -> 3 yükseltme maliyetleri.
  * Erken aşamada Tier 2-3 parçalar, son aşamada Tier 4 havacılık parçaları gerektirir.
  */
@@ -250,7 +256,7 @@ export class RocketHangarBridge {
       if (stock < req.count) {
         const missingCount = req.count - stock;
         const item = this.itemRegistry.get(req.itemId);
-        const unitCost = item ? item.baseValue : 50;
+        const unitCost = (item ? item.baseValue : 50) * QUICK_BUILD_PRICE_MULTIPLIER;
         result.push({
           itemId: req.itemId,
           itemName: req.itemName,
@@ -379,21 +385,32 @@ export class RocketHangarBridge {
     return true;
   }
 
-  /** Uçuşta toplanan uzay hurdaları ve kristalleri havacılık parçası olarak stoğa ekler */
-  depositFlightSalvage(gearsCollected: number, crystalsCollected: number): void {
-    if (gearsCollected > 0) {
-      const frameCount = Math.floor(gearsCollected / 2);
-      const motorCount = Math.ceil(gearsCollected / 2);
-      if (frameCount > 0) this.depositPart('reinforced_frame', frameCount);
-      if (motorCount > 0) this.depositPart('electric_motor', motorCount);
-      this.depositPart('steel_gear', gearsCollected);
-    }
-    if (crystalsCollected > 0) {
-      this.depositPart('plastic_pellet', crystalsCollected * 5);
-      if (crystalsCollected >= 2) {
-        this.depositPart('microchip', Math.floor(crystalsCollected / 2));
+  /**
+   * Sıradaki yükseltmeler için bu parçadan hangarın hâlâ beklediği adet.
+   * Fabrika ihracatı, bu sayı sıfırlanana kadar parçayı satmak yerine hangara yollar.
+   */
+  getOutstandingNeed(itemId: string): number {
+    let required = 0;
+    for (const cat of ['hull', 'engine', 'wings', 'boost'] as RocketModuleCategory[]) {
+      const cost = this.getUpgradeCost(cat);
+      if (!cost) continue;
+      for (const req of cost.requiredParts) {
+        if (req.itemId === itemId) required += req.count;
       }
     }
+    return Math.max(0, required - this.getPartCount(itemId));
+  }
+
+  /** Bu parçayı sıradaki yükseltmesinde isteyen ve artık tüm parçaları tamam olan modüller */
+  getModulesCompletedBy(itemId: string): RocketModuleCategory[] {
+    const result: RocketModuleCategory[] = [];
+    for (const cat of ['hull', 'engine', 'wings', 'boost'] as RocketModuleCategory[]) {
+      const cost = this.getUpgradeCost(cat);
+      if (cost?.requiredParts.some((req) => req.itemId === itemId) && this.hasRequiredParts(cat)) {
+        result.push(cat);
+      }
+    }
+    return result;
   }
 
   /**
@@ -421,13 +438,16 @@ export class RocketHangarBridge {
     const milestoneBonus = FlightReturnHelper.applyMilestonesToEconomy(newlyUnlocked, economy);
 
     // Uçuş ekonomisi formülü ve ödül dökümü
-    const breakdown = FlightReturnHelper.calculateRewardBreakdown({
-      distanceMeters: distance,
-      maxAltitudeMeters: result.altitudeMeters ?? 0,
-      gearsCollected: result.partsCollected,
-      crystalsCollected: result.crystalsCollected,
-      dodgedObstacles: result.dodgedObstacles ?? 0,
-    });
+    const breakdown = FlightReturnHelper.calculateRewardBreakdown(
+      {
+        distanceMeters: distance,
+        maxAltitudeMeters: result.altitudeMeters ?? 0,
+        gearsCollected: result.partsCollected,
+        crystalsCollected: result.crystalsCollected,
+        dodgedObstacles: result.dodgedObstacles ?? 0,
+      },
+      economy.getRevenuePerSec(),
+    );
     const totalCashGained = breakdown.totalCash;
 
     // Fabrika cüzdanına ekle

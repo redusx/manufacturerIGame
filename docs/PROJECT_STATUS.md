@@ -19,8 +19,8 @@
 | M2 | Kamera ve okunabilirlik (sığdırma/ortalama, imleç merkezli zoom, mobil pencereler, tarif adları ve seçimi, hangar metni) | **TAMAMLANDI** (2026-10-06, tarayıcıda doğrulandı, commit `56b9d04`) |
 | M3 | Tek ekonomi (iade istismarı, gerçek $/sn, eski idle ekonominin akıştan çıkarılması, çevrimdışı gelir) | **TAMAMLANDI** (2026-10-06, commit `257591f`) |
 | M4 | İlerleme omurgası (10 aşamalı müfredat sahnede, somut görevler, makine/hangar kilitleri) | **TAMAMLANDI** (2026-10-06, tarayıcıda doğrulandı) |
-| M5 | Hammaddeler (bakır, kum, polimer girişleri aşamayla açılır; ek giriş satın alınarak hammadde artırılır) | **TAMAMLANDI** (2026-10-06, tarayıcıda doğrulandı) |
-| M6 | Roket bağlantısı (fabrika → hangar parça akışı, uçuş ödülü, uçuşta fabrika çalışır) | Bekliyor |
+| M5 | Hammaddeler (bakır, kum, polimer girişleri aşamayla açılır; ek giriş satın alınarak hammadde artırılır) | **TAMAMLANDI** (2026-10-06, tarayıcıda doğrulandı, commit `704e118`) |
+| M6 | Roket bağlantısı (fabrika → hangar parça akışı, uçuş ödülü, uçuşta fabrika çalışır) | **TAMAMLANDI** (2026-10-06, tarayıcıda doğrulandı) |
 | M7 | Denge geçişi | Bekliyor |
 | M8 | Sürükleyerek bant çizimi | Bekliyor |
 | M9 | Uzun vade (kontratlar, roket sonrası kademeler) | Bekliyor |
@@ -36,7 +36,9 @@
   - Üstteki `/sn`, son 60 saniyenin ölçülmüş ihracat ortalamasıdır; çevrimdışı gelir kayıt anındaki bu hızla hesaplanır (en fazla 4 saat, %50 verim).
   - Kayıt sürümü 4; eski sürüm kayıtları taşınmaz, silinir (DEC-014).
 * **Bilinen açık sorunlar:**
-  - Uçuş hâlâ fabrikadan çok fazla para veriyor ve uçuş parası fabrika hedeflerini de ilerletiyor (M6).
+  - **M6 sonrası roket kuralları (DEC-018):** Hangar açıkken, roketin sıradaki yükseltmesinin beklediği parça ihraç edilince satılmaz, hangara gider (ihtiyaç dolunca satış sürer). Uçuş roket parçası vermez. Uçuş primi = fabrikanın o anki $/sn geliri × kazanılan süre (40 m = 1 sn, 100 m irtifa = 1 sn, dişli 1 sn, kristal 3 sn, kaçınma 0,5 sn; en fazla 180 sn; taban $1/sn) ve "toplam kazanç" sayılmaz. Hızlı inşada eksik parça satış değerinin 4 katıdır. Uçuş dönüşünde fabrika geçen gerçek süre kadar (en fazla 10 dk) simüle edilir.
+  - Uçuş mesafe kilometre taşları hâlâ kalıcı gelir çarpanı veriyor (toplam +%75); dengesi M7'de.
+  - M6'da yalnız kısa bir uçuş (62 m, çakılma) oynandı; uzun uçuşta 180 sn sınırı ve kilometre taşı çarpanı ekranda doğrulanmadı. Dönüş telafisi 44 sn için ölçüldü, 10 dakikalık üst sınırda süre ölçülmedi.
   - **M5 sonrası hammadde kuralları:** Katalogdan yeni giriş kurulur (demir $500 / 3. aşama, bakır $1000 / 6. aşama, kum ve polimer $2500 / 9. aşama); her giriş 1 hammadde/sn verir, girişler sökülemez (yalnız taşınır). Giriş hızı yükseltmesi yoktur; hammadde artışı ek giriş kurarak sağlanır (DEC-017). Montaj tezgahının 3. giriş portu (batı) vardır.
   - **Reçete tuzağı:** Yeni kurulan makine ilk reçetesiyle başlar (kırıcı=demir, fırın=demir, kesici=bakır tel); yanlış reçetede hat sessizce tıkanır, oyuncu reçeteyi inceleme penceresinden seçmelidir.
   - **3 girdili reçeteler (yönlendirme bilgisayarı, itici blok) ekranda oynanmadı;** 2 girdili motor hattı, plastik ve optik cam ihracı doğrulandı.

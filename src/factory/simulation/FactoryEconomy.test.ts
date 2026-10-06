@@ -158,7 +158,8 @@ describe('FactoryEconomy Incremental Mechanics', () => {
     const claimed = economy.claimFlightReward(500, 4, 1.5);
     assert.equal(claimed, 1650);
     assert.equal(economy.money, 1650);
-    assert.equal(economy.totalEarned, 1650);
+    // Uçuş parası kasaya girer ama fabrika hedeflerini ilerleten "toplam kazanç" sayılmaz
+    assert.equal(economy.totalEarned, 0);
   });
 
   it('Serialization and deserialization should preserve full economy state', () => {

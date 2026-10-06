@@ -120,19 +120,23 @@ export class FactoryEconomy {
   // BAKİYE VE NAKİT YÖNETİMİ
   // -------------------------------------------------------------
 
-  /** Nakit ekler ve toplam kazanılan tutarı günceller */
+  /**
+   * Nakit ekler ve toplam kazanılan tutarı günceller. Söküm iadesi ve uçuş primi
+   * kasaya girer ama "toplam kazanç" sayılmaz: fabrika hedeflerini yalnız üretim ilerletir.
+   */
   addMoney(amount: number, source: 'EXPORT' | 'CLICK' | 'ROCKET' | 'CONTRACT' | 'REFUND' = 'EXPORT'): void {
     if (amount <= 0) return;
 
+    const countsAsEarned = source !== 'REFUND' && source !== 'ROCKET';
     if (this.backingEconomy) {
-      if (source === 'REFUND') {
+      if (!countsAsEarned) {
         this.backingEconomy.refundResources(amount);
       } else {
         this.backingEconomy.addResources(amount);
       }
     } else {
       this._money += amount;
-      if (source !== 'REFUND') {
+      if (countsAsEarned) {
         this._totalEarned += amount;
       }
     }

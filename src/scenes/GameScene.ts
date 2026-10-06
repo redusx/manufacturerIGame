@@ -60,11 +60,18 @@ import { crazyGames } from '../integration/CrazyGamesSDK.ts';
 
 /** Aşama ödülleriyle açılan özelliklerin kimlikleri (bkz. MilestoneManager.DEFAULT_MILESTONES) */
 const HANGAR_FEATURE = 'ROCKET_HANGAR';
+/** Uçuş dönüşünde fabrikanın en fazla ne kadar süre için ilerletileceği (saniye) */
+const FLIGHT_CATCH_UP_MAX_SEC = 600;
+/** Uçuş dönüşü telafi simülasyonunun adım süresi (saniye) */
+const FLIGHT_CATCH_UP_STEP_SEC = 1 / 30;
 const SPLITTER_MERGER_FEATURE = 'SPLITTER_MERGER';
 
 export class GameScene extends Phaser.Scene {
   private economy!: EconomyManager;
   private hangarBridge!: RocketHangarBridge;
+  private flightStartedAtMs = 0;
+  /** Uçuş dönüşü telafi simülasyonu sürerken ihracat geri bildirimi bastırılır */
+  private isCatchingUp = false;
   private factoryEconomy!: FactoryEconomy;
   private plotManager!: PlotExpansionManager;
   private milestones!: MilestoneManager;
@@ -463,9 +470,31 @@ export class GameScene extends Phaser.Scene {
 
     // İhracat Teslimatı (EXPORT Delivery Event)
     this.logistics.onItemDelivered = (event: DeliveredItemEvent) => {
-      const earned = this.factoryEconomy.exportItem(event.itemId);
       this.milestones.recordExport(event.itemId);
       const exportWorld = GridCoordinates.gridToWorldCenter(event.exportCoord, 32);
+
+      // Roketin sıradaki yükseltmesinin beklediği parça satılmaz, hangara gider
+      if (
+        this.milestones.isFeatureUnlocked(HANGAR_FEATURE) &&
+        this.hangarBridge.getOutstandingNeed(event.itemId) > 0
+      ) {
+        this.hangarBridge.depositPart(event.itemId);
+        if (this.isCatchingUp) return;
+        fx.emitFloatingText(this, exportWorld.x, exportWorld.y - 12, '→ HANGAR', PALETTE.rocketCyanHex);
+        if (this.hangarBridge.getOutstandingNeed(event.itemId) === 0) {
+          const ready = this.hangarBridge.getModulesCompletedBy(event.itemId);
+          if (ready.length > 0) {
+            sound.playMilestone();
+            this.showNotification('Roket parçaları hazır! Hangarı aç ve yükselt.');
+          }
+          this.rocketHangar.refresh();
+          this.saveGame();
+        }
+        return;
+      }
+
+      const earned = this.factoryEconomy.exportItem(event.itemId);
+      if (this.isCatchingUp) return;
       fx.emitSparkles(this, exportWorld.x, exportWorld.y, 8, PALETTE.resourceGold);
       sound.playCoin();
       fx.emitFloatingText(
@@ -1019,6 +1048,7 @@ export class GameScene extends Phaser.Scene {
     }
     sound.playLaunch();
     this.cameraController.setEnabled(false);
+    this.flightStartedAtMs = Date.now();
     this.saveGame();
     crazyGames.gameplayStop();
     this.scene.pause('GameScene');
@@ -1035,6 +1065,7 @@ export class GameScene extends Phaser.Scene {
     sound.playCoin();
     fx.emitSparkles(this, this.scale.width / 2, 120, 20, PALETTE.successGreen);
     this.cameraController.setEnabled(true);
+    const factoryEarned = this.catchUpFactory((Date.now() - this.flightStartedAtMs) / 1000);
     this.gridView.refresh();
     this.saveGame();
     this.refreshUI();
@@ -1042,9 +1073,10 @@ export class GameScene extends Phaser.Scene {
 
     const multiplier = this.factoryEconomy ? this.factoryEconomy.revenueMultiplier : 1.0;
     const bonusText = multiplier > 1.0 ? ` (x${multiplier.toFixed(2)} Fabrika Çarpanı)` : '';
+    const factoryText = factoryEarned > 0 ? `\nSen uçarken fabrika +$${formatNumber(factoryEarned)} kazandı` : '';
 
     this.showNotification(
-      `Uçuş tamamlandı! +${formatNumber(totalResources)} ${RESOURCE_NAME} (${distance}m)${bonusText}`,
+      `Uçuş primi +$${formatNumber(totalResources)} (${distance}m)${bonusText}${factoryText}`,
     );
 
     // HUD'a doğru kutlama parçacıkları
@@ -1063,17 +1095,38 @@ export class GameScene extends Phaser.Scene {
    * UPDATE (HER KARE)
    * ================================================================ */
 
+  /** Fabrika simülasyonunu bir adım ilerletir (gelir ölçümü, bantlar, makineler) */
+  private stepSimulation(dt: number): void {
+    this.factoryEconomy.tick(dt);
+    this.logistics.tick(dt);
+    this.productionEngine.tick(dt);
+  }
+
+  /**
+   * Uçuş boyunca duraklatılan fabrikayı geçen süre kadar ilerletir (DEC-016).
+   * Simülasyon gerçekten çalıştırılır; görsel/işitsel geri bildirim bastırılır.
+   * Fabrikanın bu sürede kazandığı parayı döner.
+   */
+  private catchUpFactory(elapsedSec: number): number {
+    const seconds = Phaser.Math.Clamp(elapsedSec, 0, FLIGHT_CATCH_UP_MAX_SEC);
+    const moneyBefore = this.factoryEconomy.money;
+
+    this.isCatchingUp = true;
+    for (let remaining = seconds; remaining > 0; remaining -= FLIGHT_CATCH_UP_STEP_SEC) {
+      this.stepSimulation(Math.min(FLIGHT_CATCH_UP_STEP_SEC, remaining));
+    }
+    this.isCatchingUp = false;
+
+    return Math.max(0, this.factoryEconomy.money - moneyBefore);
+  }
+
   update(_time: number, delta: number): void {
     if (this.settingsPanel.visible) return;
 
     const dt = delta / 1000;
 
-    /* Saniyelik gelir ölçümü penceresini ilerlet */
-    this.factoryEconomy.tick(dt);
-
     /* 2D Simülasyon adımları */
-    this.logistics.tick(dt);
-    this.productionEngine.tick(dt);
+    this.stepSimulation(dt);
 
     /* 2D Görsel akış ve animasyonlar (60 FPS) */
     this.conveyorRenderer.update(dt);

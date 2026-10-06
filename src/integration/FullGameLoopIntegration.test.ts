@@ -405,12 +405,13 @@ describe('TASK-INT-07: Master Full Game Loop End-to-End Verification Tests', () 
       dodgedObstacles: 4,
     };
     const rewardBreakdown = FlightReturnHelper.calculateRewardBreakdown(flightParams);
-    assert.strictEqual(rewardBreakdown.distanceCash, Math.floor(1250 * 0.35)); // 437
-    assert.strictEqual(rewardBreakdown.altitudeCash, Math.floor(650 * 0.40)); // 260
-    assert.strictEqual(rewardBreakdown.gearsCash, 5 * 5); // 25
-    assert.strictEqual(rewardBreakdown.crystalsCash, 3 * 15); // 45
-    assert.strictEqual(rewardBreakdown.dodgesCash, 4 * 4); // 16
-    assert.strictEqual(rewardBreakdown.totalCash, 437 + 260 + 25 + 45 + 16); // 783
+    // Ödül = gelir süresi × gelir (taban $1/sn)
+    assert.strictEqual(rewardBreakdown.distanceCash, Math.floor(1250 / 40)); // 31
+    assert.strictEqual(rewardBreakdown.altitudeCash, Math.floor(650 / 100)); // 6
+    assert.strictEqual(rewardBreakdown.gearsCash, 5); // 5
+    assert.strictEqual(rewardBreakdown.crystalsCash, 3 * 3); // 9
+    assert.strictEqual(rewardBreakdown.dodgesCash, Math.floor(4 * 0.5)); // 2
+    assert.strictEqual(rewardBreakdown.totalCash, 31 + 6 + 5 + 9 + 2); // 53
 
     // C. Mesafe Kilometre Taşları ve Global Gelir Çarpanı
     // 0 -> 1250m: 100m (+%5), 500m (+%10), 1000m (+%15) = Toplam +%30 (+0.30)

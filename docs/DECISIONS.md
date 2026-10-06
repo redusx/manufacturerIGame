@@ -112,3 +112,14 @@
 * **Karar:** Hammadde girişleri sabit hızdadır (1 hammadde/sn). Daha fazla hammadde isteyen oyuncu katalogdan yeni giriş satın alır (demir $500, bakır $1000, kum/polimer $2500 — M7'de dengelenecek başlangıç değerleri). Girişler aşamalarla açılır: ek demir 3., bakır 6., kum ve polimer 9. aşama ödülü. Girişler sökülemez, yalnızca taşınır.
 * **Gerekçe:** Ek giriş, sayıyı büyütmek yerine fabrikada görünür bir değişiklik yaratır ve yeni hat kurmayı teşvik eder; ayrı bir yükseltme arayüzü gerektirmez.
 * **Not:** Yol haritasındaki "giriş hızı yükseltilebilir" maddesinin yerine geçer; kullanıcı 2026-10-06 tarihinde onayladı.
+
+### [DEC-018] Roket Bağlantısı: Parça Fabrikadan, Prim Gelire Bağlı
+* **Tarih:** 2026-10-06
+* **Karar:**
+  1. Hangar açıkken, roketin sıradaki yükseltmelerinin beklediği parçalar ihracat sandığına ulaştığında satılmaz, hangar stoğuna gider; ihtiyaç dolunca aynı parça yeniden satılır. Ayrı bir teslimat terminali yoktur.
+  2. Uçuşta toplananlar roket parçasına dönüşmez (eski "hurda → çerçeve/motor/çip" kaldırıldı).
+  3. Uçuş primi sabit para değil, fabrikanın o anki gelirinin süresidir (en fazla 180 sn) ve fabrika hedeflerini ilerleten "toplam kazanç"a yazılmaz.
+  4. Hızlı inşada eksik parçanın bedeli satış değerinin 4 katıdır (DEC-012'nin uygulaması).
+  5. Uçuş dönüşünde fabrika, uçuşta geçen gerçek süre kadar (en fazla 10 dk) gerçekten simüle edilir (DEC-016'nın uygulaması).
+* **Gerekçe:** DEC-011, DEC-012 ve DEC-016. Prim gelire bağlı olduğu için oyunun hiçbir aşamasında uçuş fabrikanın önüne geçemez.
+* **Not:** Süre katsayıları ve 180 sn sınırı başlangıç değeridir; M7'de dengelenecek.
