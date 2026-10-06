@@ -84,10 +84,9 @@ describe('MachineInspectorHelper Headless Unit Tests', () => {
     assert.strictEqual(outputDust.count, 2);
     assert.strictEqual(outputDust.capacity, crusherDef.outputBufferCapacity);
 
-    // Demolish refund should include base machine cost + buffered items
-    const oreVal = defaultItemRegistry.get('iron_ore')!.baseValue;
-    const dustVal = defaultItemRegistry.get('iron_powder')!.baseValue;
-    const expectedRefund = crusherDef.baseCost + (3 * oreVal) + (2 * dustVal);
+    // Gösterilen iade, sökümün gerçekten ödediği tutarla aynıdır: yalnızca makine yatırımı.
+    // Tampondaki eşyalar ödenmez (DemolishMath.executeDemolish de onları ödemez).
+    const expectedRefund = crusherDef.baseCost;
     assert.strictEqual(dataWithBuffers.demolishRefund, expectedRefund);
   });
 

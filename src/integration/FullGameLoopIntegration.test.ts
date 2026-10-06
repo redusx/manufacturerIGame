@@ -434,10 +434,15 @@ describe('TASK-INT-07: Master Full Game Loop End-to-End Verification Tests', () 
     assert.strictEqual(economy.resources.toNumber(), cashBeforeReward + rewardBreakdown.totalCash);
 
     // D. Fabrika İhracatında Çarpan Etkisi:
-    // Standart demir tozu baz bedeli $2.5 iken, x1.30 çarpanla Math.floor(2.5 * 1.30) = $3 kazanır
+    // İhracat çarpanı = uçuş kilometre taşları (x1.30) * tamamlanan fabrika hedefleri.
+    // Demir tozunun baz bedeli $2.5'tir; değer tam sayıya değil kuruşa yuvarlanır.
+    const goalMultiplier = economy.getGlobalMultiplier();
+    assert.ok(goalMultiplier > 1, 'Kazanılan parayla en az bir çarpanlı hedef tamamlanmış olmalı');
+    assert.strictEqual(factoryEconomy.getExportMultiplier(), 1.30 * goalMultiplier);
+
     const singleExportEarnings = factoryEconomy.exportItem('iron_powder');
-    assert.strictEqual(singleExportEarnings, Math.floor(2.5 * 1.30));
-    assert.strictEqual(singleExportEarnings, 3);
+    assert.strictEqual(singleExportEarnings, Math.round(2.5 * 1.30 * goalMultiplier * 100) / 100);
+    assert.ok(singleExportEarnings > 3.25);
   });
 
   it('5. SaveManager v3 Full Round-Trip Persistence & Factory State Restoration', () => {
@@ -589,12 +594,12 @@ describe('TASK-INT-07: Master Full Game Loop End-to-End Verification Tests', () 
       factoryEconomy.exportItem(evt.itemId);
     };
 
-    // 3. Tıklama ile Başlangıç Sermayesi
+    // 3. Tıklama ile Başlangıç Sermayesi (tıklama sabit $1'dir; hedef çarpanları tıklamayı büyütmez)
     for (let c = 0; c < 500; c++) economy.produceByClick();
-    assert.ok(economy.resources.toNumber() >= 500);
+    assert.strictEqual(economy.resources.toNumber(), 500);
 
-    // 4. Simülasyon Çalışması
-    for (let t = 0; t < 20; t++) {
+    // 4. Simülasyon Çalışması (ilk demir tozunun sevkiyata ulaşması ~13 sn sürer)
+    for (let t = 0; t < 60; t++) {
       logistics.tick(0.5);
       engine.tick(0.5);
     }

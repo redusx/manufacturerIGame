@@ -226,10 +226,12 @@ export class EconomyManager {
    * Eylemler
    * ============================================================ */
 
-  /** Tıklama ile üretim */
+  /**
+   * Tıklama ile üretim. Sabit değerlidir; hedef çarpanları tıklamayı büyütmez
+   * (DEC-013: tıklama yalnız erken oyunda yardımcıdır, fabrika büyüdükçe önemi azalır).
+   */
   produceByClick(): Decimal {
-    const globalMul = this.getGlobalMultiplier();
-    const gained = this._clickPower.mul(globalMul);
+    const gained = this._clickPower;
     this._resources = this._resources.add(gained);
     this._totalEarned = this._totalEarned.add(gained);
 
@@ -279,6 +281,16 @@ export class EconomyManager {
     this._resources = this._resources.add(dec);
     this._totalEarned = this._totalEarned.add(dec);
     this.checkGoals();
+  }
+
+  /**
+   * İade: parayı kasaya geri koyar ama "toplam kazanç" saymaz. Söküm iadesi kazanç
+   * sayılırsa kur-sök döngüsü hiç üretmeden hedefleri tamamlatır.
+   */
+  refundResources(amount: DecimalSource): void {
+    const dec = D(amount);
+    if (dec.lte(0)) return;
+    this._resources = this._resources.add(dec);
   }
 
   /** Belirtilen miktarda kaynak harcanabilir mi? */

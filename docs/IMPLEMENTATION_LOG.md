@@ -1099,3 +1099,29 @@
 * **Bu görevde yeni test eklenmedi;** davranışı değişen iki mevcut test güncellendi.
 * **Kalan / Sırada:** M3 (tek ekonomi). Açık konular `PROJECT_STATUS.md` içinde.
 
+---
+
+### [2026-10-06 17:14] — REVIVAL M3: Tek Ekonomi
+* **Görev:** M3
+* **Durum:** TAMAMLANDI (tarayıcıda doğrulandı)
+* **Değiştirilen Dosyalar:**
+  - `src/economy/EconomyManager.ts` (tıklama sabit; `refundResources`: iade kazanç sayılmaz)
+  - `src/factory/simulation/FactoryEconomy.ts` (iade yolu, kuruşa yuvarlanan ihracat, hedef çarpanı ihracata uygulanır, 60 sn'lik gelir ölçümü, `seedRevenueRate`)
+  - `src/factory/persistence/SaveManager.ts`, `src/save/SaveManager.ts`, `src/factory/types.ts` (kayıt sürümü 4, eski kayıtlar silinir, kayıtta ölçülmüş gelir)
+  - `src/scenes/GameScene.ts` (eski idle ekonominin akıştan çıkarılması; HUD, hedef süresi ve çevrimdışı gelir ölçülen hıza bağlandı; hedef bildirimi yalnız gerçek ödülü söyler; resize dinleyicisi kapanışta kaldırılır)
+  - `src/scenes/FlightScene.ts` (eski tick kaldırıldı; resize dinleyicisi kapanışta kaldırılır)
+  - `src/ui/HUD.ts`, `src/utils/format.ts` (`formatRate`, `formatMoney`), `src/factory/view/MachineInspectorHelper.ts` (gösterilen iade = ödenen iade)
+  - Testler: `FactoryEconomy.test.ts`, `SaveManager.test.ts`, `MachineInspectorHelper.test.ts`, `FullLoopIntegration.test.ts`, `FullGameLoopIntegration.test.ts`, `PlotExpansionAndSaveIntegration.test.ts`, `RocketHangarIntegration.test.ts` (eski kuralları doğrulayan beklentiler güncellendi; iade istismarı için mevcut teste doğrulama eklendi)
+* **Çözülen Hatalar:**
+  1. Söküm iadesi "toplam kazanç" sayılıyordu: kur-sök döngüsü hiç üretmeden hedefleri tamamlatıyordu.
+  2. Üst çubuk hep "0 /sn" gösteriyordu, çünkü hiç satın alınamayan eski 4 makinenin üretimini okuyordu. Aynı nedenle çevrimdışı gelir hiç tetiklenmiyor ve hedefe kalan süre hiç görünmüyordu.
+  3. "YENİ CİHAZ: Pres Makinesi kuruluma hazır!" bildirimi var olmayan bir makineyi duyuruyordu.
+  4. İhracat değeri tam sayıya yuvarlanıyordu: $2.5'lik demir tozu $2 ediyor, küçük çarpanlar (+%5, +%15) ucuz eşyada hiç etki etmiyordu.
+  5. Hedef çarpanları yalnız tıklamayı büyütüyordu; "Fabrika gücü arttı" bildirimi fabrika gelirini değiştirmiyordu.
+  6. Makine inceleme penceresi iadeyi tampondaki eşyalar dahil gösteriyor (+$105), söküm yalnız yatırımı ödüyordu (+$100).
+  7. Uçuş sahnesi resize dinleyicisini kaldırmıyordu: uçuştan sonraki ilk pencere boyutu değişiminde hata fırlatıyor ve oyun bir daha yeniden boyutlanmıyordu.
+* **Yol haritasından sapma:** "Başlangıç parçaları iade vermez" uygulanmadı. İade artık kazanç sayılmadığı için başlangıç hattı yalnızca $150'lik ayni başlangıç sermayesidir; iadesiz yapılsaydı başlangıç hattını yeniden dizmek para kaybettirirdi (DEC-007 ile çelişir).
+* **Ölçümler (tarayıcı, sıfır kayıt):** demir tozu $2.5; ilk hedeften (+%15) sonra $2.88; üst çubuk ~1 dakikada +1.3/sn'ye oturuyor; 53 sn uzak kalınca çevrimdışı pencere +28 veriyor (1.06 × 53 × 0.5); iki kur-sök döngüsünde toplam kazanç yalnız aradaki ihracat kadar arttı.
+* **Test Doğrulaması:** `npm test` -> 285/285 geçti (62 suit); `npx tsc --noEmit` -> 0 hata; `npm run build` -> başarılı
+* **Kalan / Sırada:** M4 (ilerleme omurgası). Açık konular `PROJECT_STATUS.md` içinde.
+

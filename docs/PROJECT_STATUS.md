@@ -16,9 +16,9 @@
 | # | Milestone | Durum |
 |---|---|---|
 | M1 | Girdi ve açılış hataları | **TAMAMLANDI** (2026-10-06, tarayıcıda doğrulandı, commit `4da3de2`) |
-| M2 | Kamera ve okunabilirlik (sığdırma/ortalama, imleç merkezli zoom, mobil pencereler, tarif adları ve seçimi, hangar metni) | **TAMAMLANDI** (2026-10-06, tarayıcıda doğrulandı) |
-| M3 | Tek ekonomi (iade istismarı, gerçek $/sn, eski 4 makinenin kaldırılması, çevrimdışı gelir) | Sırada |
-| M4 | İlerleme omurgası (`MilestoneManager`'ın sahneye bağlanması, makine kilitleri) | Bekliyor |
+| M2 | Kamera ve okunabilirlik (sığdırma/ortalama, imleç merkezli zoom, mobil pencereler, tarif adları ve seçimi, hangar metni) | **TAMAMLANDI** (2026-10-06, tarayıcıda doğrulandı, commit `56b9d04`) |
+| M3 | Tek ekonomi (iade istismarı, gerçek $/sn, eski idle ekonominin akıştan çıkarılması, çevrimdışı gelir) | **TAMAMLANDI** (2026-10-06, tarayıcıda doğrulandı) |
+| M4 | İlerleme omurgası (`MilestoneManager`'ın sahneye bağlanması, makine kilitleri) | Sırada |
 | M5 | Hammaddeler (bakır, kum, polimer girişleri; giriş hızı yükseltmesi) | Bekliyor |
 | M6 | Roket bağlantısı (fabrika → hangar parça akışı, uçuş ödülü, uçuşta fabrika çalışır) | Bekliyor |
 | M7 | Denge geçişi | Bekliyor |
@@ -26,11 +26,21 @@
 | M9 | Uzun vade (kontratlar, roket sonrası kademeler) | Bekliyor |
 | M10 | Temizlik ve yayın (ölü kod, doküman eşitleme, mobil düzen) | Bekliyor |
 
-* **Son doğrulama:** 2026-10-06 16:57 — `npm test` 285/285 (62 suit), `npx tsc --noEmit` 0 hata, `npm run build` başarılı; ayrıntı `IMPLEMENTATION_LOG.md` son girdi.
+* **Son doğrulama:** 2026-10-06 17:14 — `npm test` 285/285 (62 suit), `npx tsc --noEmit` 0 hata, `npm run build` başarılı; ayrıntı `IMPLEMENTATION_LOG.md` son girdi.
+* **Ekonominin şu anki kuralları (M3 sonrası):**
+  - Tek kasa: `EconomyManager` (para + toplam kazanç). `FactoryEconomy` ona yazar.
+  - Gelir = ihraç edilen eşyanın baz değeri × uçuş kilometre taşı çarpanı × tamamlanan fabrika hedeflerinin çarpanı; kuruşa yuvarlanır.
+  - Tıklama sabit $1'dir; hiçbir çarpan tıklamayı büyütmez (DEC-013).
+  - Söküm iadesi %100'dür ama "toplam kazanç" sayılmaz; hedefleri ilerletmez.
+  - Üstteki `/sn`, son 60 saniyenin ölçülmüş ihracat ortalamasıdır; çevrimdışı gelir kayıt anındaki bu hızla hesaplanır (en fazla 4 saat, %50 verim).
+  - Kayıt sürümü 4; eski sürüm kayıtları taşınmaz, silinir (DEC-014).
 * **Bilinen açık sorunlar:**
-  - Ekonomi (M3): iade "toplam kazanç" sayılıyor (hedef istismarı); üst çubukta hep "0 /sn"; çevrimdışı gelir hiç tetiklenmiyor.
+  - Uçuş hâlâ fabrikadan çok fazla para veriyor ve uçuş parası fabrika hedeflerini de ilerletiyor (M6).
+  - Hedef sistemi hâlâ eski 12 "toplam kazanç" hedefi; dördü var olmayan makine kilitlerine atıf yapıyor ve ödülsüz (M4'te `MilestoneManager` ile değişecek).
+  - Sekme arka plandayken fabrika durur ve geri dönünce telafi edilmez; çevrimdışı gelir yalnız sayfa yeniden açılınca hesaplanır.
+  - Eski idle ekonominin sınıf ve dosyaları (`MachineModal`, `MachineCard`, `FactoryView`, `DOMUIManager`, `EconomyManager` içindeki 4 makine) hâlâ depoda; oyun akışı kullanmıyor (M10'da silinecek).
   - Dokunmatik: iki parmakla yakınlaştırma (pinch) yok; yerleştirme/söküm modunda kamera kaydırılamıyor. Büyük fabrikalarda (20x16 ve üzeri) telefonda hücreler çok küçülüyor.
-  - Yatay telefon ekranı (ör. 812x375): ana ekran çalışıyor ama pencereler (katalog, hangar, makine inceleme) dikeyde taşıyor; düzen dikey telefon ve masaüstü için doğrulandı.
+  - Yatay telefon ekranı (ör. 812x375): ana ekran çalışıyor ama pencereler (katalog, hangar, makine inceleme) dikeyde taşıyor.
   - `factory_bg` arka plan dokusu iki kamera tarafından da yoksayıldığı için hiç çizilmiyor.
 
 ---

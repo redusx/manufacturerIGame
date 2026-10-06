@@ -6,7 +6,7 @@
 import Phaser from 'phaser';
 import type { DecimalSource } from 'break_eternity.js';
 import { D } from '../utils/decimal';
-import { formatNumber } from '../utils/format';
+import { formatNumber, formatRate } from '../utils/format';
 import { RESOURCE_NAME } from '../data/MachineData';
 import { PALETTE, FONT_FAMILY, PixelUIHelper } from './theme';
 
@@ -121,7 +121,7 @@ export class HUD {
 
     this.resourceText.setText(formatNumber(resDec));
     if (ppsDec.gt(0)) {
-      this.rateText.setText(`+${formatNumber(ppsDec)} ${RESOURCE_NAME}/sn`);
+      this.rateText.setText(`+${formatRate(ppsDec)} ${RESOURCE_NAME}/sn`);
     } else {
       this.rateText.setText('0 /sn (Tıkla!)');
     }

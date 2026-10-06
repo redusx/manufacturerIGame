@@ -13,12 +13,12 @@
 import Phaser from 'phaser';
 import { EconomyManager } from '../economy/EconomyManager';
 import { SaveManager } from '../save/SaveManager';
-import { MACHINES, AUTO_SAVE_INTERVAL_MS, RESOURCE_NAME } from '../data/MachineData';
-import { formatNumber, formatDuration } from '../utils/format';
+import { FACTORY_GOALS, AUTO_SAVE_INTERVAL_MS, RESOURCE_NAME } from '../data/MachineData';
+import { formatNumber, formatMoney } from '../utils/format';
+import { D } from '../utils/decimal';
 
 import { HUD } from '../ui/HUD';
 import { MilestoneBar } from '../ui/MilestoneBar';
-import { MachineModal } from '../ui/MachineModal';
 import { SettingsPanel } from '../ui/SettingsPanel';
 import { OfflineEarningsModal } from '../ui/OfflineEarningsModal';
 import { calculateOfflineReport } from '../ui/OfflineEarningsHelper.ts';
@@ -62,7 +62,6 @@ export class GameScene extends Phaser.Scene {
   /* UI bileşenleri */
   private hud!: HUD;
   private milestoneBar!: MilestoneBar;
-  private machineModal!: MachineModal;
   private settingsPanel!: SettingsPanel;
   private offlineEarningsModal!: OfflineEarningsModal;
 
@@ -157,7 +156,6 @@ export class GameScene extends Phaser.Scene {
 
   /* Zamanlayıcılar */
   private autoSaveTimer = 0;
-  private lastUnlockState: boolean[] = [];
 
   /* Düğme boyutları */
   private dockBtnW = 120;
@@ -462,7 +460,7 @@ export class GameScene extends Phaser.Scene {
         this,
         exportWorld.x,
         exportWorld.y - 12,
-        `+$${earned}`,
+        `+$${formatMoney(earned)}`,
         PALETTE.resourceGoldHex,
       );
       this.onProductDeliveredToShipping(earned, exportWorld.x, exportWorld.y);
@@ -897,15 +895,6 @@ export class GameScene extends Phaser.Scene {
     /* Kilometre Taşı / Hedef Çubuğu */
     this.milestoneBar = new MilestoneBar(this);
 
-    /* Cihaz / Makine Pop-up Detay ve Geliştirme Penceresi */
-    this.machineModal = new MachineModal(this, this.economy, (idx) => {
-      this.saveGame();
-      this.refreshUI();
-      sound.playUpgrade();
-      fx.emitSparkles(this, this.scale.width / 2, this.scale.height / 2, 16, PALETTE.resourceGold);
-      this.showNotification(`${MACHINES[idx].name} başarıyla geliştirildi!`);
-    });
-
     /* Ayarlar paneli */
     this.settingsPanel = new SettingsPanel(this, () => this.resetGame());
 
@@ -948,7 +937,6 @@ export class GameScene extends Phaser.Scene {
       this.demolishBarContainer,
       this.notificationBgSlice,
       this.notificationText,
-      this.machineModal.container,
       this.rocketHangar.container,
       this.machineInspectorModal.container,
       this.terminalModal.container,
@@ -956,31 +944,23 @@ export class GameScene extends Phaser.Scene {
       this.offlineEarningsModal.rootContainer,
     ]);
 
-    /* Kilit açılma durumları */
-    this.lastUnlockState = MACHINES.map((_, i) => this.economy.isUnlocked(i));
-
     /* İlk yerleşim */
     this.layoutAll();
-    this.scale.on('resize', () => this.layoutAll());
+    // ScaleManager oyun geneline aittir: sahne yeniden başlatılınca (kayıt sıfırlama)
+    // eski dinleyici birikmesin diye kapanışta kaldırılır.
+    this.scale.on('resize', this.layoutAll, this);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.scale.off('resize', this.layoutAll, this);
+    });
 
     /* Ekonomi olayları */
     this.economy.on((evt) => {
-      if (evt.type === 'purchase' || evt.type === 'upgrade') {
-        sound.playUpgrade();
-        fx.emitSparkles(this, this.scale.width / 2, this.scale.height / 2, 16, PALETTE.resourceGold);
-        const idx = MACHINES.findIndex(m => m.id === evt.machineId);
-        if (idx >= 0) {
-          this.layoutAll();
-          if (this.machineModal.isOpen()) {
-            this.machineModal.refresh();
-          }
-        }
-      } else if (evt.type === 'goal_reached') {
+      if (evt.type === 'goal_reached') {
         crazyGames.happytime();
         sound.playMilestone();
         fx.emitConfetti(this, this.scale.width / 2, 80, 32);
         this.milestoneBar.playGoalReachedEffect();
-        this.showNotification(`HEDEF TAMAMLANDI! Fabrika gücü arttı.`);
+        this.showNotification(this.describeGoalReached(evt.goalId));
       } else if (evt.type === 'rocket_upgrade') {
         sound.playUpgrade();
         fx.emitSparkles(this, this.scale.width / 2, this.scale.height / 2, 20, PALETTE.rocketCyan);
@@ -1065,8 +1045,7 @@ export class GameScene extends Phaser.Scene {
 
     const dt = delta / 1000;
 
-    /* Otomatik üretim (zaman temelli ekonomi hesabı) */
-    this.economy.tick(dt);
+    /* Saniyelik gelir ölçümü penceresini ilerlet */
     this.factoryEconomy.tick(dt);
 
     /* 2D Simülasyon adımları */
@@ -1092,7 +1071,6 @@ export class GameScene extends Phaser.Scene {
     /* Kamera kontrolleri (Herhangi bir modal açık değilse) */
     const isAnyModalOpen =
       this.settingsPanel.visible ||
-      this.machineModal.isOpen() ||
       this.buildMenuModal.isOpen() ||
       this.machineInspectorModal?.isOpen ||
       this.terminalModal?.isOpen ||
@@ -1114,9 +1092,6 @@ export class GameScene extends Phaser.Scene {
     /* Kamera hareketinden sonra araç önizlemelerini imleçle yeniden eşle */
     this.placementController.update();
     this.demolishTool.update();
-
-    /* Kilit açılma kontrolü */
-    this.checkUnlocks();
 
     /* UI güncelle */
     this.refreshUI();
@@ -1195,32 +1170,19 @@ export class GameScene extends Phaser.Scene {
   }
 
   /* ================================================================
-   * MAKİNE SATIN ALMA / YÜKSELTME
+   * HEDEF BİLDİRİMİ
    * ================================================================ */
 
-  private onBuyOrUpgrade(index: number): void {
-    if (this.economy.buyOrUpgrade(index)) {
-      this.saveGame();
-      this.refreshUI();
-      this.layoutAll();
-    }
-  }
+  /** Tamamlanan hedef için yalnızca gerçekten verilen ödülü söyleyen bildirim metni */
+  private describeGoalReached(goalId?: string): string {
+    const goal = FACTORY_GOALS.find((g) => g.id === goalId);
+    if (!goal) return 'HEDEF TAMAMLANDI!';
 
-  /* ================================================================
-   * AÇILMA KONTROLÜ
-   * ================================================================ */
-
-  private checkUnlocks(): void {
-    for (let i = 0; i < MACHINES.length; i++) {
-      const nowUnlocked = this.economy.isUnlocked(i);
-      if (nowUnlocked && !this.lastUnlockState[i]) {
-        this.lastUnlockState[i] = true;
-        this.showNotification(`YENİ CİHAZ: ${MACHINES[i].name} kuruluma hazır!`);
-        if (this.machineModal && this.machineModal.isOpen()) {
-          this.machineModal.refresh();
-        }
-      }
+    if (goal.globalMultiplier > 1) {
+      const percent = Math.round((goal.globalMultiplier - 1) * 100);
+      return `HEDEF TAMAMLANDI: ${goal.name}\nİhracat geliri +%${percent}`;
     }
+    return `HEDEF TAMAMLANDI: ${goal.name}`;
   }
 
   /* ================================================================
@@ -1228,28 +1190,21 @@ export class GameScene extends Phaser.Scene {
    * ================================================================ */
 
   private refreshUI(): void {
-    /* HUD */
+    /* HUD: saniyelik gelir, fabrikanın son bir dakikada ölçülen ihracat geliridir */
+    const revenuePerSec = this.factoryEconomy.getRevenuePerSec();
     this.hud.update(
       this.economy.resources,
-      this.economy.getTotalProductionPerSecond(),
+      revenuePerSec,
       this.economy.stats.bestDistance,
     );
 
     /* Kilometre Taşı Çubuğu */
-    const pps = this.economy.getTotalProductionPerSecond();
-    this.milestoneBar.updateGoal(this.economy.getNextGoal(), pps);
+    this.milestoneBar.updateGoal(this.economy.getNextGoal(), D(revenuePerSec));
 
     /* Manuel üretim bilgisi */
-    const globalMul = this.economy.getGlobalMultiplier();
-    const effectiveClick = this.economy.clickPower.mul(globalMul);
-    this.manualBtnSubText.setText(
-      `+${formatNumber(effectiveClick)} / tık`,
-    );
+    this.manualBtnSubText.setText(`+${formatNumber(this.economy.clickPower)} / tık`);
 
     /* Açık ise makine ve inşa modallarını yenile */
-    if (this.machineModal && this.machineModal.isOpen()) {
-      this.machineModal.refresh();
-    }
     if (this.buildMenuModal && this.buildMenuModal.isOpen()) {
       this.buildMenuModal.refresh();
     }
@@ -1310,7 +1265,7 @@ export class GameScene extends Phaser.Scene {
       this.factoryEconomy,
     );
     SaveManager.save(this.economy.serialize(), {
-      factoryEconomy: this.factoryEconomy,
+      factoryEconomy: this.factoryEconomy.serialize(),
       hangar: this.hangarBridge,
       factoryLayout,
     });
@@ -1339,6 +1294,10 @@ export class GameScene extends Phaser.Scene {
         this.factoryEconomy.revenueMultiplier = data.factoryEconomy.revenueMultiplier;
       }
     }
+
+    // Gösterge sıfırdan başlamasın: kayıt anındaki ölçülmüş gelirle başlat
+    const savedRevenuePerSec = data.factoryEconomy?.revenuePerSec ?? 0;
+    this.factoryEconomy.seedRevenueRate(savedRevenuePerSec);
 
     // 2D Fabrika yerleşimi (Conveyors, Machines, Intakes, Exports)
     if (data.factoryLayout) {
@@ -1378,16 +1337,13 @@ export class GameScene extends Phaser.Scene {
       this.machineStatusIndicator.rebuild();
     }
 
-    /* Offline ilerleme */
-    if (data.timestamp > 0) {
-      const pps = this.economy.getTotalProductionPerSecond();
-      if (pps.gt(0)) {
-        const report = calculateOfflineReport(data.timestamp, Date.now(), pps);
-        if (report.isEligible) {
-          this.time.delayedCall(400, () => {
-            this.offlineEarningsModal.show(report);
-          });
-        }
+    /* Çevrimdışı ilerleme: fabrika, kayıt anında ölçülen hızla çalışmaya devam etmiş sayılır */
+    if (data.timestamp > 0 && savedRevenuePerSec > 0) {
+      const report = calculateOfflineReport(data.timestamp, Date.now(), savedRevenuePerSec);
+      if (report.isEligible) {
+        this.time.delayedCall(400, () => {
+          this.offlineEarningsModal.show(report);
+        });
       }
     }
   }
@@ -1644,7 +1600,6 @@ export class GameScene extends Phaser.Scene {
     }
 
     /* Modallar (Ekran boyutuna göre kendini ortalar) */
-    this.machineModal.layout(w, h);
     this.buildMenuModal.layout(w, h);
     this.machineInspectorModal.layout(w, h);
     this.terminalModal.layout(w, h);

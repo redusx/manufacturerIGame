@@ -8,7 +8,7 @@
  * Sorumluluklar:
  * - LocalStorage ve StorageLike arayüzü ile sıfır bağımlılıklı depolama
  * - Çoklu alt sistem (Ekonomi, Hangar, Parseller, Kontratlar, Müfredat) serileştirmesi
- * - Geriye dönük uyumluluk ve otomatik sürüm yükseltme (v1/v2 -> v3)
+ * - Eski sürüm kayıtları taşınmaz: oyun yayında olmadığı için temiz başlangıç uygulanır (DEC-014)
  * - Bozuk JSON ve depolama kota aşımı durumunda hatasız kurtarma (Graceful Recovery)
  * - Metin tabanlı kayıt dışa/içe aktarma (Player Backup / Restore String)
  * - Çevrimdışı (offline) gelir hesabı (4 saate kadar, %50 verim)
@@ -28,9 +28,18 @@ import {
   OFFLINE_EFFICIENCY,
 } from '../../data/MachineData.ts';
 
-export const SAVE_KEY = 'manufacturer_unified_save_v3';
+export const SAVE_KEY = 'manufacturer_unified_save_v4';
 export const LEGACY_SAVE_KEY = 'manufacturer_save';
-export const CURRENT_SAVE_VERSION = 3;
+export const CURRENT_SAVE_VERSION = 4;
+
+/**
+ * Artık okunmayan eski kayıt anahtarları. Ekonomi kökten değiştiği için (tek ekonomi,
+ * iade ve çarpan kuralları) bu kayıtlar taşınmaz; yüklemede silinir ve oyun sıfırdan başlar.
+ */
+export const RETIRED_SAVE_KEYS: readonly string[] = [
+  'manufacturer_unified_save_v3',
+  LEGACY_SAVE_KEY,
+];
 
 export interface StorageLike {
   getItem(key: string): string | null;
@@ -59,7 +68,6 @@ export interface LoadResult {
   data: UnifiedGameSaveData;
   isNewGame: boolean;
   wasCorrupted: boolean;
-  wasMigrated: boolean;
 }
 
 /** Varsayılan, sıfırdan başlayan kayıt şablonu oluşturur */
@@ -168,80 +176,43 @@ export class SaveManager {
   /**
    * Depolamadan kayıt verisini okur.
    * - Kayıt yoksa: `isNewGame: true`
-   * - Eski v1/v2 kaydı varsa: Otomatik olarak v3 formatına yükseltir (`wasMigrated: true`)
    * - Bozuk/hasarlı JSON varsa: Varsayılan kayıtla başlar (`wasCorrupted: true`)
+   * - Eski sürüm kayıtları (bkz. RETIRED_SAVE_KEYS) taşınmaz, silinir.
    */
   static load(storage?: StorageLike, key = SAVE_KEY): LoadResult {
     const store = this.getStorage(storage);
     if (!store) {
-      return {
-        data: createDefaultSaveData(),
-        isNewGame: true,
-        wasCorrupted: false,
-        wasMigrated: false,
-      };
+      return { data: createDefaultSaveData(), isNewGame: true, wasCorrupted: false };
     }
 
-    // 1. Yeni sürüm (v3) kaydını kontrol et
+    this.removeRetiredSaves(store);
+
     try {
       const raw = store.getItem(key);
       if (raw) {
         const parsed = JSON.parse(raw);
         if (this.isValidUnifiedSave(parsed)) {
-          return {
-            data: parsed,
-            isNewGame: false,
-            wasCorrupted: false,
-            wasMigrated: false,
-          };
-        } else {
-          console.warn('[SaveManager] v3 kaydı şemaya uymuyor; sıfırlanıyor.');
-          return {
-            data: createDefaultSaveData(),
-            isNewGame: false,
-            wasCorrupted: true,
-            wasMigrated: false,
-          };
+          return { data: parsed, isNewGame: false, wasCorrupted: false };
         }
+        console.warn('[SaveManager] Kayıt şemaya uymuyor; sıfırlanıyor.');
+        return { data: createDefaultSaveData(), isNewGame: false, wasCorrupted: true };
       }
     } catch (err) {
-      console.warn('[SaveManager] v3 kaydı okunamadı / bozuk JSON:', err);
-      return {
-        data: createDefaultSaveData(),
-        isNewGame: false,
-        wasCorrupted: true,
-        wasMigrated: false,
-      };
+      console.warn('[SaveManager] Kayıt okunamadı / bozuk JSON:', err);
+      return { data: createDefaultSaveData(), isNewGame: false, wasCorrupted: true };
     }
 
-    // 2. Eski sürüm (v1/v2) legacy kaydını kontrol et ve göç ettir (Migration)
+    return { data: createDefaultSaveData(), isNewGame: true, wasCorrupted: false };
+  }
+
+  private static removeRetiredSaves(store: StorageLike): void {
     try {
-      const legacyRaw = store.getItem(LEGACY_SAVE_KEY);
-      if (legacyRaw) {
-        const legacyParsed = JSON.parse(legacyRaw);
-        if (this.isValidLegacyEnvelope(legacyParsed)) {
-          const migrated = this.migrateLegacySave(legacyParsed.data);
-          // Yeni formatta kaydet
-          this.save(migrated, store, key);
-          return {
-            data: migrated,
-            isNewGame: false,
-            wasCorrupted: false,
-            wasMigrated: true,
-          };
-        }
+      for (const retiredKey of RETIRED_SAVE_KEYS) {
+        store.removeItem(retiredKey);
       }
-    } catch (err) {
-      console.warn('[SaveManager] Legacy kayıt okunamadı:', err);
+    } catch {
+      // Depolama erişilemezse eski kayıt orada kalır; zaten okunmuyor.
     }
-
-    // 3. Hiç kayıt yok -> Yeni oyun
-    return {
-      data: createDefaultSaveData(),
-      isNewGame: true,
-      wasCorrupted: false,
-      wasMigrated: false,
-    };
   }
 
   /**
@@ -253,7 +224,9 @@ export class SaveManager {
 
     try {
       store.removeItem(key);
-      store.removeItem(LEGACY_SAVE_KEY);
+      for (const retiredKey of RETIRED_SAVE_KEYS) {
+        store.removeItem(retiredKey);
+      }
       return true;
     } catch {
       return false;
@@ -266,7 +239,7 @@ export class SaveManager {
   static hasSave(storage?: StorageLike, key = SAVE_KEY): boolean {
     const store = this.getStorage(storage);
     if (!store) return false;
-    return store.getItem(key) !== null || store.getItem(LEGACY_SAVE_KEY) !== null;
+    return store.getItem(key) !== null;
   }
 
   /**
@@ -317,8 +290,6 @@ export class SaveManager {
       const parsed = JSON.parse(json);
       if (this.isValidUnifiedSave(parsed)) {
         return { data: parsed, success: true };
-      } else if (this.isValidLegacyEnvelope(parsed)) {
-        return { data: this.migrateLegacySave(parsed.data), success: true };
       }
 
       return { success: false, error: 'Bilinmeyen veya desteklenmeyen kayıt formatı' };
@@ -357,14 +328,15 @@ export class SaveManager {
   }
 
   // -------------------------------------------------------------
-  // ŞEMA DOĞRULAMA VE GÖÇ YARDIMCILARI
+  // ŞEMA DOĞRULAMA
   // -------------------------------------------------------------
 
   private static isValidUnifiedSave(obj: unknown): obj is UnifiedGameSaveData {
     if (!obj || typeof obj !== 'object') return false;
     const o = obj as Record<string, unknown>;
 
-    if (typeof o['version'] !== 'number' || o['version'] < 1) return false;
+    // Eski sürüm kayıtları (farklı ekonomi kuralları) kabul edilmez
+    if (typeof o['version'] !== 'number' || o['version'] < CURRENT_SAVE_VERSION) return false;
     if (typeof o['timestamp'] !== 'number') return false;
     if (!o['economy'] || typeof o['economy'] !== 'object') return false;
 
@@ -372,75 +344,5 @@ export class SaveManager {
     const resValid =
       typeof econ['resources'] === 'string' || typeof econ['resources'] === 'number';
     return resValid;
-  }
-
-  private static isValidLegacyEnvelope(
-    obj: unknown,
-  ): obj is { version: number; data: EconomySaveData } {
-    if (!obj || typeof obj !== 'object') return false;
-    const o = obj as Record<string, unknown>;
-
-    if (typeof o['version'] !== 'number') return false;
-    if (!o['data'] || typeof o['data'] !== 'object') return false;
-
-    const d = o['data'] as Record<string, unknown>;
-    const resValid = typeof d['resources'] === 'string' || typeof d['resources'] === 'number';
-    return resValid && typeof d['timestamp'] === 'number';
-  }
-
-  private static migrateLegacySave(legacy: EconomySaveData): UnifiedGameSaveData {
-    const defaultData = createDefaultSaveData();
-
-    // Hangar seviyelerini ve uçuş istatistiklerini legacy veriden eşitle
-    const hullLvl = Number(legacy.rocketUpgrades?.['hull']) || 1;
-    const engineLvl = Number(legacy.rocketUpgrades?.['engine']) || 1;
-    const wingsLvl = Number(legacy.rocketUpgrades?.['wings']) || 1;
-    const boostLvl = Number(legacy.rocketUpgrades?.['boost']) || 1;
-
-    return {
-      version: CURRENT_SAVE_VERSION,
-      timestamp: legacy.timestamp || Date.now(),
-      economy: {
-        resources: String(legacy.resources ?? '0'),
-        totalEarned: String(legacy.totalEarned ?? '0'),
-        machines: Array.isArray(legacy.machines) ? legacy.machines : [],
-        completedGoals: Array.isArray(legacy.completedGoals) ? legacy.completedGoals : [],
-        rocketUpgrades: {
-          hull: hullLvl,
-          engine: engineLvl,
-          wings: wingsLvl,
-          boost: boostLvl,
-        },
-        flightStats: {
-          totalFlights: Number(legacy.flightStats?.totalFlights) || 0,
-          bestDistance: Number(legacy.flightStats?.bestDistance) || 0,
-          bestScore: Number(legacy.flightStats?.bestScore) || 0,
-        },
-        timestamp: legacy.timestamp || Date.now(),
-      },
-      factoryEconomy: {
-        money: 0,
-        totalEarned: 0,
-        unlockedPlots: [0],
-        revenueMultiplier: 1.0,
-      },
-      hangar: {
-        levels: {
-          hull: hullLvl,
-          engine: engineLvl,
-          wings: wingsLvl,
-          boost: boostLvl,
-        },
-        inventory: {},
-        flightStats: {
-          totalFlights: Number(legacy.flightStats?.totalFlights) || 0,
-          totalDistance: Number(legacy.flightStats?.bestDistance) || 0,
-          bestDistance: Number(legacy.flightStats?.bestDistance) || 0,
-          totalCashEarned: 0,
-        },
-      },
-      milestones: defaultData.milestones,
-      contracts: defaultData.contracts,
-    };
   }
 }

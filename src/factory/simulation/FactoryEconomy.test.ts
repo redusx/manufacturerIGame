@@ -40,6 +40,13 @@ describe('FactoryEconomy Incremental Mechanics', () => {
     const v3 = economy.exportItem('steel_gear');
     assert.equal(v3, 36);
     assert.equal(economy.money, 55);
+
+    // Değer tam sayıya değil kuruşa yuvarlanır: demir tozu $2.5 kalır ve
+    // küçük çarpanlar ucuz eşyada da etkisini gösterir (2.5 * 1.15 = 2.875 -> 2.88)
+    economy.revenueMultiplier = 1.0;
+    assert.equal(economy.exportItem('iron_powder'), 2.5);
+    economy.revenueMultiplier = 1.15;
+    assert.equal(economy.exportItem('iron_powder'), 2.88);
   });
 
   it('Revenue tracking and dynamic click value formula', () => {
@@ -49,26 +56,44 @@ describe('FactoryEconomy Incremental Mechanics', () => {
     assert.equal(economy.getRevenuePerSec(), 0);
     assert.equal(economy.getClickValue(), 1);
 
-    // 50$ ihracat yap
-    economy.addMoney(50, 'EXPORT');
+    // İçinde bulunulan (tamamlanmamış) saniyenin ihracatı henüz sayılmaz
+    economy.addMoney(10, 'EXPORT');
+    assert.equal(economy.getRevenuePerSec(), 0);
 
-    // 5 saniyelik pencerede ortalama: 50 / 5 = 10$/sn
+    // 10 saniye boyunca saniyede 10$ ihracat: 100 / 10 = 10$/sn
+    economy.tick(1);
+    for (let i = 0; i < 9; i++) {
+      economy.addMoney(10, 'EXPORT');
+      economy.tick(1);
+    }
     assert.equal(economy.getRevenuePerSec(), 10);
-    // clickValue = 1 + floor(10 * 0.05) = 1 + 0 = 1$
+    // clickValue = 1 + floor(10 * 0.05) = 1$
+    assert.equal(economy.getClickValue(), 1);
 
-    // 100$ daha ihracat yap (toplam 150$ / 5s = 30$/sn)
-    economy.addMoney(100, 'EXPORT');
-    assert.equal(economy.getRevenuePerSec(), 30);
-    // clickValue = 1 + floor(30 * 0.05) = 1 + 1 = 2$/tık
+    // Sonraki 50 saniye saniyede 40$: 60 sn'lik pencere = (100 + 2000) / 60 = 35$/sn
+    for (let i = 0; i < 50; i++) {
+      economy.addMoney(40, 'EXPORT');
+      economy.tick(1);
+    }
+    assert.equal(economy.getRevenuePerSec(), 35);
+    // clickValue = 1 + floor(35 * 0.05) = 2$/tık
     assert.equal(economy.getClickValue(), 2);
+    assert.equal(economy.performClick(), 2);
 
-    const earned = economy.performClick();
-    assert.equal(earned, 2);
+    // Tıklama ve iade geliri saniyelik ihracat hızına karışmaz
+    economy.addMoney(500, 'CLICK');
+    economy.addMoney(500, 'REFUND');
+    economy.tick(1);
+    assert.ok(economy.getRevenuePerSec() < 35);
 
-    // 6 saniye sonra kayıtlar pencereden düşmeli
-    economy.tick(6.0);
+    // 60 saniye ihracatsız geçince kayıtlar pencereden düşer
+    economy.tick(60);
     assert.equal(economy.getRevenuePerSec(), 0);
     assert.equal(economy.getClickValue(), 1);
+
+    // Kayıttan gelen hızla başlatma: gösterge sıfırdan başlamaz
+    economy.seedRevenueRate(12.5);
+    assert.equal(economy.getRevenuePerSec(), 12.5);
   });
 
   it('Machine upgrade scaling ($1.15^lvl) and 100% full refund', () => {

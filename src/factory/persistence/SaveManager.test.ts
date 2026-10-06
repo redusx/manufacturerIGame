@@ -14,6 +14,7 @@ import {
   SAVE_KEY,
   LEGACY_SAVE_KEY,
   CURRENT_SAVE_VERSION,
+  RETIRED_SAVE_KEYS,
   type StorageLike,
   type UnifiedGameSaveData,
 } from './SaveManager.ts';
@@ -91,7 +92,6 @@ describe('SaveManager Headless Unit Tests', () => {
     const result = SaveManager.load(storage);
     assert.strictEqual(result.isNewGame, false);
     assert.strictEqual(result.wasCorrupted, false);
-    assert.strictEqual(result.wasMigrated, false);
 
     assert.strictEqual(result.data.version, CURRENT_SAVE_VERSION);
     assert.strictEqual(result.data.economy.resources, '4500');
@@ -110,13 +110,12 @@ describe('SaveManager Headless Unit Tests', () => {
 
     assert.strictEqual(result.isNewGame, true);
     assert.strictEqual(result.wasCorrupted, false);
-    assert.strictEqual(result.wasMigrated, false);
     assert.strictEqual(result.data.version, CURRENT_SAVE_VERSION);
     assert.strictEqual(result.data.economy.resources, '0');
   });
 
-  it('Should seamlessly migrate legacy v1/v2 save data to unified v3 format', () => {
-    // Legacy save envelope (Phase 0)
+  it('Should discard saves from retired versions and start clean (DEC-014)', () => {
+    // Eski ekonomiyle tutulmuş kayıtlar (v1/v2 zarfı ve v3 birleşik kayıt)
     const legacyEnvelope = {
       version: 2,
       data: {
@@ -129,25 +128,30 @@ describe('SaveManager Headless Unit Tests', () => {
         timestamp: Date.now() - 3600000, // 1 saat önce
       },
     };
+    const retiredV3 = { ...createDefaultSaveData(), version: 3 };
+    retiredV3.economy.resources = '99999';
 
     storage.setItem(LEGACY_SAVE_KEY, JSON.stringify(legacyEnvelope));
-    assert.strictEqual(SaveManager.hasSave(storage), true);
+    storage.setItem('manufacturer_unified_save_v3', JSON.stringify(retiredV3));
+    assert.deepStrictEqual([...RETIRED_SAVE_KEYS].sort(), [LEGACY_SAVE_KEY, 'manufacturer_unified_save_v3'].sort());
+
+    // Eski kayıt "kayıt var" sayılmaz ve taşınmaz: oyun sıfırdan başlar
+    assert.strictEqual(SaveManager.hasSave(storage), false);
 
     const result = SaveManager.load(storage);
-    assert.strictEqual(result.isNewGame, false);
-    assert.strictEqual(result.wasMigrated, true);
+    assert.strictEqual(result.isNewGame, true);
     assert.strictEqual(result.wasCorrupted, false);
-
-    // Göç ettirilen alanlar
     assert.strictEqual(result.data.version, CURRENT_SAVE_VERSION);
-    assert.strictEqual(result.data.economy.resources, '15000');
-    assert.strictEqual(result.data.hangar?.levels.hull, 2);
-    assert.strictEqual(result.data.hangar?.levels.engine, 3);
-    assert.strictEqual(result.data.hangar?.flightStats.bestDistance, 850);
-    assert.strictEqual(result.data.hangar?.flightStats.totalFlights, 4);
+    assert.strictEqual(result.data.economy.resources, '0');
+    assert.strictEqual(result.data.hangar?.levels.hull, 1);
 
-    // Göç sonrasında v3 kaydı da depolanmış olmalı
-    assert.ok(storage.getItem(SAVE_KEY) !== null);
+    // Eski kayıtlar depolamadan silinir
+    assert.strictEqual(storage.getItem(LEGACY_SAVE_KEY), null);
+    assert.strictEqual(storage.getItem('manufacturer_unified_save_v3'), null);
+
+    // Eski sürümden dışa aktarılmış kayıt metni de içe aktarılamaz
+    const imported = SaveManager.importSaveString(JSON.stringify(retiredV3));
+    assert.strictEqual(imported.success, false);
   });
 
   it('Should handle corrupted JSON gracefully without crashing', () => {

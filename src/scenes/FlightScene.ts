@@ -291,8 +291,14 @@ export class FlightScene extends Phaser.Scene {
     // 8. Fırlatma Rampası Güç Barı Mini-Oyunu
     this.createLaunchMeter(w, h);
 
-    // Yeniden boyutlandırma dinleyicisi
-    this.scale.on('resize', () => this.handleResize());
+    // Yeniden boyutlandırma dinleyicisi. ScaleManager oyun geneline ait olduğundan sahne
+    // kapanınca dinleyici kaldırılmalıdır; kalırsa uçuş bittikten sonraki ilk pencere
+    // boyutu değişiminde yok edilmiş HUD nesnelerine erişip hata fırlatır ve oyun
+    // bir daha yeniden boyutlanmaz.
+    this.scale.on('resize', this.handleResize, this);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.scale.off('resize', this.handleResize, this);
+    });
   }
 
   /* ================================================================
@@ -672,7 +678,6 @@ export class FlightScene extends Phaser.Scene {
         this.launchPowerText.setColor('#ffffff');
       }
 
-      this.economy.tick(dt);
       return;
     }
 
@@ -686,7 +691,6 @@ export class FlightScene extends Phaser.Scene {
     }
 
     this.refreshHUD();
-    this.economy.tick(dt);
   }
 
   private handleFlightInput(dt: number): void {

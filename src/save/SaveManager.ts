@@ -45,7 +45,13 @@ export const SaveManager = {
   save(
     data: EconomySaveData,
     extra?: {
-      factoryEconomy?: { money: number; totalEarned: number; unlockedPlots: Set<number> | number[]; revenueMultiplier: number };
+      factoryEconomy?: {
+        money: number;
+        totalEarned: number;
+        unlockedPlots: Set<number> | number[];
+        revenueMultiplier: number;
+        revenuePerSec?: number;
+      };
       hangar?: { serialize(): any };
       factoryLayout?: FactorySaveData;
     },
@@ -59,6 +65,7 @@ export const SaveManager = {
         totalEarned: extra.factoryEconomy.totalEarned,
         unlockedPlots: Array.from(extra.factoryEconomy.unlockedPlots),
         revenueMultiplier: extra.factoryEconomy.revenueMultiplier,
+        revenuePerSec: extra.factoryEconomy.revenuePerSec,
       };
     }
     if (extra?.hangar) {

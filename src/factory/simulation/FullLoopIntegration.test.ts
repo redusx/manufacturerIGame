@@ -203,9 +203,9 @@ describe('Full-Loop Integration: Factory -> Hangar -> Flight -> Expansion', () =
     grid.setExport(11, 4);
 
     // Kalıcı çarpanın eşya değerine etkisini test edelim:
-    // Örneğin demir külçenin baz değeri $12 ise: Math.floor(12 * 1.30) = $15
+    // Demir külçenin baz değeri $6 ise: 6 * 1.30 = $7.8 (kuruşa yuvarlanır)
     const baseItem = defaultItemRegistry.getOrThrow('iron_ingot');
-    const expectedExportValue = Math.floor(baseItem.baseValue * 1.30);
+    const expectedExportValue = Math.round(baseItem.baseValue * 1.30 * 100) / 100;
 
     const initialMoneyBeforeExport = economy.money;
     const gainedCash = economy.exportItem('iron_ingot');

@@ -32,7 +32,12 @@ export const FACTORY_PLOTS: PlotDefinition[] = [
 export interface BackingEconomyProvider {
   canAffordAmount(amount: number): boolean;
   spendResources(amount: number): boolean;
+  /** Kazanç: kasaya ve "toplam kazanç"a eklenir */
   addResources(amount: number): void;
+  /** İade: yalnız kasaya eklenir, kazanç sayılmaz */
+  refundResources(amount: number): void;
+  /** Tamamlanan fabrika hedeflerinden gelen ihracat çarpanı */
+  getGlobalMultiplier(): number;
   readonly resources: { toNumber(): number; gte(val: any): boolean };
   readonly totalEarned: { toNumber(): number };
 }
@@ -64,9 +69,18 @@ export class FactoryEconomy {
   /** Temel tıklama taban değeri ($) */
   baseClickValue = 1;
 
-  /** Saniyelik gelir hesabı için son zaman dilimindeki kazanç kayıtları */
-  private recentEarnings: Array<{ ageSec: number; amount: number }> = [];
-  private readonly REVENUE_WINDOW_SEC = 5.0;
+  /**
+   * Saniyelik gelir ölçümü: son 60 saniyenin tamamlanmış birer saniyelik ihracat
+   * toplamları. Pencere uzun tutulur çünkü ihracat seyrek ve partiler hâlindedir
+   * (ör. 2 sn'de bir $2.5); kısa pencere göstergeyi sürekli zıplatır.
+   */
+  private static readonly RATE_WINDOW_SEC = 60;
+  /** Pencere dolana kadar ortalamanın bölüneceği en kısa süre (açılışta ani sıçrama olmasın) */
+  private static readonly RATE_MIN_SAMPLE_SEC = 10;
+  private rateBuckets: number[] = [];
+  private rateBucketSum = 0;
+  private currentBucketRevenue = 0;
+  private currentBucketElapsed = 0;
 
   constructor(
     initialMoney = 0,
@@ -113,7 +127,11 @@ export class FactoryEconomy {
     if (amount <= 0) return;
 
     if (this.backingEconomy) {
-      this.backingEconomy.addResources(amount);
+      if (source === 'REFUND') {
+        this.backingEconomy.refundResources(amount);
+      } else {
+        this.backingEconomy.addResources(amount);
+      }
     } else {
       this._money += amount;
       if (source !== 'REFUND') {
@@ -122,7 +140,7 @@ export class FactoryEconomy {
     }
 
     if (source === 'EXPORT') {
-      this.recentEarnings.push({ ageSec: 0, amount });
+      this.currentBucketRevenue += amount;
     }
   }
 
@@ -151,7 +169,18 @@ export class FactoryEconomy {
   // -------------------------------------------------------------
 
   /**
+   * İhracat gelirine uygulanan toplam çarpan: uçuş kilometre taşları (revenueMultiplier)
+   * ile tamamlanan fabrika hedeflerinin çarpanının çarpımı.
+   */
+  getExportMultiplier(): number {
+    const goalMultiplier = this.backingEconomy ? this.backingEconomy.getGlobalMultiplier() : 1;
+    return this.revenueMultiplier * goalMultiplier;
+  }
+
+  /**
    * Sevkiyat sandığına ulaşan bir eşyayı satar ve parayı cüzdana ekler.
+   * Değer kuruşa yuvarlanır; tam sayıya yuvarlanırsa ucuz eşyalarda küçük çarpanlar
+   * (ör. +%15) hiçbir etki yapmaz ve $2.5'lik demir tozu $2'ye düşer.
    * @param itemId Satılan eşya ID'si
    * @returns Kazanılan net nakit ($)
    */
@@ -159,7 +188,10 @@ export class FactoryEconomy {
     const item = this.itemRegistry.get(itemId);
     if (!item) return 0;
 
-    const netValue = Math.max(1, Math.floor(item.baseValue * this.revenueMultiplier));
+    const netValue = Math.max(
+      0.01,
+      Math.round(item.baseValue * this.getExportMultiplier() * 100) / 100,
+    );
     this.addMoney(netValue, 'EXPORT');
     return netValue;
   }
@@ -172,26 +204,45 @@ export class FactoryEconomy {
    * Zaman adımı (dt saniye): Saniyelik gelir penceresini kaydırır.
    */
   tick(dt: number): void {
-    for (const record of this.recentEarnings) {
-      record.ageSec += dt;
+    if (dt <= 0) return;
+
+    this.currentBucketElapsed += dt;
+    while (this.currentBucketElapsed >= 1) {
+      this.currentBucketElapsed -= 1;
+      this.pushRateBucket(this.currentBucketRevenue);
+      this.currentBucketRevenue = 0;
     }
-    // Pencere süresini aşan eski kayıtları temizle
-    this.recentEarnings = this.recentEarnings.filter(
-      (r) => r.ageSec <= this.REVENUE_WINDOW_SEC,
-    );
+  }
+
+  private pushRateBucket(revenue: number): void {
+    this.rateBuckets.push(revenue);
+    this.rateBucketSum += revenue;
+    if (this.rateBuckets.length > FactoryEconomy.RATE_WINDOW_SEC) {
+      this.rateBucketSum -= this.rateBuckets.shift() ?? 0;
+    }
   }
 
   /**
-   * Son 5 saniyedeki ortalama saniyelik ihracat gelirini ($/sn) döner.
+   * Son bir dakikadaki ortalama saniyelik ihracat gelirini ($/sn) döner.
+   * Yalnız tamamlanmış saniyeler sayılır; içinde bulunulan saniye dahil edilmez.
    */
   getRevenuePerSec(): number {
-    if (this.recentEarnings.length === 0) return 0;
+    if (this.rateBuckets.length === 0) return 0;
 
-    let windowSum = 0;
-    for (const r of this.recentEarnings) {
-      windowSum += r.amount;
-    }
-    return windowSum / this.REVENUE_WINDOW_SEC;
+    const sampleSec = Math.max(this.rateBuckets.length, FactoryEconomy.RATE_MIN_SAMPLE_SEC);
+    return Math.max(0, this.rateBucketSum) / sampleSec;
+  }
+
+  /**
+   * Ölçümü bilinen bir hızla başlatır (kayıt yüklenince gösterge sıfırdan başlamasın);
+   * yeni ölçümler geldikçe bir dakika içinde gerçek değere yaklaşır.
+   */
+  seedRevenueRate(ratePerSec: number): void {
+    const rate = Number.isFinite(ratePerSec) && ratePerSec > 0 ? ratePerSec : 0;
+    this.rateBuckets = rate > 0 ? new Array(FactoryEconomy.RATE_WINDOW_SEC).fill(rate) : [];
+    this.rateBucketSum = rate * this.rateBuckets.length;
+    this.currentBucketRevenue = 0;
+    this.currentBucketElapsed = 0;
   }
 
   /**
@@ -333,6 +384,7 @@ export class FactoryEconomy {
       totalEarned: this.totalEarned,
       unlockedPlots: Array.from(this.unlockedPlots),
       revenueMultiplier: this.revenueMultiplier,
+      revenuePerSec: this.getRevenuePerSec(),
     };
   }
 
@@ -341,6 +393,6 @@ export class FactoryEconomy {
     this.totalEarned = state.totalEarned;
     this.revenueMultiplier = state.revenueMultiplier || 1.0;
     this.unlockedPlots = new Set(state.unlockedPlots || [0]);
-    this.recentEarnings = [];
+    this.seedRevenueRate(state.revenuePerSec ?? 0);
   }
 }

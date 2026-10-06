@@ -255,20 +255,9 @@ export class MachineInspectorHelper {
       });
     });
 
-    // Toplam İade Değeri (Makine yatırımı + tamponlardaki eşyaların ihracat değeri)
-    let demolishRefund = economy.getTotalMachineInvestment(machine.def.baseCost, level);
-    for (const [itemId, count] of Object.entries(inputSnapshot)) {
-      const item = itemRegistry.get(itemId);
-      if (item) {
-        demolishRefund += item.baseValue * count;
-      }
-    }
-    for (const [itemId, count] of Object.entries(outputSnapshot)) {
-      const item = itemRegistry.get(itemId);
-      if (item) {
-        demolishRefund += item.baseValue * count;
-      }
-    }
+    // İade: söküm yalnızca makineye yapılan yatırımı geri öder (tampondaki eşyalar ödenmez).
+    // Burada gösterilen tutar DemolishMath'in gerçekten ödediği tutarla aynı olmalıdır.
+    const demolishRefund = economy.getTotalMachineInvestment(machine.def.baseCost, level);
 
     return {
       instanceId: machine.instanceId,

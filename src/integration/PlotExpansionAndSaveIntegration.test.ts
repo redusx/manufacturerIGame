@@ -21,7 +21,12 @@ import { ProductionEngine } from '../factory/simulation/ProductionEngine.ts';
 import { MachineEntity } from '../factory/simulation/MachineEntity.ts';
 import { defaultMachineRegistry } from '../factory/simulation/MachineRegistry.ts';
 import { FactorySerializer } from '../factory/simulation/FactorySerializer.ts';
-import { SaveManager, type StorageLike } from '../save/SaveManager.ts';
+import {
+  SaveManager,
+  SAVE_KEY,
+  CURRENT_SAVE_VERSION,
+  type StorageLike,
+} from '../save/SaveManager.ts';
 import { PlotExpansionManager } from '../factory/progression/PlotExpansionManager.ts';
 import { PlacementMath } from '../factory/input/PlacementMath.ts';
 
@@ -251,12 +256,12 @@ describe('TASK-INT-06: Plot Expansion & Save/Load Integration Tests', () => {
 
   it('4. Corrupted Save Fallback: Safely recovers to default state on corrupt storage', () => {
     // Depolamaya bozuk/anlamsız JSON yaz
-    memoryStorage.setItem('manufacturer_unified_save_v3', '{ invalid_json: true, corrupt ...');
+    memoryStorage.setItem(SAVE_KEY, '{ invalid_json: true, corrupt ...');
 
     const result = SaveManager.loadUnified();
     assert.strictEqual(result.wasCorrupted, true);
     assert.ok(result.data);
-    assert.strictEqual(result.data.version, 3);
+    assert.strictEqual(result.data.version, CURRENT_SAVE_VERSION);
     assert.deepStrictEqual(result.data.factoryEconomy?.unlockedPlots, [0]);
   });
 });

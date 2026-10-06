@@ -87,6 +87,30 @@ export function formatNumber(value: DecimalSource): string {
 }
 
 /**
+ * Tek bir kazancı (ör. ihraç edilen eşyanın bedeli) kuruşuyla gösterir; sondaki
+ * sıfırlar atılır. 1000 ve üzeri `formatNumber` ile kısaltılır.
+ *
+ * Örnekler: 2.5 → "2.5", 3.25 → "3.25", 18 → "18", 1234 → "1.23K"
+ */
+export function formatMoney(value: DecimalSource): string {
+  const dec = value instanceof Decimal ? value : new Decimal(value);
+  if (dec.isNan() || !dec.isFinite() || dec.gte(1000) || dec.lt(0)) return formatNumber(dec);
+
+  return String(Math.round(dec.toNumber() * 100) / 100);
+}
+
+/**
+ * Saniyelik hızı gösterir: 10'un altında tek ondalık basamak (1.25 → "1.3"),
+ * üstünde `formatNumber` kuralları geçerlidir.
+ */
+export function formatRate(value: DecimalSource): string {
+  const dec = value instanceof Decimal ? value : new Decimal(value);
+  if (dec.isNan() || !dec.isFinite() || dec.gte(10) || dec.lt(0)) return formatNumber(dec);
+
+  return dec.toNumber().toFixed(1);
+}
+
+/**
  * Saniye cinsinden süreyi okunabilir metne çevirir.
  * Örnekler: 65 → "1dk 5sn", 3661 → "1sa 1dk"
  */

@@ -166,6 +166,8 @@ export interface EconomyState {
   totalEarned: number;
   unlockedPlots: number[];
   revenueMultiplier: number;
+  /** Kayıt anındaki ölçülmüş ihracat geliri ($/sn); çevrimdışı gelir bununla hesaplanır */
+  revenuePerSec?: number;
 }
 
 export interface IntakeCellData {

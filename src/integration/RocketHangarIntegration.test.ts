@@ -41,6 +41,15 @@ describe('TASK-INT-01: Rocket Hangar & Economy Integration Tests', () => {
     assert.strictEqual(spent, true);
     assert.strictEqual(economy.resources.toNumber(), totalCash - 500);
     assert.strictEqual(factoryEconomy.money, totalCash - 500);
+
+    // Söküm iadesi parayı geri verir ama "toplam kazanç" sayılmaz; sayılırsa
+    // kur-sök döngüsü hiç üretmeden fabrika hedeflerini tamamlatır.
+    const earnedBeforeRefund = economy.totalEarned.toNumber();
+    const goalMultiplierBeforeRefund = economy.getGlobalMultiplier();
+    factoryEconomy.addMoney(1_000_000, 'REFUND');
+    assert.strictEqual(economy.resources.toNumber(), totalCash - 500 + 1_000_000);
+    assert.strictEqual(economy.totalEarned.toNumber(), earnedBeforeRefund);
+    assert.strictEqual(economy.getGlobalMultiplier(), goalMultiplierBeforeRefund);
   });
 
   it('2. Rocket Module Upgrade: End-to-end purchasing, level advancement, and stat calculation', () => {
