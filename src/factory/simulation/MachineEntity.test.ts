@@ -93,15 +93,17 @@ describe('MachineEntity Runtime Mechanics', () => {
     assert.equal(out90.direction, 'WEST');
   });
 
-  it('Assembler (2x2) should compute 2 input ports and 1 output port in world space', () => {
+  it('Assembler (2x2) should compute 3 input ports and 1 output port in world space', () => {
     const assembler = new MachineEntity('m_asm_1', assemblerDef, { x: 2, y: 4 }, 0);
     const inputs = assembler.getInputPorts();
     const outputs = assembler.getOutputPorts();
 
-    assert.equal(inputs.length, 2);
+    assert.equal(inputs.length, 3);
     assert.equal(outputs.length, 1);
 
-    // Assembler default: in_1 at (0,0) NORTH, in_2 at (1,0) NORTH, out_main at (0,1) SOUTH
+    // Assembler default: in_1 at (0,0) NORTH, in_2 at (1,0) NORTH, in_3 at (0,1) WEST, out_main at (0,1) SOUTH
+    assert.deepEqual(inputs[2].worldCoord, { x: 2, y: 5 });
+    assert.equal(inputs[2].direction, 'WEST');
     assert.deepEqual(inputs[0].worldCoord, { x: 2, y: 4 });
     assert.equal(inputs[0].direction, 'NORTH');
     assert.deepEqual(inputs[1].worldCoord, { x: 3, y: 4 });

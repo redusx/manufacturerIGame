@@ -39,7 +39,7 @@ describe('MachineRegistry', () => {
     assert.equal(outputs.some((p) => p.id === 'out_scrap'), true);
   });
 
-  it('Assembler should have 2 input ports and 1 output port on a 2x2 footprint', () => {
+  it('Assembler should have 3 input ports and 1 output port on a 2x2 footprint', () => {
     const assembler = defaultMachineRegistry.getOrThrow('assembler');
     assert.equal(assembler.width, 2);
     assert.equal(assembler.height, 2);
@@ -47,7 +47,7 @@ describe('MachineRegistry', () => {
     const inputs = assembler.ports.filter((p) => p.type === 'INPUT');
     const outputs = assembler.ports.filter((p) => p.type === 'OUTPUT');
 
-    assert.equal(inputs.length, 2);
+    assert.equal(inputs.length, 3);
     assert.equal(outputs.length, 1);
   });
 

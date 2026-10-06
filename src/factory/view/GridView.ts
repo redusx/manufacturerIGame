@@ -19,6 +19,7 @@ import {
 } from '../simulation/FactoryEconomy.ts';
 import { PALETTE, FONT_FAMILY } from '../../ui/theme.ts';
 import { GridCoordinates } from './GridCoordinates.ts';
+import { INTAKE_SHORT_NAMES } from '../input/PlacementMath.ts';
 
 export { GridCoordinates };
 
@@ -323,7 +324,7 @@ export class GridView {
       const inText = this.scene.add.text(
         this.tileSize / 2,
         this.tileSize / 2,
-        'IN',
+        INTAKE_SHORT_NAMES[cell.intakeData?.itemId ?? ''] ?? 'IN',
         {
           fontFamily: FONT_FAMILY,
           fontSize: '9px',

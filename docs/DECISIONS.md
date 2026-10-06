@@ -107,3 +107,8 @@
 * **Tarih:** 2026-10-06
 * **Karar:** Uçuş sırasında fabrika üretimi arka planda devam eder; oyuncu dönüşte geçen süre kadar fabrika ilerlemesini alır. Uçuş, fabrikanın yerine geçen bir mini oyun olmamalıdır.
 
+### [DEC-017] Hammadde Artışı: Hız Yükseltmesi Yerine Ek Giriş
+* **Tarih:** 2026-10-06
+* **Karar:** Hammadde girişleri sabit hızdadır (1 hammadde/sn). Daha fazla hammadde isteyen oyuncu katalogdan yeni giriş satın alır (demir $500, bakır $1000, kum/polimer $2500 — M7'de dengelenecek başlangıç değerleri). Girişler aşamalarla açılır: ek demir 3., bakır 6., kum ve polimer 9. aşama ödülü. Girişler sökülemez, yalnızca taşınır.
+* **Gerekçe:** Ek giriş, sayıyı büyütmek yerine fabrikada görünür bir değişiklik yaratır ve yeni hat kurmayı teşvik eder; ayrı bir yükseltme arayüzü gerektirmez.
+* **Not:** Yol haritasındaki "giriş hızı yükseltilebilir" maddesinin yerine geçer; kullanıcı 2026-10-06 tarihinde onayladı.

@@ -17,12 +17,15 @@ export type TerminalType = 'INTAKE' | 'EXPORT' | 'CHOICE';
 export interface TerminalInspectorModalConfig {
   onRelocate: (type: 'INTAKE' | 'EXPORT', sourceCoord?: GridCoord) => void;
   onClose?: () => void;
+  /** İncelenen girişin verdiği hammaddenin adı */
+  getIntakeItemName?: (coord?: GridCoord) => string | undefined;
 }
 
 export class TerminalInspectorModal {
   readonly scene: Phaser.Scene;
   readonly onRelocate: (type: 'INTAKE' | 'EXPORT', sourceCoord?: GridCoord) => void;
   readonly onClose?: () => void;
+  private readonly getIntakeItemName?: (coord?: GridCoord) => string | undefined;
 
   public container: Phaser.GameObjects.Container;
   private backdrop: Phaser.GameObjects.Rectangle;
@@ -51,6 +54,7 @@ export class TerminalInspectorModal {
   constructor(scene: Phaser.Scene, config: TerminalInspectorModalConfig) {
     this.scene = scene;
     this.onRelocate = config.onRelocate;
+    this.getIntakeItemName = config.getIntakeItemName;
     this.onClose = config.onClose;
 
     this.container = scene.add.container(0, 0).setDepth(210).setVisible(false);
@@ -308,8 +312,9 @@ export class TerminalInspectorModal {
     });
     this.contentContainer.add(statusText);
 
+    const intakeItemName = this.getIntakeItemName?.(coord) ?? 'hammadde';
     const descMsg = isIntake
-      ? 'Fabrikaya düzenli ham cevher akışı sağlar. Yanına konveyör bağlayarak cevherleri kırıcılara sevk edebilirsiniz.'
+      ? `Saniyede 1 ${intakeItemName} verir. Yanına konveyör bağlayarak makinelere sevk edin; daha fazlası için katalogdan yeni giriş kurun.`
       : 'Bantlarla taşınan tüm mamul ürünleri otomatik olarak nakde ($) dönüştürür ve kasanıza aktarır.';
 
     const descText = this.scene.add.text(infoX, infoY + 36, descMsg, {

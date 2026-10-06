@@ -1136,3 +1136,19 @@
 * **Test Doğrulaması:** `npm test` -> 285/285; `npx tsc --noEmit` -> 0 hata; `npm run build` -> başarılı
 * **Kalan / Sırada:** M5. 7. aşama bakır gerektirdiği için şu an tamamlanamaz.
 
+### [2026-10-06] — REVIVAL M5: Hammaddeler
+
+**Amaç:** Bakır, kum ve polimer girişlerini aşamalarla açmak, hammadde miktarını artırmanın bir yolunu vermek ve 17 reçetenin tamamını ulaşılabilir kılmak.
+
+**Yapılanlar:**
+- `PlacementMath`: yeni yerleşim türü `INTAKE_NEW` (`intakeItemId` ile), `INTAKE_BUILD_COSTS`, `INTAKE_SHORT_NAMES`, `INTAKE_UNLOCK_FEATURES`. Para harcandıktan sonra `grid.setIntake` çağrılır.
+- `PlacementController`: `INTAKE_NEW` hayaleti, yerleşimden sonra otomatik kapanma; dokunmatikte makinelerle aynı iki adımlı onay.
+- `BuildMenuModal`: dört hammadde için giriş kartı (`intake_new_<hammadde>`), aşama kilidiyle.
+- `MilestoneManager`: 3. aşama ödülüne `INTAKE_IRON`, 6.'ya `INTAKE_COPPER`, 9.'ya `INTAKE_SILICA` + `INTAKE_POLYMER` eklendi; ödül metinleri güncellendi.
+- `GameScene`: giriş kartı kilitleri, kurulum bildirimi, yerleşim çubuğu adı/bedeli, terminal penceresine hammadde adı.
+- `GridView`: girişler 'IN' yerine hammadde adıyla etiketlenir (DEMİR / BAKIR / KUM / POLİ).
+- `MachineRegistry`: montaj tezgahına 3. giriş portu (batı). 3 girdili reçetelerde iki portla karışık bant sıra tıkanması yaratıyordu.
+- Davranışı değişen iki port testi güncellendi (`MachineEntity.test.ts`, `MachineRegistry.test.ts`).
+
+**Doğrulama:** `npm test` 285/285, `npx tsc --noEmit` temiz, `npm run build` başarılı. Tarayıcıda taze kayıt: kilitler doğru aşamalarda; bakır girişi arayüzden kuruldu; bakır tel hattı 7. aşamayı, elektrik motoru hattı 8. aşamayı gerçek üretimle tamamladı; plastik ve optik cam ihraç edildi; yeniden yüklemede girişler korundu. 1–6. aşamalar ve 9. aşamanın çerçeve koşulu test kısayoluyla geçildi.
+

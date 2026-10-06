@@ -226,7 +226,7 @@ export class MachineRegistry {
     });
 
     // -------------------------------------------------------------
-    // 5. MONTAJ TEZGAHI (Assembler) — 2x2, 2 Girdi (Kuzey), 1 Çıktı (Güney)
+    // 5. MONTAJ TEZGAHI (Assembler) — 2x2, 3 Girdi (2 Kuzey + 1 Batı), 1 Çıktı (Güney)
     // -------------------------------------------------------------
     this.register({
       id: 'assembler',
@@ -246,6 +246,9 @@ export class MachineRegistry {
       ports: [
         { id: 'in_1', type: 'INPUT', localX: 0, localY: 0, direction: 'NORTH' },
         { id: 'in_2', type: 'INPUT', localX: 1, localY: 0, direction: 'NORTH' },
+        // 3 girdili reçeteler (itici blok, yönlendirme bilgisayarı) için: karışık
+        // bant tek portta sıra tıkanması yaratır, her girdiye ayrı hat gerekir.
+        { id: 'in_3', type: 'INPUT', localX: 0, localY: 1, direction: 'WEST' },
         { id: 'out_main', type: 'OUTPUT', localX: 0, localY: 1, direction: 'SOUTH' },
       ],
       spriteBaseKey: 'machine_automation',

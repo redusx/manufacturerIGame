@@ -34,6 +34,8 @@ export interface PlacementItem {
   type: PlacementItemType;
   machineDef?: MachineDefinition;
   sourceCoord?: GridCoord;
+  /** INTAKE_NEW için: kurulacak girişin vereceği hammadde */
+  intakeItemId?: string;
 }
 
 export interface PlacementControllerConfig {
@@ -324,6 +326,7 @@ export class PlacementController {
       machineDef: this.selectedItem.machineDef,
       unlockedBounds: dimensions,
       sourceCoord: this.selectedItem.sourceCoord,
+      intakeItemId: this.selectedItem.intakeItemId,
     });
 
     if (result.success) {
@@ -336,7 +339,8 @@ export class PlacementController {
       if (
         (this.selectedItem.type === 'MACHINE' && this.autoCloseMachines) ||
         this.selectedItem.type === 'INTAKE_MOVE' ||
-        this.selectedItem.type === 'EXPORT_MOVE'
+        this.selectedItem.type === 'EXPORT_MOVE' ||
+        this.selectedItem.type === 'INTAKE_NEW'
       ) {
         this.cancelPlacement();
       } else {
@@ -375,7 +379,7 @@ export class PlacementController {
         this.ghostSprite.setAlpha(0.7);
         this.ghostContainer.add(this.ghostSprite);
       }
-    } else if (this.selectedItem.type === 'INTAKE_MOVE') {
+    } else if (this.selectedItem.type === 'INTAKE_MOVE' || this.selectedItem.type === 'INTAKE_NEW') {
       if (this.scene.textures.exists('factory_intake')) {
         this.ghostSprite = this.scene.add.sprite(0, 0, 'factory_intake');
         this.ghostSprite.setAlpha(0.8);
@@ -413,6 +417,7 @@ export class PlacementController {
       machineDef: this.selectedItem.machineDef,
       unlockedBounds: dimensions,
       sourceCoord: this.selectedItem.sourceCoord,
+      intakeItemId: this.selectedItem.intakeItemId,
     });
     this.lastValidation = validation;
 
@@ -446,7 +451,11 @@ export class PlacementController {
         const rotDeg = PlacementMath.directionToRotationDeg(this.currentRotation);
         this.ghostSprite.setAngle(rotDeg);
         this.ghostSprite.setDisplaySize(pixelW, pixelH);
-      } else if (this.selectedItem.type === 'INTAKE_MOVE' || this.selectedItem.type === 'EXPORT_MOVE') {
+      } else if (
+        this.selectedItem.type === 'INTAKE_MOVE' ||
+        this.selectedItem.type === 'EXPORT_MOVE' ||
+        this.selectedItem.type === 'INTAKE_NEW'
+      ) {
         this.ghostSprite.setAngle(0);
         this.ghostSprite.setDisplaySize(this.tileSize, this.tileSize);
       }

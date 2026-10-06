@@ -19,7 +19,7 @@
 | M2 | Kamera ve okunabilirlik (sığdırma/ortalama, imleç merkezli zoom, mobil pencereler, tarif adları ve seçimi, hangar metni) | **TAMAMLANDI** (2026-10-06, tarayıcıda doğrulandı, commit `56b9d04`) |
 | M3 | Tek ekonomi (iade istismarı, gerçek $/sn, eski idle ekonominin akıştan çıkarılması, çevrimdışı gelir) | **TAMAMLANDI** (2026-10-06, commit `257591f`) |
 | M4 | İlerleme omurgası (10 aşamalı müfredat sahnede, somut görevler, makine/hangar kilitleri) | **TAMAMLANDI** (2026-10-06, tarayıcıda doğrulandı) |
-| M5 | Hammaddeler (bakır, kum, polimer girişleri; giriş hızı yükseltmesi) | Sırada |
+| M5 | Hammaddeler (bakır, kum, polimer girişleri aşamayla açılır; ek giriş satın alınarak hammadde artırılır) | **TAMAMLANDI** (2026-10-06, tarayıcıda doğrulandı) |
 | M6 | Roket bağlantısı (fabrika → hangar parça akışı, uçuş ödülü, uçuşta fabrika çalışır) | Bekliyor |
 | M7 | Denge geçişi | Bekliyor |
 | M8 | Sürükleyerek bant çizimi | Bekliyor |
@@ -37,7 +37,10 @@
   - Kayıt sürümü 4; eski sürüm kayıtları taşınmaz, silinir (DEC-014).
 * **Bilinen açık sorunlar:**
   - Uçuş hâlâ fabrikadan çok fazla para veriyor ve uçuş parası fabrika hedeflerini de ilerletiyor (M6).
-  - **7. aşama ve sonrası tamamlanamaz:** bakır tel, elektrik motoru ve itici blok ister; bakır/kum/polimer girişi henüz yok (M5).
+  - **M5 sonrası hammadde kuralları:** Katalogdan yeni giriş kurulur (demir $500 / 3. aşama, bakır $1000 / 6. aşama, kum ve polimer $2500 / 9. aşama); her giriş 1 hammadde/sn verir, girişler sökülemez (yalnız taşınır). Giriş hızı yükseltmesi yoktur; hammadde artışı ek giriş kurarak sağlanır (DEC-017). Montaj tezgahının 3. giriş portu (batı) vardır.
+  - **Reçete tuzağı:** Yeni kurulan makine ilk reçetesiyle başlar (kırıcı=demir, fırın=demir, kesici=bakır tel); yanlış reçetede hat sessizce tıkanır, oyuncu reçeteyi inceleme penceresinden seçmelidir.
+  - **3 girdili reçeteler (yönlendirme bilgisayarı, itici blok) ekranda oynanmadı;** 2 girdili motor hattı, plastik ve optik cam ihracı doğrulandı.
+  - **Uzak yakınlaştırmada (0.75x ve altı) giriş/makine etiketleri okunmuyor.**
   - Aşama ödülleri ve eşikleri dengelenmedi (ilk iki aşama ~1,5 dakikada bitiyor) (M7).
   - Sekme arka plandayken fabrika durur ve geri dönünce telafi edilmez; çevrimdışı gelir yalnız sayfa yeniden açılınca hesaplanır.
   - Eski idle ekonominin sınıf ve dosyaları (`MachineModal`, `MachineCard`, `FactoryView`, `DOMUIManager`, `EconomyManager` içindeki 4 makine) hâlâ depoda; oyun akışı kullanmıyor (M10'da silinecek).

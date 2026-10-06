@@ -42,12 +42,17 @@ import { FactoryEconomy } from '../factory/simulation/FactoryEconomy';
 import { PlotExpansionManager } from '../factory/progression/PlotExpansionManager.ts';
 import { MilestoneManager } from '../factory/progression/MilestoneManager.ts';
 import { PlacementController, type PlacementItem } from '../factory/input/PlacementController.ts';
-import { BuildMenuModal } from '../ui/BuildMenuModal.ts';
+import { BuildMenuModal, INTAKE_CARD_PREFIX } from '../ui/BuildMenuModal.ts';
 import { DemolishTool } from '../factory/input/DemolishTool.ts';
 import { DemolishMath } from '../factory/input/DemolishMath.ts';
 import { MachineInspectorModal } from '../factory/view/MachineInspectorModal.ts';
 import { TerminalInspectorModal } from '../ui/TerminalInspectorModal.ts';
-import { CONVEYOR_BUILD_COST } from '../factory/input/PlacementMath.ts';
+import {
+  CONVEYOR_BUILD_COST,
+  INTAKE_SHORT_NAMES,
+  INTAKE_UNLOCK_FEATURES,
+  PlacementMath,
+} from '../factory/input/PlacementMath.ts';
 import { PALETTE, FONT_FAMILY, PixelUIHelper } from '../ui/theme';
 import { sound } from '../audio/SoundManager.ts';
 import { fx } from '../effects/PixelParticleManager.ts';
@@ -510,7 +515,12 @@ export class GameScene extends Phaser.Scene {
         camera: this.factoryCamera,
         autoCloseMachines: true,
         onPlaced: (result) => {
-          if (result.itemType === 'INTAKE_MOVE' || this.placementController.currentItem?.type === 'INTAKE_MOVE') {
+          if (result.itemType === 'INTAKE_NEW') {
+            this.gridView.refresh();
+            const itemId = this.gridMap.getCell(result.coord.x, result.coord.y)?.intakeData?.itemId ?? '';
+            const name = defaultItemRegistry.get(itemId)?.name ?? 'Hammadde';
+            this.showNotification(`${name} Girişi kuruldu! (-$${result.spentMoney})`);
+          } else if (result.itemType === 'INTAKE_MOVE' || this.placementController.currentItem?.type === 'INTAKE_MOVE') {
             this.gridView.refresh();
             this.showNotification(`Hammadde Girişi (${result.coord.x}, ${result.coord.y}) konumuna taşındı!`);
           } else if (result.itemType === 'EXPORT_MOVE' || this.placementController.currentItem?.type === 'EXPORT_MOVE') {
@@ -638,6 +648,12 @@ export class GameScene extends Phaser.Scene {
           type: placementType,
           sourceCoord: src,
         });
+      },
+      getIntakeItemName: (coord) => {
+        const cell = coord
+          ? this.gridMap.getCell(coord.x, coord.y)
+          : this.gridMap.getIntakeCells()[0];
+        return defaultItemRegistry.get(cell?.intakeData?.itemId ?? '')?.name;
       },
     });
 
@@ -1207,6 +1223,12 @@ export class GameScene extends Phaser.Scene {
     if (defaultMachineRegistry.has(cardId) && !this.milestones.isMachineUnlocked(cardId)) {
       return this.milestones.getMachineUnlockStage(cardId);
     }
+    if (cardId.startsWith(INTAKE_CARD_PREFIX)) {
+      const feature = INTAKE_UNLOCK_FEATURES[cardId.slice(INTAKE_CARD_PREFIX.length)];
+      if (feature && !this.milestones.isFeatureUnlocked(feature)) {
+        return this.milestones.getFeatureUnlockStage(feature);
+      }
+    }
     return null;
   }
 
@@ -1504,7 +1526,13 @@ export class GameScene extends Phaser.Scene {
 
       let itemName = 'Konveyör Bandı';
       let cost = 5;
-      if (item.type === 'MACHINE' && item.machineDef) {
+      if (item.type === 'INTAKE_NEW') {
+        itemName = `${INTAKE_SHORT_NAMES[item.intakeItemId ?? ''] ?? 'HAMMADDE'} GİRİŞİ`;
+        cost = PlacementMath.getItemCost('INTAKE_NEW', undefined, item.intakeItemId);
+        this.placementRotateBg.setVisible(false);
+        this.placementRotateText.setVisible(false);
+        this.placementRotateZone.disableInteractive();
+      } else if (item.type === 'MACHINE' && item.machineDef) {
         itemName = item.machineDef.name;
         cost = item.machineDef.baseCost;
       } else if (item.type === 'SPLITTER') {

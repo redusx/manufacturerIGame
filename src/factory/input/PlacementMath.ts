@@ -30,7 +30,38 @@ export type PlacementItemType =
   | 'SPLITTER'
   | 'MERGER'
   | 'INTAKE_MOVE'
-  | 'EXPORT_MOVE';
+  | 'EXPORT_MOVE'
+  | 'INTAKE_NEW';
+
+/**
+ * Yeni hammadde girişi kurma bedelleri (hammadde kimliği -> $).
+ * Her giriş saniyede 1 hammadde verir; üretimi büyütmenin yolu yeni giriş kurmaktır.
+ */
+export const INTAKE_BUILD_COSTS: Readonly<Record<string, number>> = {
+  iron_ore: 500,
+  copper_ore: 1000,
+  silica_sand: 2500,
+  crude_polymer: 2500,
+};
+
+/** Girişlerin ızgara üstünde ve katalogda görünen kısa hammadde adları */
+export const INTAKE_SHORT_NAMES: Readonly<Record<string, string>> = {
+  iron_ore: 'DEMİR',
+  copper_ore: 'BAKIR',
+  silica_sand: 'KUM',
+  crude_polymer: 'POLİ',
+};
+
+/** Hammadde girişini açan aşama özelliği (bkz. MilestoneManager ödülleri) */
+export const INTAKE_UNLOCK_FEATURES: Readonly<Record<string, string>> = {
+  iron_ore: 'INTAKE_IRON',
+  copper_ore: 'INTAKE_COPPER',
+  silica_sand: 'INTAKE_SILICA',
+  crude_polymer: 'INTAKE_POLYMER',
+};
+
+/** Yeni kurulan girişin hammadde verme aralığı (saniye) */
+export const INTAKE_INTERVAL_SEC = 1.0;
 
 export const CONVEYOR_BUILD_COST = 5;
 export const SPLITTER_BUILD_COST = 25;
@@ -51,6 +82,8 @@ export interface PlacementValidationParams {
   machineDef?: MachineDefinition;
   unlockedBounds?: { width: number; height: number };
   sourceCoord?: GridCoord;
+  /** INTAKE_NEW için: kurulacak girişin vereceği hammadde */
+  intakeItemId?: string;
 }
 
 export interface PlacementValidationResult {
@@ -188,9 +221,16 @@ export class PlacementMath {
   /**
    * Öğe türüne göre inşaat maliyetini hesaplar.
    */
-  static getItemCost(itemType: PlacementItemType, machineDef?: MachineDefinition): number {
+  static getItemCost(
+    itemType: PlacementItemType,
+    machineDef?: MachineDefinition,
+    intakeItemId?: string,
+  ): number {
     if (itemType === 'MACHINE' && machineDef) {
       return machineDef.baseCost;
+    }
+    if (itemType === 'INTAKE_NEW') {
+      return INTAKE_BUILD_COSTS[intakeItemId ?? ''] ?? Infinity;
     }
     if (itemType === 'CONVEYOR') {
       return CONVEYOR_BUILD_COST;
@@ -234,7 +274,7 @@ export class PlacementMath {
         : [];
 
     // 3. Maliyet ve bakiye denetimi
-    const cost = this.getItemCost(itemType, machineDef);
+    const cost = this.getItemCost(itemType, machineDef, params.intakeItemId);
     const canAfford = economy.canAfford(cost);
 
     // 4. Izgara sınırları denetimi
@@ -390,6 +430,17 @@ export class PlacementMath {
         reason: 'NOT_ENOUGH_MONEY',
         spentMoney: 0,
         coord: rootCoord,
+      };
+    }
+
+    // Yeni hammadde girişi
+    if (itemType === 'INTAKE_NEW' && params.intakeItemId) {
+      grid.setIntake(rootCoord.x, rootCoord.y, params.intakeItemId, INTAKE_INTERVAL_SEC);
+      return {
+        success: true,
+        spentMoney: validation.cost,
+        coord: rootCoord,
+        itemType: 'INTAKE_NEW',
       };
     }
 

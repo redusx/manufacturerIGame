@@ -21,7 +21,9 @@ import {
   CONVEYOR_BUILD_COST,
   SPLITTER_BUILD_COST,
   MERGER_BUILD_COST,
+  INTAKE_BUILD_COSTS,
 } from '../factory/input/PlacementMath.ts';
+import { defaultItemRegistry } from '../factory/simulation/ItemRegistry.ts';
 import type { PlacementItem } from '../factory/input/PlacementController.ts';
 import type { FactoryEconomy } from '../factory/simulation/FactoryEconomy.ts';
 import { PALETTE, FONT_FAMILY, PixelUIHelper } from './theme.ts';
@@ -36,6 +38,9 @@ export interface BuildMenuModalConfig {
    */
   getLockStage?: (cardId: string) => number | null;
 }
+
+/** Yeni hammadde girişi kartlarının kimlik öneki (`intake_new_<hammadde>`) */
+export const INTAKE_CARD_PREFIX = 'intake_new_';
 
 interface BuildCardItem {
   id: string;
@@ -439,6 +444,20 @@ export class BuildMenuModal {
         sizeStr: `${m.width}x${m.height}`,
         iconKey: m.spriteBaseKey ?? 'machine_bench',
         item: { type: 'MACHINE', machineDef: m },
+      });
+    }
+
+    // Hammadde girişleri: her biri saniyede 1 hammadde verir
+    for (const [itemId, cost] of Object.entries(INTAKE_BUILD_COSTS)) {
+      const itemName = defaultItemRegistry.get(itemId)?.name ?? itemId;
+      items.push({
+        id: `${INTAKE_CARD_PREFIX}${itemId}`,
+        name: `${itemName} Girişi`,
+        desc: `Saniyede 1 ${itemName} verir.`,
+        cost,
+        sizeStr: '1x1',
+        iconKey: 'factory_intake',
+        item: { type: 'INTAKE_NEW', intakeItemId: itemId },
       });
     }
 

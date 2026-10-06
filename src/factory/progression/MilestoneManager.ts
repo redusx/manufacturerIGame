@@ -146,8 +146,8 @@ export const DEFAULT_MILESTONES: readonly MilestoneDefinition[] = Object.freeze(
     ],
     reward: {
       money: 600,
-      unlockedFeatures: ['PLOT_1_READY'],
-      description: '$600 ⚙ sermaye ve 1. Genişleme Parseli ($12x8) hazır!',
+      unlockedFeatures: ['PLOT_1_READY', 'INTAKE_IRON'],
+      description: '$600 ⚙, 1. Parsel ($12x8) hazır ve ek Demir Girişi açıldı!',
     },
   },
   {
@@ -221,8 +221,8 @@ export const DEFAULT_MILESTONES: readonly MilestoneDefinition[] = Object.freeze(
     ],
     reward: {
       money: 2000,
-      unlockedFeatures: ['ROCKET_HANGAR'],
-      description: '$2,000 ⚙ sermaye ve ROKET HANGARI FAALİYETE GEÇTİ!',
+      unlockedFeatures: ['ROCKET_HANGAR', 'INTAKE_COPPER'],
+      description: '$2,000 ⚙, ROKET HANGARI ve Bakır Cevheri Girişi açıldı!',
     },
   },
 
@@ -252,7 +252,7 @@ export const DEFAULT_MILESTONES: readonly MilestoneDefinition[] = Object.freeze(
     reward: {
       money: 3000,
       unlockedMachines: ['assembler'],
-      description: '$3,000 ⚙ ve 2 Girişli Montaj Tezgahı açıldı!',
+      description: '$3,000 ⚙ ve Montaj Tezgahı açıldı!',
     },
   },
   {
@@ -307,7 +307,8 @@ export const DEFAULT_MILESTONES: readonly MilestoneDefinition[] = Object.freeze(
     reward: {
       money: 7500,
       unlockedMachines: ['refinery'],
-      description: '$7,500 ⚙ ve Kimyasal Rafineri açıldı!',
+      unlockedFeatures: ['INTAKE_SILICA', 'INTAKE_POLYMER'],
+      description: '$7,500 ⚙, Kimyasal Rafineri, Kum ve Polimer Girişleri açıldı!',
     },
   },
   {
