@@ -434,15 +434,11 @@ describe('TASK-INT-07: Master Full Game Loop End-to-End Verification Tests', () 
     assert.strictEqual(economy.resources.toNumber(), cashBeforeReward + rewardBreakdown.totalCash);
 
     // D. Fabrika İhracatında Çarpan Etkisi:
-    // İhracat çarpanı = uçuş kilometre taşları (x1.30) * tamamlanan fabrika hedefleri.
-    // Demir tozunun baz bedeli $2.5'tir; değer tam sayıya değil kuruşa yuvarlanır.
-    const goalMultiplier = economy.getGlobalMultiplier();
-    assert.ok(goalMultiplier > 1, 'Kazanılan parayla en az bir çarpanlı hedef tamamlanmış olmalı');
-    assert.strictEqual(factoryEconomy.getExportMultiplier(), 1.30 * goalMultiplier);
-
+    // Demir tozunun baz bedeli $2.5'tir; x1.30 çarpanla $3.25 kazanır
+    // (değer tam sayıya değil kuruşa yuvarlanır).
+    assert.strictEqual(factoryEconomy.getExportMultiplier(), 1.30);
     const singleExportEarnings = factoryEconomy.exportItem('iron_powder');
-    assert.strictEqual(singleExportEarnings, Math.round(2.5 * 1.30 * goalMultiplier * 100) / 100);
-    assert.ok(singleExportEarnings > 3.25);
+    assert.strictEqual(singleExportEarnings, 3.25);
   });
 
   it('5. SaveManager v3 Full Round-Trip Persistence & Factory State Restoration', () => {

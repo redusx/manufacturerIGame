@@ -36,8 +36,6 @@ export interface BackingEconomyProvider {
   addResources(amount: number): void;
   /** İade: yalnız kasaya eklenir, kazanç sayılmaz */
   refundResources(amount: number): void;
-  /** Tamamlanan fabrika hedeflerinden gelen ihracat çarpanı */
-  getGlobalMultiplier(): number;
   readonly resources: { toNumber(): number; gte(val: any): boolean };
   readonly totalEarned: { toNumber(): number };
 }
@@ -168,13 +166,9 @@ export class FactoryEconomy {
   // İHRACAT VE EŞYA DEĞERLEMESİ
   // -------------------------------------------------------------
 
-  /**
-   * İhracat gelirine uygulanan toplam çarpan: uçuş kilometre taşları (revenueMultiplier)
-   * ile tamamlanan fabrika hedeflerinin çarpanının çarpımı.
-   */
+  /** İhracat gelirine uygulanan çarpan (uçuş kilometre taşları ve aşama ödülleriyle artar) */
   getExportMultiplier(): number {
-    const goalMultiplier = this.backingEconomy ? this.backingEconomy.getGlobalMultiplier() : 1;
-    return this.revenueMultiplier * goalMultiplier;
+    return this.revenueMultiplier;
   }
 
   /**

@@ -54,6 +54,7 @@ export const SaveManager = {
       };
       hangar?: { serialize(): any };
       factoryLayout?: FactorySaveData;
+      milestones?: UnifiedGameSaveData['milestones'];
     },
     storage?: StorageLike,
   ): void {
@@ -73,6 +74,9 @@ export const SaveManager = {
     }
     if (extra?.factoryLayout) {
       current.factoryLayout = extra.factoryLayout;
+    }
+    if (extra?.milestones) {
+      current.milestones = extra.milestones;
     }
     UnifiedSaveManager.save(current, storage);
   },

@@ -4,9 +4,8 @@
  * ====================================================================== */
 
 import Phaser from 'phaser';
-import type { FactoryGoal } from '../data/MachineData';
+import type { MilestoneProgress } from '../factory/progression/MilestoneManager.ts';
 import { formatNumber, formatDuration } from '../utils/format';
-import type { Decimal } from '../utils/decimal';
 import { PALETTE, FONT_FAMILY, PixelUIHelper } from './theme';
 
 export class MilestoneBar {
@@ -76,43 +75,56 @@ export class MilestoneBar {
     this.container.add(this.barFillSlice);
   }
 
-  updateGoal(goalInfo: {
-    goal: FactoryGoal;
-    progress: number;
-    current: Decimal;
-    target: Decimal;
-  } | null, pps?: Decimal): void {
+  /**
+   * Aktif aşamayı gösterir: sıra numarası, henüz tamamlanmamış ilk koşul ve sayacı.
+   * Para koşullarında, ölçülen gelire göre tahmini kalan süre de eklenir.
+   */
+  updateMilestone(
+    progress: MilestoneProgress | null,
+    completedCount: number,
+    totalCount: number,
+    revenuePerSec = 0,
+  ): void {
     this.container.setVisible(true);
 
-    if (!goalInfo) {
-      // Tüm hedefler tamamlandı: Efsanevi Fabrika durumu
+    if (!progress) {
       this.targetProgress = 1;
       this.currentProgress = 1;
-      this.labelText.setText('🏆 Efsanevi Fabrika: Tüm Hedefler Tamamlandı!');
-      this.progressText.setText('%100 — Maksimum Çarpan (x3.0)');
+      this.labelText.setText('🏆 Tüm aşamalar tamamlandı!');
+      this.progressText.setText('%100');
       this.drawBar();
       return;
     }
 
-    const { goal, progress, current, target } = goalInfo;
-    this.targetProgress = Phaser.Math.Clamp(progress, 0, 1);
-
+    this.targetProgress = Phaser.Math.Clamp(progress.overallPercentage, 0, 1);
     this.currentProgress = Phaser.Math.Linear(this.currentProgress, this.targetProgress, 0.2);
 
-    const percent = Math.floor(this.targetProgress * 100);
-    this.labelText.setText(`${goal.name}: ${formatNumber(current)} / ${formatNumber(target)}`);
+    const pending = progress.conditions.find((c) => !c.isMet) ?? progress.conditions[0];
+    const isMoney = pending.type === 'TOTAL_EARNED' || pending.type === 'CURRENT_BALANCE';
 
-    // Tahmini süre hesaplama
+    let counter = '';
+    if (isMoney) {
+      counter = ` ($${formatNumber(pending.current)}/$${formatNumber(pending.target)})`;
+    } else if (pending.type !== 'UNLOCK_PLOT') {
+      counter = ` (${Math.floor(pending.current)}/${pending.target})`;
+    }
+    this.labelText.setText(`${completedCount + 1}/${totalCount} · ${pending.description}${counter}`);
+
     let etaStr = '';
-    if (pps && pps.gt(0) && target.gt(current)) {
-      const remaining = target.sub(current);
-      const etaSec = remaining.div(pps).toNumber();
-      if (etaSec < 86400) { // 24 saatten kısa ise göster
+    if (isMoney && revenuePerSec > 0 && pending.target > pending.current) {
+      const etaSec = (pending.target - pending.current) / revenuePerSec;
+      if (etaSec < 86400) {
         etaStr = ` — ~${formatDuration(etaSec)}`;
       }
     }
+    const percentStr = `%${Math.floor(this.targetProgress * 100)}`;
+    this.progressText.setText(`${percentStr}${etaStr}`);
 
-    this.progressText.setText(`%${percent}${etaStr}`);
+    // Dar ekranda görev metniyle çakışıyorsa tahmini süreyi bırak
+    const labelRight = this.labelText.x + this.labelText.width;
+    if (etaStr && labelRight > this.progressText.x - this.progressText.width - 6) {
+      this.progressText.setText(percentStr);
+    }
 
     this.drawBar();
   }

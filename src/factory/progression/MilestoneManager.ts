@@ -91,7 +91,7 @@ export const DEFAULT_MILESTONES: readonly MilestoneDefinition[] = Object.freeze(
     name: 'İlk Hammadde',
     category: 'ATELIER',
     tagline: 'Fabrika macerasına ilk adımı at.',
-    description: 'Hammadde silosundan veya banttan eşya toplayıp $50 toplam ciroya ulaş.',
+    description: 'Hazır hattın ürettiği demir tozunu satarak $50 toplam ciroya ulaş.',
     conditions: [
       {
         type: 'TOTAL_EARNED',
@@ -103,7 +103,7 @@ export const DEFAULT_MILESTONES: readonly MilestoneDefinition[] = Object.freeze(
       money: 150,
       unlockedMachines: ['crusher'],
       unlockedFeatures: ['BASIC_AUTOMATION'],
-      description: '$150 ⚙ sermaye ve Kırıcı Makinesi açıldı!',
+      description: '$150 ⚙ başlangıç sermayesi',
     },
   },
   {
@@ -409,6 +409,21 @@ export class MilestoneManager {
     return this.unlockedFeatureIds.has(featureId);
   }
 
+  /** Makineyi açan aşamanın sıra numarası (1'den başlar); baştan açıksa veya hiç açılmıyorsa null */
+  getMachineUnlockStage(defId: string): number | null {
+    return this.findUnlockStage((reward) => reward.unlockedMachines?.includes(defId) ?? false);
+  }
+
+  /** Özelliği açan aşamanın sıra numarası (1'den başlar); hiçbir aşama açmıyorsa null */
+  getFeatureUnlockStage(featureId: string): number | null {
+    return this.findUnlockStage((reward) => reward.unlockedFeatures?.includes(featureId) ?? false);
+  }
+
+  private findUnlockStage(grants: (reward: MilestoneReward) => boolean): number | null {
+    const milestone = this.milestones.find((m) => grants(m.reward));
+    return milestone ? milestone.index + 1 : null;
+  }
+
   /** Belirli bir eşyanın şu ana kadarki kümülatif ihracat sayısını döner */
   getExportedCount(itemId: string): number {
     return this.exportedItemCounts.get(itemId) || 0;
@@ -622,7 +637,8 @@ export class MilestoneManager {
       }
     }
 
-    this.unlockedMachineIds = new Set(state.unlockedMachineIds || ['crusher']);
+    // Kırıcı her zaman açıktır (boş listeyle gelen yeni oyun kaydı onu kilitlemesin)
+    this.unlockedMachineIds = new Set(['crusher', ...(state.unlockedMachineIds ?? [])]);
     this.unlockedFeatureIds = new Set(state.unlockedFeatureIds || []);
   }
 }

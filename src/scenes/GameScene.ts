@@ -13,9 +13,8 @@
 import Phaser from 'phaser';
 import { EconomyManager } from '../economy/EconomyManager';
 import { SaveManager } from '../save/SaveManager';
-import { FACTORY_GOALS, AUTO_SAVE_INTERVAL_MS, RESOURCE_NAME } from '../data/MachineData';
+import { AUTO_SAVE_INTERVAL_MS, RESOURCE_NAME } from '../data/MachineData';
 import { formatNumber, formatMoney } from '../utils/format';
-import { D } from '../utils/decimal';
 
 import { HUD } from '../ui/HUD';
 import { MilestoneBar } from '../ui/MilestoneBar';
@@ -41,6 +40,7 @@ import { RocketHangarView } from '../ui/RocketHangarView';
 import { RocketHangarBridge } from '../factory/simulation/RocketHangarBridge';
 import { FactoryEconomy } from '../factory/simulation/FactoryEconomy';
 import { PlotExpansionManager } from '../factory/progression/PlotExpansionManager.ts';
+import { MilestoneManager } from '../factory/progression/MilestoneManager.ts';
 import { PlacementController, type PlacementItem } from '../factory/input/PlacementController.ts';
 import { BuildMenuModal } from '../ui/BuildMenuModal.ts';
 import { DemolishTool } from '../factory/input/DemolishTool.ts';
@@ -53,11 +53,16 @@ import { sound } from '../audio/SoundManager.ts';
 import { fx } from '../effects/PixelParticleManager.ts';
 import { crazyGames } from '../integration/CrazyGamesSDK.ts';
 
+/** Aşama ödülleriyle açılan özelliklerin kimlikleri (bkz. MilestoneManager.DEFAULT_MILESTONES) */
+const HANGAR_FEATURE = 'ROCKET_HANGAR';
+const SPLITTER_MERGER_FEATURE = 'SPLITTER_MERGER';
+
 export class GameScene extends Phaser.Scene {
   private economy!: EconomyManager;
   private hangarBridge!: RocketHangarBridge;
   private factoryEconomy!: FactoryEconomy;
   private plotManager!: PlotExpansionManager;
+  private milestones!: MilestoneManager;
 
   /* UI bileşenleri */
   private hud!: HUD;
@@ -367,6 +372,7 @@ export class GameScene extends Phaser.Scene {
     /* 2D Fabrika Mekânsal Izgarası ve Simülasyon Motorları */
     this.gridMap = new GridMap(24, 24);
     this.plotManager = new PlotExpansionManager(this.factoryEconomy, this.gridMap);
+    this.milestones = new MilestoneManager();
     this.logistics = new LogisticsNetwork(this.gridMap);
     this.productionEngine = new ProductionEngine(this.gridMap, this.logistics);
 
@@ -453,6 +459,7 @@ export class GameScene extends Phaser.Scene {
     // İhracat Teslimatı (EXPORT Delivery Event)
     this.logistics.onItemDelivered = (event: DeliveredItemEvent) => {
       const earned = this.factoryEconomy.exportItem(event.itemId);
+      this.milestones.recordExport(event.itemId);
       const exportWorld = GridCoordinates.gridToWorldCenter(event.exportCoord, 32);
       fx.emitSparkles(this, exportWorld.x, exportWorld.y, 8, PALETTE.resourceGold);
       sound.playCoin();
@@ -648,6 +655,7 @@ export class GameScene extends Phaser.Scene {
         this.buildMenuModal.hide();
         this.terminalModal.open('CHOICE');
       },
+      getLockStage: (cardId) => this.getCatalogLockStage(cardId),
     });
 
     // Ana kamera (HUD & UI) fabrikayı, zemin arka planını, yerleşim hayaletini ve yıkım katmanını çizmez
@@ -791,6 +799,11 @@ export class GameScene extends Phaser.Scene {
         this.hangarBtnBg.setTexture('btn_launch_pressed');
         if (this.placementController.isActive) this.placementController.cancelPlacement();
         if (this.demolishTool?.isActive) this.cancelDemolishMode();
+        if (!this.milestones.isFeatureUnlocked(HANGAR_FEATURE)) {
+          const stage = this.milestones.getFeatureUnlockStage(HANGAR_FEATURE);
+          this.showNotification(`Roket Hangarı ${stage}. aşamada açılır.`);
+          return;
+        }
         this.rocketHangar.show();
       })
       .on('pointerup', () => this.hangarBtnBg.setTexture('btn_launch_hover'))
@@ -955,13 +968,7 @@ export class GameScene extends Phaser.Scene {
 
     /* Ekonomi olayları */
     this.economy.on((evt) => {
-      if (evt.type === 'goal_reached') {
-        crazyGames.happytime();
-        sound.playMilestone();
-        fx.emitConfetti(this, this.scale.width / 2, 80, 32);
-        this.milestoneBar.playGoalReachedEffect();
-        this.showNotification(this.describeGoalReached(evt.goalId));
-      } else if (evt.type === 'rocket_upgrade') {
+      if (evt.type === 'rocket_upgrade') {
         sound.playUpgrade();
         fx.emitSparkles(this, this.scale.width / 2, this.scale.height / 2, 20, PALETTE.rocketCyan);
         this.saveGame();
@@ -1170,19 +1177,37 @@ export class GameScene extends Phaser.Scene {
   }
 
   /* ================================================================
-   * HEDEF BİLDİRİMİ
+   * AŞAMALAR (İLERLEME MÜFREDATI)
    * ================================================================ */
 
-  /** Tamamlanan hedef için yalnızca gerçekten verilen ödülü söyleyen bildirim metni */
-  private describeGoalReached(goalId?: string): string {
-    const goal = FACTORY_GOALS.find((g) => g.id === goalId);
-    if (!goal) return 'HEDEF TAMAMLANDI!';
+  /** Aktif aşamanın koşulları sağlandıysa ödülünü verir ve sıradakine geçer */
+  private claimCompletedMilestones(): void {
+    while (this.milestones.canClaimCurrentMilestone(this.factoryEconomy, this.productionEngine)) {
+      const result = this.milestones.claimCurrentMilestone(this.factoryEconomy, this.productionEngine);
+      if (!result.success || !result.claimedMilestone || !result.reward) return;
 
-    if (goal.globalMultiplier > 1) {
-      const percent = Math.round((goal.globalMultiplier - 1) * 100);
-      return `HEDEF TAMAMLANDI: ${goal.name}\nİhracat geliri +%${percent}`;
+      crazyGames.happytime();
+      sound.playMilestone();
+      fx.emitConfetti(this, this.scale.width / 2, 80, 32);
+      this.milestoneBar.playGoalReachedEffect();
+      this.showNotification(
+        `AŞAMA TAMAMLANDI: ${result.claimedMilestone.name}\n${result.reward.description}`,
+      );
+      this.saveGame();
     }
-    return `HEDEF TAMAMLANDI: ${goal.name}`;
+  }
+
+  /** Katalog kartı kilitliyse onu açacak aşamanın numarası; açıksa null */
+  private getCatalogLockStage(cardId: string): number | null {
+    if (cardId === 'splitter' || cardId === 'merger') {
+      return this.milestones.isFeatureUnlocked(SPLITTER_MERGER_FEATURE)
+        ? null
+        : this.milestones.getFeatureUnlockStage(SPLITTER_MERGER_FEATURE);
+    }
+    if (defaultMachineRegistry.has(cardId) && !this.milestones.isMachineUnlocked(cardId)) {
+      return this.milestones.getMachineUnlockStage(cardId);
+    }
+    return null;
   }
 
   /* ================================================================
@@ -1198,8 +1223,23 @@ export class GameScene extends Phaser.Scene {
       this.economy.stats.bestDistance,
     );
 
-    /* Kilometre Taşı Çubuğu */
-    this.milestoneBar.updateGoal(this.economy.getNextGoal(), D(revenuePerSec));
+    /* Aşama Çubuğu: tamamlanan aşamanın ödülünü ver, sonra sıradaki görevi göster */
+    this.claimCompletedMilestones();
+    this.milestoneBar.updateMilestone(
+      this.milestones.getCurrentProgress(this.factoryEconomy, this.productionEngine),
+      this.milestones.completedCount,
+      this.milestones.totalCount,
+      revenuePerSec,
+    );
+
+    /* Hangar düğmesi: açılana kadar hangi aşamada açılacağını söyler */
+    const hangarUnlocked = this.milestones.isFeatureUnlocked(HANGAR_FEATURE);
+    this.hangarBtnSubText.setText(
+      hangarUnlocked
+        ? 'Geliştir & Uç'
+        : `${this.milestones.getFeatureUnlockStage(HANGAR_FEATURE)}. aşamada`,
+    );
+    this.hangarBtnContainer.setAlpha(hangarUnlocked ? 1 : 0.55);
 
     /* Manuel üretim bilgisi */
     this.manualBtnSubText.setText(`+${formatNumber(this.economy.clickPower)} / tık`);
@@ -1268,6 +1308,7 @@ export class GameScene extends Phaser.Scene {
       factoryEconomy: this.factoryEconomy.serialize(),
       hangar: this.hangarBridge,
       factoryLayout,
+      milestones: this.milestones.serialize(),
     });
   }
 
@@ -1281,6 +1322,10 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.economy.deserialize(data.economy);
+
+    if (data.milestones) {
+      this.milestones.deserialize(data.milestones);
+    }
 
     if (this.hangarBridge && data.hangar) {
       this.hangarBridge.deserialize(data.hangar);

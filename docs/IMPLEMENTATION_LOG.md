@@ -1125,3 +1125,14 @@
 * **Test Doğrulaması:** `npm test` -> 285/285 geçti (62 suit); `npx tsc --noEmit` -> 0 hata; `npm run build` -> başarılı
 * **Kalan / Sırada:** M4 (ilerleme omurgası). Açık konular `PROJECT_STATUS.md` içinde.
 
+---
+
+### [2026-10-06] — REVIVAL M4: İlerleme Omurgası
+* **Görev:** M4
+* **Durum:** TAMAMLANDI (tarayıcıda doğrulandı)
+* **Değiştirilen Dosyalar:** `MilestoneManager.ts` (kilit açan aşamayı sorgulama, kırıcı her zaman açık, 1. aşama metni), `GameScene.ts` (aşamaların otomatik tamamlanması, ihracat sayımı, katalog ve hangar kilitleri, kayıt/yükleme), `MilestoneBar.ts` (aktif görev ve sayaç), `BuildMenuModal.ts` (kilitli kartlar), `FactoryEconomy.ts` (eski hedef çarpanı ihracattan çıkarıldı), `save/SaveManager.ts` (aşama durumu kayda yazılır), `FullGameLoopIntegration.test.ts`
+* **Yapılan İş:** Yazılmış ama sahneye bağlı olmayan 10 aşamalı müfredat oyunun ilerleme sistemi oldu. Üst çubuk "3/10 · 20 adet Demir Külçesi ihraç et (3/20)" gibi somut görevi gösterir. Katalogda yalnız kırıcı ve bant açık başlar; fırın 2., pres 4., kesici ve ayırıcı/birleştirici 5., montaj 7., rafineri 9. aşamada açılır. Hangar 6. aşamaya kadar kilitlidir.
+* **Tarayıcı doğrulaması:** sıfır kayıtla 1. ve 2. aşama kendiliğinden tamamlandı (+$150, +$300, fırın açıldı); kilitli kartlar tıklanamıyor; fırın hatta kuruldu ve külçe sayacı ilerledi; yeniden yüklemede aşama, sayaç ve kilitler korundu; kilitli hangar düğmesi bilgi veriyor.
+* **Test Doğrulaması:** `npm test` -> 285/285; `npx tsc --noEmit` -> 0 hata; `npm run build` -> başarılı
+* **Kalan / Sırada:** M5. 7. aşama bakır gerektirdiği için şu an tamamlanamaz.
+

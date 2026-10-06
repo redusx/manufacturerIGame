@@ -30,6 +30,11 @@ export interface BuildMenuModalConfig {
   onSelectItem: (item: PlacementItem) => void;
   onDemolishRequested?: () => void;
   onRelocateRequested?: () => void;
+  /**
+   * Kart henüz kilitliyse onu açacak aşamanın numarasını döner; açıksa null.
+   * Kart kimlikleri: 'conveyor', 'splitter', 'merger' veya makine tanım kimliği.
+   */
+  getLockStage?: (cardId: string) => number | null;
 }
 
 interface BuildCardItem {
@@ -49,6 +54,7 @@ export class BuildMenuModal {
   readonly onSelectItem: (item: PlacementItem) => void;
   readonly onDemolishRequested?: () => void;
   readonly onRelocateRequested?: () => void;
+  private readonly getLockStage?: (cardId: string) => number | null;
 
   public container: Phaser.GameObjects.Container;
   private backdrop: Phaser.GameObjects.Rectangle;
@@ -119,6 +125,7 @@ export class BuildMenuModal {
     this.onSelectItem = config.onSelectItem;
     this.onDemolishRequested = config.onDemolishRequested;
     this.onRelocateRequested = config.onRelocateRequested;
+    this.getLockStage = config.getLockStage;
 
     this.container = scene.add.container(0, 0).setDepth(200).setVisible(false);
 
@@ -601,6 +608,8 @@ export class BuildMenuModal {
             return;
           }
 
+          if (this.getLockStage?.(it.id) != null) return;
+
           if (it.isRelocate || this.economy.canAfford(it.cost)) {
             this.hide();
             this.onSelectItem(it.item);
@@ -639,6 +648,17 @@ export class BuildMenuModal {
         b.zone.input?.enabled && (b.zone.input.enabled = true);
         continue;
       }
+
+      // Kilitli kart: fiyat yerine hangi aşamada açılacağını söyler
+      const lockStage = this.getLockStage?.(b.item.id) ?? null;
+      if (lockStage !== null) {
+        b.btnBg.setTexture('btn_disabled');
+        b.btnText.setText('KİLİTLİ').setColor('#7f8c8d');
+        b.costText.setText(`Aşama ${lockStage}`).setColor(PALETTE.warningOrangeHex);
+        continue;
+      }
+      b.btnText.setText('İNŞA ET');
+      b.costText.setText(`$${b.item.cost}`);
 
       const affordable = this.economy.canAfford(b.item.cost);
       if (affordable) {
