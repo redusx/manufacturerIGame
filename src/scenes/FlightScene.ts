@@ -34,7 +34,6 @@ import {
   getGroundBounce,
 } from '../data/RocketData';
 import { formatNumber } from '../utils/format';
-import { RESOURCE_NAME } from '../data/MachineData';
 import { PALETTE, FONT_FAMILY, PixelUIHelper } from '../ui/theme';
 import { sound } from '../audio/SoundManager.ts';
 import { fx } from '../effects/PixelParticleManager.ts';
@@ -562,7 +561,7 @@ export class FlightScene extends Phaser.Scene {
     }).setDepth(82);
 
     // Orta: Kazanılan Kaynak ve Skor
-    this.earnedText = this.add.text(w / 2, 12, `+0 ${RESOURCE_NAME}`, {
+    this.earnedText = this.add.text(w / 2, 12, '+$0', {
       ...font, fontSize: '15px', color: PALETTE.successGreenHex, fontStyle: 'bold',
     }).setDepth(82).setOrigin(0.5, 0);
 
@@ -1245,7 +1244,7 @@ export class FlightScene extends Phaser.Scene {
     this.speedText.setText(`⚡ Hız: ${currentSpeed} km/s`);
 
     const totalEarned = this.calculateTotalEarnedResources();
-    this.earnedText.setText(`+${formatNumber(totalEarned)} ${RESOURCE_NAME}`);
+    this.earnedText.setText(`+$${formatNumber(totalEarned)}`);
     this.scoreText.setText(`⭐ Skor: ${this.flightScore}`);
 
     // this.refreshBars();

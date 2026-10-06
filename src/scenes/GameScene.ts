@@ -13,7 +13,7 @@
 import Phaser from 'phaser';
 import { EconomyManager } from '../economy/EconomyManager';
 import { SaveManager } from '../save/SaveManager';
-import { AUTO_SAVE_INTERVAL_MS, RESOURCE_NAME } from '../data/MachineData';
+import { AUTO_SAVE_INTERVAL_MS } from '../data/MachineData';
 import { formatNumber, formatMoney } from '../utils/format';
 
 import { HUD } from '../ui/HUD';
@@ -962,7 +962,7 @@ export class GameScene extends Phaser.Scene {
         this.economy.addResources(gained);
         this.saveGame();
         this.refreshUI();
-        this.showNotification(`+${formatNumber(gained)} ${RESOURCE_NAME} kasana eklendi!`);
+        this.showNotification(`+$${formatNumber(gained)} kasana eklendi!`);
       },
       onDoubleClaim: async (gained) => {
         // CrazyGames Rewarded Video Reklamı
@@ -974,7 +974,7 @@ export class GameScene extends Phaser.Scene {
         this.economy.addResources(gained);
         this.saveGame();
         this.refreshUI();
-        this.showNotification(`🎉 2X ÖDÜL! +${formatNumber(gained)} ${RESOURCE_NAME} kasana eklendi!`);
+        this.showNotification(`🎉 2X ÖDÜL! +$${formatNumber(gained)} kasana eklendi!`);
       },
     });
 

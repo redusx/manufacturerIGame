@@ -15,7 +15,6 @@ import {
 } from '../data/RocketData';
 import type { EconomyManager } from '../economy/EconomyManager';
 import { formatNumber } from '../utils/format';
-import { RESOURCE_NAME } from '../data/MachineData';
 import { PALETTE, FONT_FAMILY, PixelUIHelper } from './theme';
 import {
   RocketHangarBridge,
@@ -643,8 +642,21 @@ export class RocketHangarView {
     this.backdrop.setSize(w, h);
 
     const sf = Phaser.Math.Clamp(Math.min(w, h) / 480, 0.65, 1.2);
-    const modalW = Math.min(480, w - 20);
     const cx = w / 2;
+    const cardH = 52;
+    const cardGap = Math.max(4, Math.round(6 * sf));
+    const cardColGap = 8;
+    // Rampa + gantry + roket görseli merkezinden ~65px yukarı ve aşağı uzanır
+    const padHalfH = 65;
+    const launchH = Math.max(36, Math.round(44 * sf));
+
+    // Kısa ekranda (yatay telefon) tek sütun + roket görseli sığmaz: görsel gizlenir,
+    // genişlik yetiyorsa kartlar iki sütuna dizilir.
+    const fullHeight = 36 + 30 + padHalfH * 2 + this.cardElements.length * (cardH + cardGap) + launchH + 26;
+    const isShort = fullHeight > h - 12;
+    const cols = isShort && w >= 640 ? 2 : 1;
+    const showPad = !isShort;
+    const modalW = Math.min(cols === 2 ? 760 : 480, w - 20);
 
     // --- Ölçüler (pencerenin üst kenarına göre) ---
     this.headerText.setFontSize(`${Math.max(12, Math.round(14 * sf))}px`);
@@ -656,17 +668,13 @@ export class RocketHangarView {
     this.laidOutStatsHeight = this.statsText.height;
 
     const statsTop = 36;
-    // Rampa + gantry + roket görseli merkezinden ~65px yukarı ve aşağı uzanır
-    const padHalfH = 65;
     const padCenter = statsTop + this.statsText.height + 6 + padHalfH;
 
-    const cardW = modalW - 32;
-    const cardH = 52;
-    const cardGap = Math.max(4, Math.round(6 * sf));
-    const cardsTop = padCenter + padHalfH - 4;
-    const cardsBottom = cardsTop + this.cardElements.length * (cardH + cardGap) - cardGap;
+    const cardW = (modalW - 32 - (cols - 1) * cardColGap) / cols;
+    const cardRows = Math.ceil(this.cardElements.length / cols);
+    const cardsTop = showPad ? padCenter + padHalfH - 4 : statsTop + this.statsText.height + 8;
+    const cardsBottom = cardsTop + cardRows * (cardH + cardGap) - cardGap;
 
-    const launchH = Math.max(36, Math.round(44 * sf));
     const launchCenter = cardsBottom + 12 + launchH / 2;
     const modalH = launchCenter + launchH / 2 + 14;
 
@@ -691,6 +699,7 @@ export class RocketHangarView {
 
     // Rampa Alanı (Gantry + Roket)
     this.padContainer.setPosition(cx, modalY + padCenter);
+    this.padContainer.setVisible(showPad);
 
     // --- Geliştirme Kartları (4 kart alt alta) ---
     this.cardsContainer.setPosition(cx, modalY + cardsTop + cardH / 2);
@@ -702,7 +711,10 @@ export class RocketHangarView {
 
     for (let i = 0; i < this.cardElements.length; i++) {
       const card = this.cardElements[i];
-      card.container.setPosition(0, i * (cardH + cardGap));
+      card.container.setPosition(
+        ((i % cols) - (cols - 1) / 2) * (cardW + cardColGap),
+        Math.floor(i / cols) * (cardH + cardGap),
+      );
 
       card.bgSlice.setSize(cardW, cardH);
 
@@ -744,7 +756,7 @@ export class RocketHangarView {
     }
 
     // --- Fırlatma Düğmesi (En Alt) ---
-    const btnW = Math.min(cardW, Math.round(320 * sf));
+    const btnW = Math.min(modalW - 32, Math.round(320 * sf));
 
     this.launchBtnContainer.setPosition(cx, modalY + launchCenter);
     this.launchBtnBg.setSize(btnW, launchH);

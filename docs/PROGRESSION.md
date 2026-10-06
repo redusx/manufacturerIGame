@@ -1,5 +1,7 @@
 # PROGRESSION.md — Manufacturer Kademeli İlerleme Mimarisi
 
+> **Tarihsel belge.** Bu dosya revival öncesi planı/denetimi anlatır ve oyunun güncel hâliyle birebir örtüşmeyebilir. Güncel durum: `PROJECT_STATUS.md`; bağlayıcı kararlar: `DECISIONS.md` (DEC-011 ve sonrası); güncel sayılar: `ECONOMY.md`.
+
 > **Bu dosya, oyuncunun kalıcı fabrika genişlemesini, teknoloji açılımlarını ve roket evrimini tanımlar.**
 
 ---

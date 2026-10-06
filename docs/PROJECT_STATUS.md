@@ -22,15 +22,15 @@
 | M5 | Hammaddeler (bakır, kum, polimer girişleri aşamayla açılır; ek giriş satın alınarak hammadde artırılır) | **TAMAMLANDI** (2026-10-06, tarayıcıda doğrulandı, commit `704e118`) |
 | M6 | Roket bağlantısı (fabrika → hangar parça akışı, uçuş ödülü, uçuşta fabrika çalışır) | **TAMAMLANDI** (2026-10-06, tarayıcıda doğrulandı, commit `0a151f8`) |
 | M7 | Denge geçişi (eşya değerleri, reçete süreleri, aşama eşik ve ödülleri) | **TAMAMLANDI** (2026-10-06; 1–3. aşamalar tarayıcıda, 1–9. aşamalar başsız simülasyonla ölçüldü, commit `7cc8aec`) |
-| M8 | Sürükleyerek bant çizimi | **TAMAMLANDI** (2026-10-06, tarayıcıda fare ve dokunmatikle doğrulandı) |
-| M9 | Uzun vade (kontratlar, roket sonrası kademeler) | Bekliyor |
-| M10 | Temizlik ve yayın (ölü kod, doküman eşitleme, mobil düzen) | Bekliyor |
+| M8 | Sürükleyerek bant çizimi | **TAMAMLANDI** (2026-10-06, tarayıcıda fare ve dokunmatikle doğrulandı, commit `c58ef62`) |
+| M9 | Uzun vade (kontratlar, roket sonrası kademeler) | **ERTELENDİ** (kullanıcı kararı, 2026-10-06). 10. aşamadan sonra oyunda yeni hedef yok; `ContractManager` depoda ama oyuna bağlı değil. |
+| M10 | Temizlik ve yayın (ölü kod, doküman eşitleme, mobil düzen) | **TAMAMLANDI** (2026-10-06, tarayıcıda doğrulandı) |
 
-* **Son doğrulama:** 2026-10-06 17:14 — `npm test` 285/285 (62 suit), `npx tsc --noEmit` 0 hata, `npm run build` başarılı; ayrıntı `IMPLEMENTATION_LOG.md` son girdi.
-* **Ekonominin şu anki kuralları (M3 sonrası):**
+* **Son doğrulama:** 2026-10-06 (M10) — `npm test` 262/262, `npx tsc --noEmit` 0 hata, `npm run build` başarılı; ayrıntı `IMPLEMENTATION_LOG.md` son girdi. (Test sayısı 285'ten 262'ye düştü: silinen ölü kodun 23 testi de silindi.)
+* **Ekonominin şu anki kuralları** (sayılar: `ECONOMY.md`):
   - Tek kasa: `EconomyManager` (para + toplam kazanç). `FactoryEconomy` ona yazar.
   - Gelir = ihraç edilen eşyanın baz değeri × gelir çarpanı (uçuş kilometre taşları ve son aşama ödülü); kuruşa yuvarlanır.
-  - İlerleme: `MilestoneManager`'daki 10 aşama. Koşullar sağlanınca aşama kendiliğinden tamamlanır, para ödülü verir ve makine/özellik açar. Eski 12 "toplam kazanç" hedefi artık hiçbir şeyi etkilemez.
+  - İlerleme: `MilestoneManager`'daki 10 aşama. Koşullar sağlanınca aşama kendiliğinden tamamlanır, para ödülü verir ve makine/özellik açar.
   - Tıklama sabit $1'dir; hiçbir çarpan tıklamayı büyütmez (DEC-013).
   - Söküm iadesi %100'dür ama "toplam kazanç" sayılmaz; hedefleri ilerletmez.
   - Üstteki `/sn`, son 60 saniyenin ölçülmüş ihracat ortalamasıdır; çevrimdışı gelir kayıt anındaki bu hızla hesaplanır (en fazla 4 saat, %50 verim).
@@ -49,9 +49,8 @@
   - Makine seviye yükseltmesi (maliyet ×1,15, hız +%20/seviye), uçuş mesafe çarpanları (+%75) ve roket yükseltme bedelleri M7'de değiştirilmedi.
   - **Giriş tuzağı:** Giriş, yanındaki her banda hammadde basar; girişin yanından geçen başka bir hattın bandı ham cevherle dolup tıkanır.
   - Sekme arka plandayken fabrika durur ve geri dönünce telafi edilmez; çevrimdışı gelir yalnız sayfa yeniden açılınca hesaplanır.
-  - Eski idle ekonominin sınıf ve dosyaları (`MachineModal`, `MachineCard`, `FactoryView`, `DOMUIManager`, `EconomyManager` içindeki 4 makine) hâlâ depoda; oyun akışı kullanmıyor (M10'da silinecek).
   - Dokunmatik: iki parmakla yakınlaştırma (pinch) yok; yerleştirme/söküm modunda kamera kaydırılamıyor. Büyük fabrikalarda (20x16 ve üzeri) telefonda hücreler çok küçülüyor.
-  - Yatay telefon ekranı (ör. 812x375): ana ekran çalışıyor ama pencereler (katalog, hangar, makine inceleme) dikeyde taşıyor.
+  - Yatay telefon ekranı (812x375): pencereler sığıyor. Hangar iki sütuna geçer ve roket görselini gizler; makine inceleme penceresi küçültülerek sığdırılır (en fazla %70'e), bu ekranda yazıları 9px'in altına iner.
   - `factory_bg` arka plan dokusu iki kamera tarafından da yoksayıldığı için hiç çizilmiyor.
 
 ---

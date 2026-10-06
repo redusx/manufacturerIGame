@@ -1,5 +1,7 @@
 # UI Görsel Denetim Raporu (UI Visual Audit)
 
+> **Tarihsel belge.** Bu dosya revival öncesi planı/denetimi anlatır ve oyunun güncel hâliyle birebir örtüşmeyebilir. Güncel durum: `PROJECT_STATUS.md`; bağlayıcı kararlar: `DECISIONS.md` (DEC-011 ve sonrası); güncel sayılar: `ECONOMY.md`.
+
 **Tarih:** 30 Eylül 2026  
 **İncelenen Ekran:** Ana Fabrika Ekranı (`GameScene` + `FactoryView` + `HUD` + `MilestoneBar`)  
 **İncelenen Ekran Görüntüsü:** `factory_screen_initial_1790781912624.png` (Çözünürlük: 1920×960)  

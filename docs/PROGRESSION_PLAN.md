@@ -1,5 +1,7 @@
 # PROGRESSION_PLAN.md — Manufacturer İlk 30–60 Dakika İlerleme Planı
 
+> **Tarihsel belge.** Bu dosya revival öncesi planı/denetimi anlatır ve oyunun güncel hâliyle birebir örtüşmeyebilir. Güncel durum: `PROJECT_STATUS.md`; bağlayıcı kararlar: `DECISIONS.md` (DEC-011 ve sonrası); güncel sayılar: `ECONOMY.md`.
+
 > **Son güncelleme:** 30 Eylül 2026  
 > **Referans:** `docs/PROGRESSION_AUDIT.md` bulgularına dayalı düzeltme planı  
 > **Kapsam:** Yalnızca mevcut mekaniklerin dengelemesi ve UI iyileştirmeleri; yeni mekanik eklenmez.

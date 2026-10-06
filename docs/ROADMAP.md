@@ -1,5 +1,7 @@
 # ROADMAP.md — Manufacturer Kilometre Taşları ve Yol Haritası
 
+> **Tarihsel belge.** Bu dosya revival öncesi planı/denetimi anlatır ve oyunun güncel hâliyle birebir örtüşmeyebilir. Güncel durum: `PROJECT_STATUS.md`; bağlayıcı kararlar: `DECISIONS.md` (DEC-011 ve sonrası); güncel sayılar: `ECONOMY.md`.
+
 > **Bu dosya, projenin yüksek seviyeli teslimat hedeflerini ve sürümlerini tanımlar.**
 > Oyun vizyonu: "İncremental / Progression-Focused Factory Game" (Kalıcı Fabrika + Kademeli Genişleme + Roket Döngüsü).
 

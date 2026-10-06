@@ -46,6 +46,8 @@ export class MachineInspectorModal {
   /** Tasarım boyutları; dar ekranda genişlik küçülür, tarif sayısı arttıkça yükseklik uzar */
   private static readonly MAX_MODAL_WIDTH = 380;
   private static readonly MIN_MODAL_HEIGHT = 460;
+  /** Kısa ekrana sığdırırken pencerenin küçültülebileceği en düşük oran */
+  private static readonly MIN_FIT_SCALE = 0.7;
   private modalWidth = MachineInspectorModal.MAX_MODAL_WIDTH;
 
   /** Tarif düğmelerinin en son hangi durum için kurulduğu */
@@ -341,10 +343,8 @@ export class MachineInspectorModal {
       this.itemRegistry,
     );
 
-    const { width, height } = this.scene.scale;
-    this.backdrop.setSize(width, height);
-
-    this.modalWidth = Math.min(MachineInspectorModal.MAX_MODAL_WIDTH, width - 16);
+    const screen = this.scene.scale;
+    this.modalWidth = Math.min(MachineInspectorModal.MAX_MODAL_WIDTH, screen.width - 16);
 
     // Önce içerik ölçülür: tarif düğmesi satırları ve tarif metni uzadıkça alttaki
     // bölümler aşağı kayar ve pencere uzar (5 tarifli montaj istasyonu sığsın diye).
@@ -363,8 +363,20 @@ export class MachineInspectorModal {
     const demolishOffset = upgradeOffset + 48;
     const modalHeight = demolishOffset + 28 + 16;
 
+    // Kısa ekranda (yatay telefon) pencere sığmaz: içerik aynı düzenle küçültülür ki
+    // başlık, kapat düğmesi ve alttaki düğmeler ekranda kalsın.
+    const fit = Phaser.Math.Clamp(
+      (screen.height - 8) / modalHeight,
+      MachineInspectorModal.MIN_FIT_SCALE,
+      1,
+    );
+    const width = screen.width / fit;
+    const height = screen.height / fit;
+    this.container.setScale(fit);
+    this.backdrop.setSize(width, height);
+
     const panelX = Math.round((width - this.modalWidth) / 2);
-    const panelY = Math.round((height - modalHeight) / 2);
+    const panelY = Math.max(4, Math.round((height - modalHeight) / 2));
 
     this.panelBlocker.setPosition(panelX, panelY);
     this.panelBlocker.setSize(this.modalWidth, modalHeight);

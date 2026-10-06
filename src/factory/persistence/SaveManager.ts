@@ -79,8 +79,6 @@ export function createDefaultSaveData(): UnifiedGameSaveData {
     economy: {
       resources: '0',
       totalEarned: '0',
-      machines: [],
-      completedGoals: [],
       rocketUpgrades: { hull: 1, engine: 1, wings: 1, boost: 1 },
       flightStats: { totalFlights: 0, bestDistance: 0, bestScore: 0 },
       timestamp: now,

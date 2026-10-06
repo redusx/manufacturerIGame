@@ -1,5 +1,7 @@
 # LEVEL_DESIGN.md — Fabrika Bölüm ve Kilometre Taşı Tasarımı (Factory Milestones)
 
+> **Tarihsel belge.** Bu dosya revival öncesi planı/denetimi anlatır ve oyunun güncel hâliyle birebir örtüşmeyebilir. Güncel durum: `PROJECT_STATUS.md`; bağlayıcı kararlar: `DECISIONS.md` (DEC-011 ve sonrası); güncel sayılar: `ECONOMY.md`.
+
 > **Bu dosya, kalıcı fabrikanın 10 aşamalı rehberli ilerleme müfredatını (Milestone Chapters) tanımlar.**
 > Oyun bağımsız puzzle bölümlerine bölünmez; oyuncunun tek fabrikası bu aşamalarla adım adım devleşir.
 

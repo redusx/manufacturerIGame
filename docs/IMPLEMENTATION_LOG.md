@@ -1185,3 +1185,16 @@
 
 **Doğrulama:** `npm test` 285/285, `npx tsc --noEmit` temiz, `npm run build` başarılı. Tarayıcıda: fareyle tek sürüklemede köşeli 6 bantlık hat; tek tıkla tek bant; mevcut bandın üstünden geçen sürüklemede dolu hücre atlandı; mobil görünümde dokunmatik sürüklemeyle (sentetik dokunma olayları) köşeli 5 bantlık hat.
 
+### [2026-10-06] — REVIVAL M10: Temizlik ve Yayın Hazırlığı
+
+**Not:** M9 (uzun vade) kullanıcı kararıyla ertelendi.
+
+**Yapılanlar:**
+- **Ölü kod:** `main.ts`'ten erişilemeyen 13 dosya (~4.300 satır) ve yalnız onları sınayan 3 test dosyası silindi: `FactoryView`, `ClickCollectController`, `ClickCollectMath`, `SmartBeltPathfinder`, `SmartBeltTool`, `MilestoneHUD`, `MilestoneHUDHelper`, `pixel/*`, `DOMUIManager`, `MachineCard`, `MachineModal`. `ContractManager` ertelenen M9 için bırakıldı.
+- **Eski idle ekonomi:** `EconomyManager`'dan 4 makine, 12 hedef, otomatik üretim ve ilgili kayıt alanları çıkarıldı; sınıf artık yalnız kasa, toplam kazanç ve roket seviyeleridir. `MachineData.ts` genel sabitlere indirildi.
+- **Para birimi:** Ekrandaki "Parça" adı kaldırıldı; her yerde "$" (ör. `+$3.0/sn`).
+- **Yatay telefon:** Hangar kısa ekranda iki sütun ve görselsiz; makine inceleme penceresi sığacak kadar küçültülür.
+- **Belgeler:** `README.md` ve `ECONOMY.md` güncel oyuna göre yeniden yazıldı; revival öncesi plan/denetim belgelerine "tarihsel belge" notu eklendi.
+
+**Doğrulama:** `npm test` 262/262, `npx tsc --noEmit` temiz, `npm run build` başarılı. Tarayıcıda 812x375'te katalog, hangar, makine inceleme, giriş ve ayarlar pencereleri sığdı; masaüstünde hangar ve inceleme penceresi değişmedi; yeni konsol hatası yok.
+
