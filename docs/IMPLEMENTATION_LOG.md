@@ -1166,3 +1166,11 @@
 
 **Doğrulama:** `npm test` 285/285, `npx tsc --noEmit` temiz, `npm run build` başarılı. Tarayıcıda (M5 sonu kaydı, 9 aşama tamam): ihraç edilen 6 motor ve 20 plastik hangara gitti, bildirim geldi; motor yükseltmesi arayüzden $750'a yapıldı; hızlı inşa gövde için $2.300 gösterdi; 62 m'lik uçuş $22 prim verdi (gelir $12,2/sn); dönüşte 44 sn için fabrika $805 kazandı; uçuş primi toplam kazanca yazılmadı; uçuştan parça gelmedi.
 
+### [2026-10-06] — REVIVAL M7: Denge Geçişi
+
+**Amaç:** Fabrika gelirini ilerlemenin gerçek kaynağı yapmak; aşamaların anında ya da ödülle tamamlanmasını önlemek.
+
+**Yapılanlar:** `RecipeRegistry` (7 reçete süresi), `ItemRegistry` (7 eşya değeri), `MilestoneManager` (10 aşamanın eşik ve ödülleri, metinleri), `FactoryEconomy` (parsel 4 bedeli; "toplam kazanç"a yalnız `EXPORT` ve `CLICK` yazılır). Ayrıntı ve tablo: `DECISIONS.md` DEC-019. Eski sayıları sınayan mevcut testler güncellendi.
+
+**Doğrulama:** `npm test` 285/285, `npx tsc --noEmit` temiz, `npm run build` başarılı. Başsız simülasyon (depoya eklenmedi; gerçek `GridMap`/`LogisticsNetwork`/`ProductionEngine`/`FactoryEconomy`/`MilestoneManager`/`PlacementMath` sınıflarıyla, parası yetince kuran bot) 1–9. aşamaları ölçtü. Tarayıcıda taze kayıtla 1. aşama 39. sn'de, 2. aşama 120. sn'de, fırın kurulduktan sonra 3. aşama 212. sn'de bitti; gelir $2,9/sn, ödüller ciroya yazılmadı.
+

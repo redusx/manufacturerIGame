@@ -174,12 +174,12 @@ describe('PlotExpansionManager Progression & Bounds Tests', () => {
     assert.strictEqual(res3.newlyUnlockedCoords.length, 128);
     assert.strictEqual(economy.money, 87000);
 
-    // Step 4: Unlock Plot 4 (Havacılık Mega Kompleksi, $50000, 20x16 -> 24x24)
+    // Step 4: Unlock Plot 4 (Havacılık Mega Kompleksi, $30000, 20x16 -> 24x24)
     const res4 = manager.unlockPlot(4);
     assert.strictEqual(res4.success, true);
     assert.deepStrictEqual(res4.newBounds, { width: 24, height: 24 });
     assert.strictEqual(res4.newlyUnlockedCoords.length, 256);
-    assert.strictEqual(economy.money, 37000);
+    assert.strictEqual(economy.money, 57000);
 
     // Full expansion reached
     assert.strictEqual(manager.unlockedPlotCount, 5);

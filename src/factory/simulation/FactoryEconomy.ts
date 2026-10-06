@@ -26,7 +26,7 @@ export const FACTORY_PLOTS: PlotDefinition[] = [
   { index: 1, name: 'Dökümhane Parseli', cost: 500, targetWidth: 12, targetHeight: 8 },
   { index: 2, name: 'Mekanik İmalathane Parseli', cost: 2500, targetWidth: 16, targetHeight: 12 },
   { index: 3, name: 'Montaj Tesisi Parseli', cost: 10000, targetWidth: 20, targetHeight: 16 },
-  { index: 4, name: 'Havacılık Mega Kompleksi', cost: 50000, targetWidth: 24, targetHeight: 24 },
+  { index: 4, name: 'Havacılık Mega Kompleksi', cost: 30000, targetWidth: 24, targetHeight: 24 },
 ];
 
 export interface BackingEconomyProvider {
@@ -121,13 +121,13 @@ export class FactoryEconomy {
   // -------------------------------------------------------------
 
   /**
-   * Nakit ekler ve toplam kazanılan tutarı günceller. Söküm iadesi ve uçuş primi
-   * kasaya girer ama "toplam kazanç" sayılmaz: fabrika hedeflerini yalnız üretim ilerletir.
+   * Nakit ekler. "Toplam kazanç"a yalnız üretim (ihracat ve tıklama) yazılır; söküm
+   * iadesi, uçuş primi ve aşama ödülü kasaya girer ama fabrika hedeflerini ilerletmez.
    */
   addMoney(amount: number, source: 'EXPORT' | 'CLICK' | 'ROCKET' | 'CONTRACT' | 'REFUND' = 'EXPORT'): void {
     if (amount <= 0) return;
 
-    const countsAsEarned = source !== 'REFUND' && source !== 'ROCKET';
+    const countsAsEarned = source === 'EXPORT' || source === 'CLICK';
     if (this.backingEconomy) {
       if (!countsAsEarned) {
         this.backingEconomy.refundResources(amount);

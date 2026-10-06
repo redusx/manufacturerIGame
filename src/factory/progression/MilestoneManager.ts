@@ -100,10 +100,10 @@ export const DEFAULT_MILESTONES: readonly MilestoneDefinition[] = Object.freeze(
       },
     ],
     reward: {
-      money: 150,
+      money: 100,
       unlockedMachines: ['crusher'],
       unlockedFeatures: ['BASIC_AUTOMATION'],
-      description: '$150 ⚙ başlangıç sermayesi',
+      description: '$100 ⚙ başlangıç sermayesi',
     },
   },
   {
@@ -116,14 +116,14 @@ export const DEFAULT_MILESTONES: readonly MilestoneDefinition[] = Object.freeze(
       {
         type: 'EXPORT_SPECIFIC_ITEM',
         targetItemId: 'iron_powder',
-        targetValue: 20,
-        description: '20 adet Demir Tozu ihraç et',
+        targetValue: 60,
+        description: '60 adet Demir Tozu ihraç et',
       },
     ],
     reward: {
-      money: 300,
+      money: 150,
       unlockedMachines: ['smelter'],
-      description: '$300 ⚙ sermaye ve Yüksek Sıcaklık Fırını açıldı!',
+      description: '$150 ⚙ sermaye ve Yüksek Sıcaklık Fırını açıldı!',
     },
   },
 
@@ -140,14 +140,14 @@ export const DEFAULT_MILESTONES: readonly MilestoneDefinition[] = Object.freeze(
       {
         type: 'EXPORT_SPECIFIC_ITEM',
         targetItemId: 'iron_ingot',
-        targetValue: 20,
-        description: '20 adet Demir Külçesi ihraç et',
+        targetValue: 30,
+        description: '30 adet Demir Külçesi ihraç et',
       },
     ],
     reward: {
-      money: 600,
+      money: 250,
       unlockedFeatures: ['PLOT_1_READY', 'INTAKE_IRON'],
-      description: '$600 ⚙, 1. Parsel ($12x8) hazır ve ek Demir Girişi açıldı!',
+      description: '$250 ⚙, 1. Parsel ($12x8) hazır ve ek Demir Girişi açıldı!',
     },
   },
   {
@@ -165,14 +165,14 @@ export const DEFAULT_MILESTONES: readonly MilestoneDefinition[] = Object.freeze(
       },
       {
         type: 'TOTAL_EARNED',
-        targetValue: 1000,
-        description: '$1,000 toplam ciroya ulaş',
+        targetValue: 600,
+        description: '$600 toplam ciroya ulaş',
       },
     ],
     reward: {
-      money: 800,
+      money: 300,
       unlockedMachines: ['press'],
-      description: '$800 ⚙ sermaye ve Hidrolik Pres Makinesi açıldı!',
+      description: '$300 ⚙ sermaye ve Hidrolik Pres Makinesi açıldı!',
     },
   },
 
@@ -189,15 +189,15 @@ export const DEFAULT_MILESTONES: readonly MilestoneDefinition[] = Object.freeze(
       {
         type: 'EXPORT_SPECIFIC_ITEM',
         targetItemId: 'iron_plate',
-        targetValue: 25,
-        description: '25 adet Demir Levha ihraç et',
+        targetValue: 40,
+        description: '40 adet Demir Levha ihraç et',
       },
     ],
     reward: {
-      money: 1200,
+      money: 400,
       unlockedMachines: ['cutter'],
       unlockedFeatures: ['SPLITTER_MERGER'],
-      description: '$1,200 ⚙, Hassas Kesici ve Splitter/Merger lojistiği açıldı!',
+      description: '$400 ⚙, Hassas Kesici ve Splitter/Merger lojistiği açıldı!',
     },
   },
   {
@@ -210,19 +210,19 @@ export const DEFAULT_MILESTONES: readonly MilestoneDefinition[] = Object.freeze(
       {
         type: 'EXPORT_SPECIFIC_ITEM',
         targetItemId: 'steel_gear',
-        targetValue: 25,
-        description: '25 adet Çelik Dişli ihraç et',
+        targetValue: 40,
+        description: '40 adet Çelik Dişli ihraç et',
       },
       {
         type: 'TOTAL_EARNED',
-        targetValue: 3500,
-        description: '$3,500 toplam ciroya ulaş',
+        targetValue: 2500,
+        description: '$2,500 toplam ciroya ulaş',
       },
     ],
     reward: {
-      money: 2000,
+      money: 1000,
       unlockedFeatures: ['ROCKET_HANGAR', 'INTAKE_COPPER'],
-      description: '$2,000 ⚙, ROKET HANGARI ve Bakır Cevheri Girişi açıldı!',
+      description: '$1,000 ⚙, ROKET HANGARI ve Bakır Cevheri Girişi açıldı!',
     },
   },
 
@@ -245,14 +245,14 @@ export const DEFAULT_MILESTONES: readonly MilestoneDefinition[] = Object.freeze(
       {
         type: 'EXPORT_SPECIFIC_ITEM',
         targetItemId: 'copper_wire',
-        targetValue: 20,
-        description: '20 adet Bakır Tel ihraç et',
+        targetValue: 40,
+        description: '40 adet Bakır Tel ihraç et',
       },
     ],
     reward: {
-      money: 3000,
+      money: 1500,
       unlockedMachines: ['assembler'],
-      description: '$3,000 ⚙ ve Montaj Tezgahı açıldı!',
+      description: '$1,500 ⚙ ve Montaj Tezgahı açıldı!',
     },
   },
   {
@@ -265,8 +265,8 @@ export const DEFAULT_MILESTONES: readonly MilestoneDefinition[] = Object.freeze(
       {
         type: 'EXPORT_SPECIFIC_ITEM',
         targetItemId: 'electric_motor',
-        targetValue: 20,
-        description: '20 adet Elektrik Motoru ihraç et',
+        targetValue: 30,
+        description: '30 adet Elektrik Motoru ihraç et',
       },
       {
         type: 'TOTAL_EARNED',
@@ -275,9 +275,9 @@ export const DEFAULT_MILESTONES: readonly MilestoneDefinition[] = Object.freeze(
       },
     ],
     reward: {
-      money: 4500,
+      money: 2500,
       unlockedFeatures: ['PLOT_3_READY'],
-      description: '$4,500 ⚙ ve 3. Parsel ($20x16) açılışa hazır!',
+      description: '$2,500 ⚙ ve 3. Parsel ($20x16) açılışa hazır!',
     },
   },
 
@@ -300,15 +300,15 @@ export const DEFAULT_MILESTONES: readonly MilestoneDefinition[] = Object.freeze(
       {
         type: 'EXPORT_SPECIFIC_ITEM',
         targetItemId: 'reinforced_frame',
-        targetValue: 15,
-        description: '15 adet Güçlendirilmiş Çerçeve ihraç et',
+        targetValue: 20,
+        description: '20 adet Güçlendirilmiş Çerçeve ihraç et',
       },
     ],
     reward: {
-      money: 7500,
+      money: 4000,
       unlockedMachines: ['refinery'],
       unlockedFeatures: ['INTAKE_SILICA', 'INTAKE_POLYMER'],
-      description: '$7,500 ⚙, Kimyasal Rafineri, Kum ve Polimer Girişleri açıldı!',
+      description: '$4,000 ⚙, Kimyasal Rafineri, Kum ve Polimer Girişleri açıldı!',
     },
   },
   {
@@ -332,15 +332,15 @@ export const DEFAULT_MILESTONES: readonly MilestoneDefinition[] = Object.freeze(
       },
       {
         type: 'TOTAL_EARNED',
-        targetValue: 25000,
-        description: '$25,000 toplam ciroya ulaş',
+        targetValue: 40000,
+        description: '$40,000 toplam ciroya ulaş',
       },
     ],
     reward: {
-      money: 15000,
+      money: 10000,
       revenueMultiplierBonus: 0.5,
       unlockedFeatures: ['ORBITAL_MASTERY'],
-      description: '$15,000 ⚙, Kalıcı +%50 Gelir Çarpanı ve Yörünge Şampiyonluğu!',
+      description: '$10,000 ⚙, Kalıcı +%50 Gelir Çarpanı ve Yörünge Şampiyonluğu!',
     },
   },
 ]);

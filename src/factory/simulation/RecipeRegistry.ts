@@ -141,7 +141,7 @@ export class RecipeRegistry {
       category: 'smelting',
       inputs: [{ itemId: 'iron_powder', count: 1 }],
       outputs: [{ itemId: 'iron_ingot', count: 1 }],
-      processingTimeSec: 4.0, // Kırıcıdan 2 kat yavaş (darboğaz prensibi)
+      processingTimeSec: 2, // Kırıcıdan 2 kat yavaş (darboğaz prensibi)
     });
 
     this.register({
@@ -150,7 +150,7 @@ export class RecipeRegistry {
       category: 'smelting',
       inputs: [{ itemId: 'copper_powder', count: 1 }],
       outputs: [{ itemId: 'copper_ingot', count: 1 }],
-      processingTimeSec: 4.0,
+      processingTimeSec: 2,
     });
 
     this.register({
@@ -171,7 +171,7 @@ export class RecipeRegistry {
       category: 'pressing',
       inputs: [{ itemId: 'iron_ingot', count: 1 }],
       outputs: [{ itemId: 'iron_plate', count: 1 }],
-      processingTimeSec: 3.0,
+      processingTimeSec: 2,
     });
 
     this.register({
@@ -180,7 +180,7 @@ export class RecipeRegistry {
       category: 'pressing',
       inputs: [{ itemId: 'iron_plate', count: 2 }],
       outputs: [{ itemId: 'reinforced_frame', count: 1 }],
-      processingTimeSec: 5.0,
+      processingTimeSec: 4,
     });
 
     // -------------------------------------------------------------
@@ -192,7 +192,7 @@ export class RecipeRegistry {
       category: 'cutting',
       inputs: [{ itemId: 'copper_ingot', count: 1 }],
       outputs: [{ itemId: 'copper_wire', count: 2 }], // 1 Külçe -> 2 Tel
-      processingTimeSec: 2.5,
+      processingTimeSec: 2,
     });
 
     this.register({
@@ -204,7 +204,7 @@ export class RecipeRegistry {
         { itemId: 'steel_gear', count: 1 },
         { itemId: 'metal_scrap', count: 1, probability: 1.0 }, // Yan ürün talaş
       ],
-      processingTimeSec: 3.5,
+      processingTimeSec: 2,
     });
 
     // -------------------------------------------------------------
@@ -255,7 +255,7 @@ export class RecipeRegistry {
         { itemId: 'copper_wire', count: 2 },
       ],
       outputs: [{ itemId: 'electric_motor', count: 1 }],
-      processingTimeSec: 4.0,
+      processingTimeSec: 2,
     });
 
     this.register({

@@ -114,6 +114,7 @@ describe('Full-Loop Integration: Factory -> Hangar -> Flight -> Expansion', () =
     // Roket Motor Seviye 2 Maliyeti: $750 + 6x electric_motor
     // Oyuncuya gereken parçaları ve başlangıç sermayesini tamamlayalım
     economy.addMoney(2000, 'EXPORT');
+    const moneyBeforeUpgrades = economy.money;
 
     assert.strictEqual(bridge.depositPart('reinforced_frame', 5), true);
     assert.strictEqual(bridge.depositPart('electric_motor', 6), true);
@@ -136,8 +137,8 @@ describe('Full-Loop Integration: Factory -> Hangar -> Flight -> Expansion', () =
     assert.strictEqual(bridge.getModuleLevel('engine'), 2);
     assert.strictEqual(bridge.getPartCount('electric_motor'), 0);
 
-    // Cüzdandan $1250 düşülmüş olmalı ($2000 + külçe gelirleri - $1250)
-    assert.ok(economy.money < 1000);
+    // Cüzdandan tam $1250 düşülmüş olmalı ($500 gövde + $750 motor)
+    assert.strictEqual(economy.money, moneyBeforeUpgrades - 1250);
 
     // -----------------------------------------------------------------
     // 4. ADIM: YÜKSELTİLMİŞ ROKETLE FIRLATMA VE UÇUŞ ÖDÜLLERİ
@@ -153,19 +154,25 @@ describe('Full-Loop Integration: Factory -> Hangar -> Flight -> Expansion', () =
     };
 
     const previousMoney = economy.money;
+    // Beklenen Uçuş Ödülü = kazanılan süre × fabrikanın o anki geliri:
+    // 1200/40 + 120/100 + 15 + 4*3 + 6*0.5 = 61.2 sn
+    const expectedFlightCash = FlightReturnHelper.calculateRewardBreakdown(
+      {
+        distanceMeters: 1200,
+        maxAltitudeMeters: 120,
+        gearsCollected: 15,
+        crystalsCollected: 4,
+        dodgedObstacles: 6,
+      },
+      economy.getRevenuePerSec(),
+    ).totalCash;
     const flightSummary = bridge.processFlightResult(flightInput, economy);
 
-    // Beklenen Uçuş Ödülü (gelir süresi × gelir, taban $1/sn):
-    // Mesafe: 1200 / 40 = 30
-    // İrtifa: floor(120 / 100) = 1
-    // Dişliler: 15
-    // Kristaller: 4 * 3 = 12
-    // Kaçışlar: 6 * 0.5 = 3
-    // Toplam = 30 + 1 + 15 + 12 + 3 = 61
+    assert.ok(expectedFlightCash >= 61, 'Ödül en az taban gelirin ($1/sn) 61 saniyesi olmalı');
     assert.strictEqual(flightSummary.distanceMeters, 1200);
-    assert.strictEqual(flightSummary.cashGained, 61);
+    assert.strictEqual(flightSummary.cashGained, expectedFlightCash);
     assert.strictEqual(flightSummary.isNewBestDistance, true);
-    assert.strictEqual(economy.money, previousMoney + 61);
+    assert.strictEqual(economy.money, previousMoney + expectedFlightCash);
 
     // Kalıcı Kilometre Taşları Doğrulaması:
     // 1200m ile 100m (+%5), 500m (+%10) ve 1000m (+%15) açıldı -> Toplam +%30 bonus
@@ -217,7 +224,7 @@ describe('Full-Loop Integration: Factory -> Hangar -> Flight -> Expansion', () =
     const careerStats = bridge.getFlightStats();
     assert.strictEqual(careerStats.totalFlights, 1);
     assert.strictEqual(careerStats.bestDistance, 1200);
-    assert.strictEqual(careerStats.totalCashEarned, 61);
+    assert.strictEqual(careerStats.totalCashEarned, expectedFlightCash);
   });
 
   it('Multi-Flight Progression and Cumulative Milestone Scaling across career', () => {

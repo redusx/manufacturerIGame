@@ -123,3 +123,14 @@
   5. Uçuş dönüşünde fabrika, uçuşta geçen gerçek süre kadar (en fazla 10 dk) gerçekten simüle edilir (DEC-016'nın uygulaması).
 * **Gerekçe:** DEC-011, DEC-012 ve DEC-016. Prim gelire bağlı olduğu için oyunun hiçbir aşamasında uçuş fabrikanın önüne geçemez.
 * **Not:** Süre katsayıları ve 180 sn sınırı başlangıç değeridir; M7'de dengelenecek.
+
+### [DEC-019] Denge Geçişi (M7)
+* **Tarih:** 2026-10-06
+* **Hedef (varsayım, kullanıcı onayı bekliyor):** İlk hedef 1 dakikadan kısa; her aşama 1–4 dakika; 10 aşamanın tamamı ilgili bir oyuncu için ~40–50 dakika. Her yeni makine adımı geliri belirgin artırmalı; aşama ödülü yalnızca yeni açılan şeyi satın almaya yetmeli.
+* **Karar:**
+  1. **Reçete süreleri:** Temel zincir kırıcının hızına (0,5/sn) eşitlendi: külçe 4→2 sn, levha 3→2, dişli 3,5→2, bakır tel 2,5→2, çerçeve 5→4, motor 4→2. Eskiden fırın hattı yarıya düşürüyor, fırın eklemek geliri $1,25'ten $1,5/sn'ye çıkarıyordu.
+  2. **Eşya değerleri:** Değer = girdilerin toplamı × ~1,5–2. Çerçeve 90→40, motor 45→50, sensör 55→50, mikroçip 80→60, gövde paneli 450→45, yönlendirme bilgisayarı 350→320, itici blok 600→400 (eskiden itici blok girdilerinden ucuzdu, gövde paneli girdisinin 20 katıydı).
+  3. **Aşamalar (eşik → ödül):** 1: $50 ciro → $100 · 2: 60 toz → $150 · 3: 30 külçe → $250 · 4: parsel 1 + $600 ciro → $300 · 5: 40 levha → $400 · 6: 40 dişli + $2.500 ciro → $1.000 · 7: parsel 2 + 40 tel → $1.500 · 8: 30 motor + $8.000 ciro → $2.500 · 9: parsel 3 + 20 çerçeve → $4.000 · 10: parsel 4 + 10 itici blok + $40.000 ciro → $10.000 ve +%50.
+  4. **Parsel 4:** $50.000 → $30.000.
+  5. **Toplam ciro:** yalnız ihracat ve tıklama; aşama ödülü artık sayılmaz (eskiden 2. ve 4. aşama ödüller yüzünden anında tamamlanıyordu).
+* **Ölçüm:** Aynı bot ve aynı yerleşimle, gerçek simülasyon sınıfları üzerinde. Eski değerler: 9. aşama 10,8 dk, 2. ve 4. aşama 0,0 dk, ciro $25.138 (çoğu ödül). Yeni değerler: 9. aşama 15,6 dk, aşamalar 0,9 / 1,3 / 1,1 / 1,5 / 1,6 / 2,6 / 2,1 / 2,8 / 1,6 dk, gelir $0,9 → $35/sn.

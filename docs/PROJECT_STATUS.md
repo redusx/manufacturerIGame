@@ -20,8 +20,8 @@
 | M3 | Tek ekonomi (iade istismarı, gerçek $/sn, eski idle ekonominin akıştan çıkarılması, çevrimdışı gelir) | **TAMAMLANDI** (2026-10-06, commit `257591f`) |
 | M4 | İlerleme omurgası (10 aşamalı müfredat sahnede, somut görevler, makine/hangar kilitleri) | **TAMAMLANDI** (2026-10-06, tarayıcıda doğrulandı) |
 | M5 | Hammaddeler (bakır, kum, polimer girişleri aşamayla açılır; ek giriş satın alınarak hammadde artırılır) | **TAMAMLANDI** (2026-10-06, tarayıcıda doğrulandı, commit `704e118`) |
-| M6 | Roket bağlantısı (fabrika → hangar parça akışı, uçuş ödülü, uçuşta fabrika çalışır) | **TAMAMLANDI** (2026-10-06, tarayıcıda doğrulandı) |
-| M7 | Denge geçişi | Bekliyor |
+| M6 | Roket bağlantısı (fabrika → hangar parça akışı, uçuş ödülü, uçuşta fabrika çalışır) | **TAMAMLANDI** (2026-10-06, tarayıcıda doğrulandı, commit `0a151f8`) |
+| M7 | Denge geçişi (eşya değerleri, reçete süreleri, aşama eşik ve ödülleri) | **TAMAMLANDI** (2026-10-06; 1–3. aşamalar tarayıcıda, 1–9. aşamalar başsız simülasyonla ölçüldü) |
 | M8 | Sürükleyerek bant çizimi | Bekliyor |
 | M9 | Uzun vade (kontratlar, roket sonrası kademeler) | Bekliyor |
 | M10 | Temizlik ve yayın (ölü kod, doküman eşitleme, mobil düzen) | Bekliyor |
@@ -43,7 +43,10 @@
   - **Reçete tuzağı:** Yeni kurulan makine ilk reçetesiyle başlar (kırıcı=demir, fırın=demir, kesici=bakır tel); yanlış reçetede hat sessizce tıkanır, oyuncu reçeteyi inceleme penceresinden seçmelidir.
   - **3 girdili reçeteler (yönlendirme bilgisayarı, itici blok) ekranda oynanmadı;** 2 girdili motor hattı, plastik ve optik cam ihracı doğrulandı.
   - **Uzak yakınlaştırmada (0.75x ve altı) giriş/makine etiketleri okunmuyor.**
-  - Aşama ödülleri ve eşikleri dengelenmedi (ilk iki aşama ~1,5 dakikada bitiyor) (M7).
+  - **M7 sonrası denge (DEC-019):** Hedef, ilgili bir oyuncunun 10 aşamayı ~40–50 dakikada bitirmesidir (varsayım; kullanıcı onayı bekliyor). Hiç beklemeden kuran bot 9. aşamayı 15,6 dakikada bitiriyor (aşama başına 0,9–2,8 dk). "Toplam ciro" yalnız ihracat ve tıklamadan oluşur; aşama ödülü, uçuş primi ve iade sayılmaz.
+  - 10. aşama (itici blok hattı, $30.000 parsel, $40.000 ciro) simüle edilmedi ve oynanmadı; süresi yalnız tahmindir (~10–15 dk ek).
+  - Makine seviye yükseltmesi (maliyet ×1,15, hız +%20/seviye), uçuş mesafe çarpanları (+%75) ve roket yükseltme bedelleri M7'de değiştirilmedi.
+  - **Giriş tuzağı:** Giriş, yanındaki her banda hammadde basar; girişin yanından geçen başka bir hattın bandı ham cevherle dolup tıkanır.
   - Sekme arka plandayken fabrika durur ve geri dönünce telafi edilmez; çevrimdışı gelir yalnız sayfa yeniden açılınca hesaplanır.
   - Eski idle ekonominin sınıf ve dosyaları (`MachineModal`, `MachineCard`, `FactoryView`, `DOMUIManager`, `EconomyManager` içindeki 4 makine) hâlâ depoda; oyun akışı kullanmıyor (M10'da silinecek).
   - Dokunmatik: iki parmakla yakınlaştırma (pinch) yok; yerleştirme/söküm modunda kamera kaydırılamıyor. Büyük fabrikalarda (20x16 ve üzeri) telefonda hücreler çok küçülüyor.

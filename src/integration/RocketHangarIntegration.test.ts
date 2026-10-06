@@ -69,26 +69,26 @@ describe('TASK-INT-01: Rocket Hangar & Economy Integration Tests', () => {
     assert.strictEqual(bridge.canAffordUpgrade('hull', factoryEconomy), false);
     assert.strictEqual(bridge.canAffordQuickBuild('hull', factoryEconomy), false);
 
-    // Give player enough cash for quick build ($500 base + 5 frames * $90 * 4 = $2,300)
+    // Give player enough cash for quick build ($500 base + 5 frames * $40 * 4 = $1,300)
     economy.addResources(3000);
 
     // Standard upgrade requires physical parts
     assert.strictEqual(bridge.hasRequiredParts('hull'), false);
     assert.strictEqual(bridge.canAffordUpgrade('hull', factoryEconomy), false);
 
-    // Quick build is affordable because player has $3,000 >= $2,300
+    // Quick build is affordable because player has $3,000 >= $1,300
     assert.strictEqual(bridge.canAffordQuickBuild('hull', factoryEconomy), true);
-    assert.strictEqual(bridge.getMissingPartsTotalCost('hull'), 1800);
-    assert.strictEqual(bridge.getTotalUpgradeCostWithMissingParts('hull'), 2300);
+    assert.strictEqual(bridge.getMissingPartsTotalCost('hull'), 800);
+    assert.strictEqual(bridge.getTotalUpgradeCostWithMissingParts('hull'), 1300);
 
     // Upgrade hull with quick build (allowProcureMissing = true)
     const upgraded = bridge.upgradeModule('hull', factoryEconomy, true);
     assert.strictEqual(upgraded, true);
     assert.strictEqual(bridge.getModuleLevel('hull'), 2);
 
-    // Check money deduction: $3,000 - $2,300 = $700 remaining
-    assert.strictEqual(economy.resources.toNumber(), 700);
-    assert.strictEqual(factoryEconomy.money, 700);
+    // Check money deduction: $3,000 - $1,300 = $1,700 remaining
+    assert.strictEqual(economy.resources.toNumber(), 1700);
+    assert.strictEqual(factoryEconomy.money, 1700);
 
     // Sync to EconomyManager (matching RocketHangarView behavior)
     economy.setRocketUpgradeLevel('hull', bridge.getModuleLevel('hull'));
@@ -143,7 +143,7 @@ describe('TASK-INT-01: Rocket Hangar & Economy Integration Tests', () => {
     );
     assert.strictEqual(vmQuickBuild.btnText, 'HIZLI İNŞA');
     assert.strictEqual(vmQuickBuild.canAfford, true);
-    assert.strictEqual(vmQuickBuild.costText, `$${(2300).toLocaleString()}`);
+    assert.strictEqual(vmQuickBuild.costText, `$${(1300).toLocaleString()}`);
 
     // Deposit parts: becomes standard İNŞA ET at base price
     bridge.depositPart('reinforced_frame', 5);

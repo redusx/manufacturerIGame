@@ -32,15 +32,15 @@ describe('RecipeRegistry', () => {
     assert.ok(assembling.length >= 4, 'Should have multi-input assembling recipes');
   });
 
-  it('Smelting must take longer than crushing (inherent rate mismatch / bottleneck design)', () => {
+  it('Smelting keeps pace with crushing (each added step must raise income, not throttle it)', () => {
     const crush = defaultRecipeRegistry.getOrThrow('recipe_crush_iron_ore');
     const smelt = defaultRecipeRegistry.getOrThrow('recipe_smelt_iron_ingot');
 
     assert.ok(
-      smelt.processingTimeSec > crush.processingTimeSec,
-      'Smelting must take longer than crushing to create production bottlenecks',
+      smelt.processingTimeSec <= crush.processingTimeSec,
+      'A smelter must be able to consume everything one crusher produces',
     );
-    assert.equal(smelt.processingTimeSec, 4.0);
+    assert.equal(smelt.processingTimeSec, 2.0);
     assert.equal(crush.processingTimeSec, 2.0);
   });
 

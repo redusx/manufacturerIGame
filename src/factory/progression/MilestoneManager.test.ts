@@ -69,29 +69,29 @@ describe('MilestoneManager Headless Progression Tests', () => {
     const claim1 = manager.claimCurrentMilestone(economy);
     assert.strictEqual(claim1.success, true);
     assert.strictEqual(claim1.claimedMilestone?.id, 'milestone_01_first_ore');
-    assert.strictEqual(economy.money, 50 + 150); // $50 + $150 reward
+    assert.strictEqual(economy.money, 50 + 100); // $50 + $100 reward
     assert.strictEqual(manager.completedCount, 1);
     assert.strictEqual(manager.isMilestoneCompleted('milestone_01_first_ore'), true);
 
-    // 2. Active milestone should now be Milestone 2 (20 iron_powder)
+    // 2. Active milestone should now be Milestone 2 (60 iron_powder)
     const m2 = manager.getCurrentMilestone();
     assert.ok(m2);
     assert.strictEqual(m2.id, 'milestone_02_crushed_powder');
     assert.strictEqual(manager.isMachineUnlocked('smelter'), false);
 
-    // Record export of 10 iron_powder (50%)
-    manager.recordExport('iron_powder', 10);
+    // Record export of 30 iron_powder (50%)
+    manager.recordExport('iron_powder', 30);
     assert.strictEqual(manager.canClaimCurrentMilestone(economy), false);
 
-    // Record export of 10 more (100%)
-    manager.recordExport('iron_powder', 10);
+    // Record export of 30 more (100%)
+    manager.recordExport('iron_powder', 30);
     assert.strictEqual(manager.canClaimCurrentMilestone(economy), true);
 
     // Claim Milestone 2 -> Should unlock smelter!
     const claim2 = manager.claimCurrentMilestone(economy);
     assert.strictEqual(claim2.success, true);
     assert.strictEqual(manager.isMachineUnlocked('smelter'), true);
-    assert.strictEqual(economy.money, 200 + 300); // previous + $300 reward
+    assert.strictEqual(economy.money, 50 + 100 + 150); // $50 + $100 (m1) + $150 (m2)
   });
 
   it('Should enforce plot unlock condition for Milestone 4', () => {
@@ -101,11 +101,11 @@ describe('MilestoneManager Headless Progression Tests', () => {
     // Fast-forward to Milestone 4 (index 3)
     // m1: $50
     manager.claimCurrentMilestone(economy);
-    // m2: 20 iron_powder
-    manager.recordExport('iron_powder', 20);
+    // m2: 60 iron_powder
+    manager.recordExport('iron_powder', 60);
     manager.claimCurrentMilestone(economy);
-    // m3: 20 iron_ingot
-    manager.recordExport('iron_ingot', 20);
+    // m3: 30 iron_ingot
+    manager.recordExport('iron_ingot', 30);
     manager.claimCurrentMilestone(economy);
 
     // Now at Milestone 4: 'milestone_04_foundry_expansion'
@@ -113,7 +113,7 @@ describe('MilestoneManager Headless Progression Tests', () => {
     assert.ok(m4);
     assert.strictEqual(m4.id, 'milestone_04_foundry_expansion');
 
-    // Total earned > 1000 is met (economy has 5000), but Plot 1 is not unlocked yet
+    // Total earned > 600 is met (economy has 5000), but Plot 1 is not unlocked yet
     assert.strictEqual(manager.canClaimCurrentMilestone(economy), false);
 
     // Unlock Plot 1 ($500)
@@ -145,8 +145,8 @@ describe('MilestoneManager Headless Progression Tests', () => {
     assert.strictEqual(m6.id, 'milestone_06_gears_and_hangar');
     assert.strictEqual(manager.isFeatureUnlocked('ROCKET_HANGAR'), false);
 
-    // Meet conditions: 25 steel_gear + $3500 earned
-    manager.recordExport('steel_gear', 25);
+    // Meet conditions: 40 steel_gear + $2500 earned
+    manager.recordExport('steel_gear', 40);
     assert.strictEqual(manager.canClaimCurrentMilestone(economy), true);
 
     manager.claimCurrentMilestone(economy);

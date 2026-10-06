@@ -216,7 +216,7 @@ export class ItemRegistry {
       id: 'electric_motor',
       name: 'Elektrik Motoru',
       tier: 3,
-      baseValue: 45,
+      baseValue: 50,
       spriteKey: 'pickup_gear',
       colorTint: 0x2980b9,
     });
@@ -225,7 +225,7 @@ export class ItemRegistry {
       id: 'optical_sensor',
       name: 'Optik Tarayıcı Sensör',
       tier: 3,
-      baseValue: 55,
+      baseValue: 50,
       spriteKey: 'pickup_crystal',
       colorTint: 0x1abc9c,
     });
@@ -234,7 +234,7 @@ export class ItemRegistry {
       id: 'microchip',
       name: 'Aviyonik Mikroçip',
       tier: 3,
-      baseValue: 80,
+      baseValue: 60,
       spriteKey: 'pickup_crystal',
       colorTint: 0x2ecc71,
     });
@@ -243,7 +243,7 @@ export class ItemRegistry {
       id: 'reinforced_frame',
       name: 'Güçlendirilmiş Gövde Çerçevesi',
       tier: 3,
-      baseValue: 90,
+      baseValue: 40,
       spriteKey: 'pickup_gear',
       colorTint: 0xffffff,
     });
@@ -255,7 +255,7 @@ export class ItemRegistry {
       id: 'guidance_computer',
       name: 'Güdüm & Navigasyon Bilgisayarı',
       tier: 4,
-      baseValue: 350,
+      baseValue: 320,
       spriteKey: 'coin_gold',
       colorTint: 0x00d2d3,
     });
@@ -264,7 +264,7 @@ export class ItemRegistry {
       id: 'rocket_thruster_block',
       name: 'Güdümlü Roket İtici Blok',
       tier: 4,
-      baseValue: 600,
+      baseValue: 400,
       spriteKey: 'coin_gold',
       colorTint: 0xe74c3c,
     });
@@ -273,7 +273,7 @@ export class ItemRegistry {
       id: 'aero_hull_plate',
       name: 'Aerodinamik Titanyum Kompozit Panel',
       tier: 4,
-      baseValue: 450,
+      baseValue: 45,
       spriteKey: 'coin_gold',
       colorTint: 0xf39c12,
     });
