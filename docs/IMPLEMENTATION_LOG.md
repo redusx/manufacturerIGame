@@ -1174,3 +1174,14 @@
 
 **Doğrulama:** `npm test` 285/285, `npx tsc --noEmit` temiz, `npm run build` başarılı. Başsız simülasyon (depoya eklenmedi; gerçek `GridMap`/`LogisticsNetwork`/`ProductionEngine`/`FactoryEconomy`/`MilestoneManager`/`PlacementMath` sınıflarıyla, parası yetince kuran bot) 1–9. aşamaları ölçtü. Tarayıcıda taze kayıtla 1. aşama 39. sn'de, 2. aşama 120. sn'de, fırın kurulduktan sonra 3. aşama 212. sn'de bitti; gelir $2,9/sn, ödüller ciroya yazılmadı.
 
+### [2026-10-06] — REVIVAL M8: Sürükleyerek Bant Çizimi
+
+**Amaç:** Bantları hücre hücre tıklayıp R ile döndürmek yerine sürükleyerek çizmek.
+
+**Yapılanlar:**
+- `PlacementMath`: `stepsBetween` (iki hücre arasını dört yönlü adımlarla doldurur; imleç hücre atlasa da hat kopmaz) ve `directionBetween`.
+- `PlacementController`: bant için `beltStroke` durumu; `pointerdown` çizgiyi başlatır, `pointermove` geçilen hücreye çıkış yönünde bant döşer, `pointerup` son hücreyi döşer. Sürüklerken dolu hücreler hata sarsıntısı vermeden atlanır. Makine ve giriş yerleşimi değişmedi.
+- `GameScene`: yerleşim çubuğu ipucu "Tıkla veya sürükle" / "Dokun veya sürükle".
+
+**Doğrulama:** `npm test` 285/285, `npx tsc --noEmit` temiz, `npm run build` başarılı. Tarayıcıda: fareyle tek sürüklemede köşeli 6 bantlık hat; tek tıkla tek bant; mevcut bandın üstünden geçen sürüklemede dolu hücre atlandı; mobil görünümde dokunmatik sürüklemeyle (sentetik dokunma olayları) köşeli 5 bantlık hat.
+

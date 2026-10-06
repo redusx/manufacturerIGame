@@ -128,6 +128,50 @@ export class PlacementMath {
   }
 
   /**
+   * İki hücre arasını dört yönlü komşu adımlarla doldurur (`from` hariç, `to` dahil).
+   * İmleç bir karede birden çok hücre atlasa da sürükleyerek çizilen bant kopmaz.
+   * Önce uzun eksende ilerler; çapraz harekette tek köşeli (L) bir yol verir.
+   */
+  static stepsBetween(from: GridCoord, to: GridCoord): GridCoord[] {
+    const steps: GridCoord[] = [];
+    let { x, y } = from;
+    const horizontalFirst = Math.abs(to.x - from.x) >= Math.abs(to.y - from.y);
+
+    const walkX = (): void => {
+      while (x !== to.x) {
+        x += Math.sign(to.x - x);
+        steps.push({ x, y });
+      }
+    };
+    const walkY = (): void => {
+      while (y !== to.y) {
+        y += Math.sign(to.y - y);
+        steps.push({ x, y });
+      }
+    };
+
+    if (horizontalFirst) {
+      walkX();
+      walkY();
+    } else {
+      walkY();
+      walkX();
+    }
+    return steps;
+  }
+
+  /** Komşu iki hücre arasındaki akış yönü (`from` -> `to`); komşu değilse null */
+  static directionBetween(from: GridCoord, to: GridCoord): Direction | null {
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    if (dx === 1 && dy === 0) return 'EAST';
+    if (dx === -1 && dy === 0) return 'WEST';
+    if (dx === 0 && dy === 1) return 'SOUTH';
+    if (dx === 0 && dy === -1) return 'NORTH';
+    return null;
+  }
+
+  /**
    * Yönü rotasyon açısına (0, 90, 180, 270 derece) dönüştürür.
    */
   static directionToRotationDeg(direction: Direction): 0 | 90 | 180 | 270 {

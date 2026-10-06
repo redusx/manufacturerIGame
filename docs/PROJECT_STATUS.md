@@ -21,8 +21,8 @@
 | M4 | İlerleme omurgası (10 aşamalı müfredat sahnede, somut görevler, makine/hangar kilitleri) | **TAMAMLANDI** (2026-10-06, tarayıcıda doğrulandı) |
 | M5 | Hammaddeler (bakır, kum, polimer girişleri aşamayla açılır; ek giriş satın alınarak hammadde artırılır) | **TAMAMLANDI** (2026-10-06, tarayıcıda doğrulandı, commit `704e118`) |
 | M6 | Roket bağlantısı (fabrika → hangar parça akışı, uçuş ödülü, uçuşta fabrika çalışır) | **TAMAMLANDI** (2026-10-06, tarayıcıda doğrulandı, commit `0a151f8`) |
-| M7 | Denge geçişi (eşya değerleri, reçete süreleri, aşama eşik ve ödülleri) | **TAMAMLANDI** (2026-10-06; 1–3. aşamalar tarayıcıda, 1–9. aşamalar başsız simülasyonla ölçüldü) |
-| M8 | Sürükleyerek bant çizimi | Bekliyor |
+| M7 | Denge geçişi (eşya değerleri, reçete süreleri, aşama eşik ve ödülleri) | **TAMAMLANDI** (2026-10-06; 1–3. aşamalar tarayıcıda, 1–9. aşamalar başsız simülasyonla ölçüldü, commit `7cc8aec`) |
+| M8 | Sürükleyerek bant çizimi | **TAMAMLANDI** (2026-10-06, tarayıcıda fare ve dokunmatikle doğrulandı) |
 | M9 | Uzun vade (kontratlar, roket sonrası kademeler) | Bekliyor |
 | M10 | Temizlik ve yayın (ölü kod, doküman eşitleme, mobil düzen) | Bekliyor |
 
@@ -35,6 +35,7 @@
   - Söküm iadesi %100'dür ama "toplam kazanç" sayılmaz; hedefleri ilerletmez.
   - Üstteki `/sn`, son 60 saniyenin ölçülmüş ihracat ortalamasıdır; çevrimdışı gelir kayıt anındaki bu hızla hesaplanır (en fazla 4 saat, %50 verim).
   - Kayıt sürümü 4; eski sürüm kayıtları taşınmaz, silinir (DEC-014).
+* **Bant çizimi (M8):** Bant modunda basılı tutup sürüklemek hat çizer; her bant imlecin hücreden çıktığı yöne bakar, köşeler kendiliğinden döner. Tek tık/dokunuş tek bant döşer (R ile yön). Bant artık basınca değil bırakınca döşenir. Dolu hücreler atlanır; mevcut bandın yönü sürükleyerek değiştirilemez.
 * **Bilinen açık sorunlar:**
   - **M6 sonrası roket kuralları (DEC-018):** Hangar açıkken, roketin sıradaki yükseltmesinin beklediği parça ihraç edilince satılmaz, hangara gider (ihtiyaç dolunca satış sürer). Uçuş roket parçası vermez. Uçuş primi = fabrikanın o anki $/sn geliri × kazanılan süre (40 m = 1 sn, 100 m irtifa = 1 sn, dişli 1 sn, kristal 3 sn, kaçınma 0,5 sn; en fazla 180 sn; taban $1/sn) ve "toplam kazanç" sayılmaz. Hızlı inşada eksik parça satış değerinin 4 katıdır. Uçuş dönüşünde fabrika geçen gerçek süre kadar (en fazla 10 dk) simüle edilir.
   - Uçuş mesafe kilometre taşları hâlâ kalıcı gelir çarpanı veriyor (toplam +%75); dengesi M7'de.

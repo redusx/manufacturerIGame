@@ -1597,10 +1597,10 @@ export class GameScene extends Phaser.Scene {
       }
 
       const hint = !isTouch
-        ? 'Izgaraya tıkla'
+        ? item.type === 'CONVEYOR' ? 'Tıkla veya sürükle' : 'Izgaraya tıkla'
         : this.placementController.needsTouchConfirm
           ? 'Dokun: önizle, tekrar dokun: kur'
-          : 'Izgaraya dokun';
+          : 'Dokun veya sürükle';
       this.placementBarText.setText(`🏗️ ${itemName.toUpperCase()} ($${cost})${sep}${hint}`);
     }
   }

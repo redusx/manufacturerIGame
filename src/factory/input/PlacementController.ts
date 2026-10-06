@@ -76,6 +76,12 @@ export class PlacementController {
   /** Son geçerlilik değerlendirmesi */
   private lastValidation: PlacementValidationResult | null = null;
 
+  /**
+   * Sürükleyerek bant çizimi: basılı tutulurken son geçilen hücre ve son hareket yönü.
+   * Bant, imleç hücreden çıkarken çıkış yönüne bakacak şekilde döşenir.
+   */
+  private beltStroke: { last: GridCoord; direction: Direction | null } | null = null;
+
   /** Hayalet önizleme konteyneri */
   readonly ghostContainer: Phaser.GameObjects.Container;
   private ghostBoxGraphics: Phaser.GameObjects.Graphics;
@@ -144,6 +150,7 @@ export class PlacementController {
   private bindInputs(): void {
     this.scene.input.on('pointermove', this.handlePointerMove, this);
     this.scene.input.on('pointerdown', this.handlePointerDown, this);
+    this.scene.input.on('pointerup', this.handlePointerUp, this);
 
     if (this.scene.input.keyboard) {
       this.keyR = this.scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
@@ -209,6 +216,7 @@ export class PlacementController {
   cancelPlacement(): void {
     this._isActive = false;
     this.selectedItem = null;
+    this.beltStroke = null;
     this.ghostContainer.setVisible(false);
 
     if (this.ghostSprite) {
@@ -270,7 +278,42 @@ export class PlacementController {
   private handlePointerMove(pointer: Phaser.Input.Pointer): void {
     if (!this._isActive || !this.selectedItem) return;
 
-    this.moveGhostTo(this.coordUnder(pointer));
+    const coord = this.coordUnder(pointer);
+
+    if (this.beltStroke && pointer.isDown) {
+      // Geçilen her hücreye, bir sonrakine bakan bant döşe
+      for (const next of PlacementMath.stepsBetween(this.beltStroke.last, coord)) {
+        const direction = PlacementMath.directionBetween(this.beltStroke.last, next);
+        if (!direction) break;
+        this.placeBeltAt(this.beltStroke.last, direction);
+        if (!this.beltStroke) return; // yerleşim modu bu sırada kapandı
+        this.beltStroke.last = next;
+        this.beltStroke.direction = direction;
+      }
+    }
+
+    this.moveGhostTo(coord);
+  }
+
+  /** Sürükleme bittiğinde çizginin son hücresini (tek tıkta tek bandı) döşer */
+  private handlePointerUp(): void {
+    const stroke = this.beltStroke;
+    this.beltStroke = null;
+    if (!stroke || !this._isActive || this.selectedItem?.type !== 'CONVEYOR') return;
+
+    const isSingleClick = stroke.direction === null;
+    this.placeBeltAt(stroke.last, stroke.direction ?? this.currentRotation, !isSingleClick);
+  }
+
+  /**
+   * Çizim sırasında tek bir hücreye bant döşer. Sürüklerken dolu hücrelerin üstünden
+   * geçmek olağandır; `quiet` iken başarısız yerleşim hata sarsıntısı vermez.
+   */
+  private placeBeltAt(coord: GridCoord, direction: Direction, quiet = true): void {
+    this.currentRotation = direction;
+    this.currentCoord = coord;
+    this.updateGhostPosition();
+    this.tryPlaceCurrent(quiet);
   }
 
   private handlePointerDown(
@@ -305,13 +348,19 @@ export class PlacementController {
       this.moveGhostTo(pressed);
     }
 
+    // Bant basınca değil bırakınca döşenir: basılı tutup sürüklemek hat çizer
+    if (this.selectedItem.type === 'CONVEYOR') {
+      this.beltStroke = { last: pressed, direction: null };
+      return;
+    }
+
     this.tryPlaceCurrent();
   }
 
   /**
    * Anlık konuma yerleşimi gerçekleştirmeyi dener.
    */
-  private tryPlaceCurrent(): void {
+  private tryPlaceCurrent(quiet = false): void {
     if (!this.selectedItem) return;
 
     const dimensions = this.economy.getCurrentFactoryDimensions();
@@ -347,7 +396,7 @@ export class PlacementController {
         // Yeni konumu tekrar doğrula
         this.updateGhostVisuals();
       }
-    } else {
+    } else if (!quiet) {
       this.playErrorShakeEffect();
     }
   }
@@ -597,6 +646,7 @@ export class PlacementController {
   destroy(): void {
     this.scene.input.off('pointermove', this.handlePointerMove, this);
     this.scene.input.off('pointerdown', this.handlePointerDown, this);
+    this.scene.input.off('pointerup', this.handlePointerUp, this);
 
     if (this.keyR) this.keyR.destroy();
     if (this.keyEsc) this.keyEsc.destroy();
