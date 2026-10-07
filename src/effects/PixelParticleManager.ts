@@ -8,7 +8,22 @@
 
 import Phaser from 'phaser';
 import { PALETTE, FONT_FAMILY } from '../ui/theme.ts';
+import { UiLayer } from '../ui/system/UiLayer.ts';
 import { PixelParticleHelper } from './PixelParticleHelper.ts';
+
+/**
+ * Efektin çizileceği uzay. 'world': fabrika/uçuş dünyası (dünya kamerası, dünya
+ * koordinatı) · 'ui': arayüz (arayüz kamerası, arayüz birimi). Yanlış uzayda
+ * çizilen efekt ekranın başka bir yerinde ikinci kez görünür.
+ */
+export type FxSpace = 'world' | 'ui';
+
+function placeInSpace<T extends Phaser.GameObjects.GameObject>(scene: Phaser.Scene, object: T, space: FxSpace): T {
+  if (space === 'ui') {
+    UiLayer.get(scene)?.adopt(object);
+  }
+  return object;
+}
 
 export class PixelParticleManager {
   private static instance: PixelParticleManager | null = null;
@@ -29,12 +44,13 @@ export class PixelParticleManager {
     y: number,
     count = 14,
     color: number = PALETTE.resourceGold,
+    space: FxSpace = 'world',
   ): void {
     const particles = PixelParticleHelper.computeSparkleBurst(x, y, count, color);
 
     for (const p of particles) {
       const size = Math.max(2, Math.round(3 * p.scale));
-      const rect = scene.add.rectangle(p.x, p.y, size, size, p.color).setDepth(300);
+      const rect = placeInSpace(scene, scene.add.rectangle(p.x, p.y, size, size, p.color).setDepth(500), space);
 
       scene.tweens.add({
         targets: rect,
@@ -59,12 +75,13 @@ export class PixelParticleManager {
     x: number,
     y: number,
     count = 28,
+    space: FxSpace = 'world',
   ): void {
     const particles = PixelParticleHelper.computeConfettiBurst(x, y, count);
 
     for (const p of particles) {
       const size = Math.max(3, Math.round(4 * p.scale));
-      const rect = scene.add.rectangle(p.x, p.y, size, size, p.color).setDepth(300);
+      const rect = placeInSpace(scene, scene.add.rectangle(p.x, p.y, size, size, p.color).setDepth(500), space);
 
       scene.tweens.add({
         targets: rect,
@@ -89,11 +106,12 @@ export class PixelParticleManager {
     x: number,
     y: number,
     count = 16,
+    space: FxSpace = 'world',
   ): void {
     const particles = PixelParticleHelper.computeExplosionBurst(x, y, count);
 
     for (const p of particles) {
-      const rect = scene.add.rectangle(p.x, p.y, 4, 4, p.color).setDepth(300);
+      const rect = placeInSpace(scene, scene.add.rectangle(p.x, p.y, 4, 4, p.color).setDepth(500), space);
 
       scene.tweens.add({
         targets: rect,
@@ -119,15 +137,20 @@ export class PixelParticleManager {
     y: number,
     text: string,
     color = PALETTE.resourceGoldHex,
+    space: FxSpace = 'world',
   ): void {
+    const layer = UiLayer.get(scene);
     const txt = scene.add.text(x, y, text, {
       fontFamily: FONT_FAMILY,
-      fontSize: '11px',
+      fontSize: space === 'ui' ? '14px' : '11px',
       color,
       fontStyle: 'bold',
-      stroke: '#000000',
-      strokeThickness: 2,
-    }).setOrigin(0.5).setDepth(310);
+      stroke: '#070913',
+      strokeThickness: 3,
+      // Dünyadaki yazı dünya kamerasının zoom'unda, arayüzdeki arayüz zoom'unda keskin çizilir
+      resolution: space === 'ui' ? layer?.zoom : layer?.worldTextResolution,
+    }).setOrigin(0.5).setDepth(510);
+    placeInSpace(scene, txt, space);
 
     scene.tweens.add({
       targets: txt,

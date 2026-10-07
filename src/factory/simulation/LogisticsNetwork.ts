@@ -382,20 +382,15 @@ export class LogisticsNetwork {
       ) {
         const machine = this.machineProvider(targetCell.machineInstanceId);
         if (machine) {
-          const port = machine.getPortAt(targetX, targetY);
-          // Bant makine giriş portuna doğru akmalı (port yönünün tersi)
-          if (
-            port &&
-            port.type === 'INPUT' &&
-            port.direction === OPPOSITE_DIRECTIONS[belt.direction]
-          ) {
-            if (machine.canAcceptInput(frontItem.itemId)) {
-              const popped = belt.popFrontItem();
-              if (popped) {
-                machine.addInput(popped.itemId);
-              }
-              continue;
+          // Makineye doğru akan bant, makinenin hangi kenarına dayanırsa dayansın girdiyi
+          // teslim eder (DEC-023). Giriş portu yalnızca önerilen yönü gösterir; çıkış
+          // portu ise bağlayıcıdır. Makine reçetesinin istemediği eşyayı zaten almaz.
+          if (machine.canAcceptInput(frontItem.itemId)) {
+            const popped = belt.popFrontItem();
+            if (popped) {
+              machine.addInput(popped.itemId);
             }
+            continue;
           }
         }
       }

@@ -13,11 +13,11 @@ import { FactoryEconomy } from '../simulation/FactoryEconomy.ts';
 import { ProductionEngine } from '../simulation/ProductionEngine.ts';
 
 export type MilestoneCategory =
-  | 'ATELIER'   // Çağ 1: $8x8 Cevher Atölyesi
-  | 'FOUNDRY'   // Çağ 2: $12x8 Dökümhane
-  | 'WORKSHOP'  // Çağ 3: $16x12 Mekanik İmalathane
-  | 'ASSEMBLY'  // Çağ 4: $20x16 Montaj Fabrikası
-  | 'AEROSPACE'; // Çağ 5: $24x24 Havacılık ve Uzay Kompleksi
+  | 'ATELIER'   // Çağ 1: 8x8 Cevher Atölyesi
+  | 'FOUNDRY'   // Çağ 2: 12x8 Dökümhane
+  | 'WORKSHOP'  // Çağ 3: 16x12 Mekanik İmalathane
+  | 'ASSEMBLY'  // Çağ 4: 20x16 Montaj Fabrikası
+  | 'AEROSPACE'; // Çağ 5: 24x24 Havacılık ve Uzay Kompleksi
 
 export type MilestoneConditionType =
   | 'EXPORT_SPECIFIC_ITEM'    // Belirli bir eşyadan X adet ihraç et
@@ -141,13 +141,13 @@ export const DEFAULT_MILESTONES: readonly MilestoneDefinition[] = Object.freeze(
         type: 'EXPORT_SPECIFIC_ITEM',
         targetItemId: 'iron_ingot',
         targetValue: 30,
-        description: '30 adet Demir Külçesi ihraç et',
+        description: '30 adet Demir Külçe ihraç et',
       },
     ],
     reward: {
       money: 250,
       unlockedFeatures: ['PLOT_1_READY', 'INTAKE_IRON'],
-      description: '$250 ⚙, 1. Parsel ($12x8) hazır ve ek Demir Girişi açıldı!',
+      description: '$250 ⚙, 1. Parsel (12x8) hazır ve ek Demir Girişi açıldı!',
     },
   },
   {
@@ -155,13 +155,13 @@ export const DEFAULT_MILESTONES: readonly MilestoneDefinition[] = Object.freeze(
     index: 3,
     name: 'Dökümhane Genişlemesi',
     category: 'FOUNDRY',
-    tagline: 'Fabrikanı $12x8 boyutuna büyüt ve yeni üretim hattı kur.',
+    tagline: 'Fabrikanı 12x8 boyutuna büyüt ve yeni üretim hattı kur.',
     conditions: [
       {
         type: 'UNLOCK_PLOT',
         targetPlotIndex: 1,
         targetValue: 1,
-        description: '1. Parseli ($12x8) satın al ve aç',
+        description: '1. parseli aç (12x8)',
       },
       {
         type: 'TOTAL_EARNED',
@@ -190,7 +190,7 @@ export const DEFAULT_MILESTONES: readonly MilestoneDefinition[] = Object.freeze(
         type: 'EXPORT_SPECIFIC_ITEM',
         targetItemId: 'iron_plate',
         targetValue: 40,
-        description: '40 adet Demir Levha ihraç et',
+        description: '40 adet Çelik Levha ihraç et',
       },
     ],
     reward: {
@@ -211,7 +211,7 @@ export const DEFAULT_MILESTONES: readonly MilestoneDefinition[] = Object.freeze(
         type: 'EXPORT_SPECIFIC_ITEM',
         targetItemId: 'steel_gear',
         targetValue: 40,
-        description: '40 adet Çelik Dişli ihraç et',
+        description: '40 adet Hassas Dişli ihraç et',
       },
       {
         type: 'TOTAL_EARNED',
@@ -234,19 +234,19 @@ export const DEFAULT_MILESTONES: readonly MilestoneDefinition[] = Object.freeze(
     index: 6,
     name: 'Montaj Hattı',
     category: 'ASSEMBLY',
-    tagline: '2. Parseli ($16x12) aç ve çok girişli makinelerle karmaşık parçalar yap.',
+    tagline: '2. Parseli (16x12) aç ve çok girişli makinelerle karmaşık parçalar yap.',
     conditions: [
       {
         type: 'UNLOCK_PLOT',
         targetPlotIndex: 2,
         targetValue: 1,
-        description: '2. Parseli ($16x12) aç',
+        description: '2. parseli aç (16x12)',
       },
       {
         type: 'EXPORT_SPECIFIC_ITEM',
         targetItemId: 'copper_wire',
         targetValue: 40,
-        description: '40 adet Bakır Tel ihraç et',
+        description: '40 adet Bakır Tel Bobini ihraç et',
       },
     ],
     reward: {
@@ -277,7 +277,7 @@ export const DEFAULT_MILESTONES: readonly MilestoneDefinition[] = Object.freeze(
     reward: {
       money: 2500,
       unlockedFeatures: ['PLOT_3_READY'],
-      description: '$2,500 ⚙ ve 3. Parsel ($20x16) açılışa hazır!',
+      description: '$2,500 ⚙ ve 3. Parsel (20x16) açılışa hazır!',
     },
   },
 
@@ -295,13 +295,13 @@ export const DEFAULT_MILESTONES: readonly MilestoneDefinition[] = Object.freeze(
         type: 'UNLOCK_PLOT',
         targetPlotIndex: 3,
         targetValue: 1,
-        description: '3. Parseli ($20x16) aç',
+        description: '3. parseli aç (20x16)',
       },
       {
         type: 'EXPORT_SPECIFIC_ITEM',
         targetItemId: 'reinforced_frame',
         targetValue: 20,
-        description: '20 adet Güçlendirilmiş Çerçeve ihraç et',
+        description: '20 adet Güçlendirilmiş Gövde Çerçevesi ihraç et',
       },
     ],
     reward: {
@@ -316,19 +316,19 @@ export const DEFAULT_MILESTONES: readonly MilestoneDefinition[] = Object.freeze(
     index: 9,
     name: 'Yörünge Havacılık Kompleksi',
     category: 'AEROSPACE',
-    tagline: 'Mega fabrikayı ($24x24) tamamla ve roket itici blokları ile yörüngeye ulaş!',
+    tagline: 'Mega fabrikayı (24x24) tamamla ve roket itici blokları ile yörüngeye ulaş!',
     conditions: [
       {
         type: 'UNLOCK_PLOT',
         targetPlotIndex: 4,
         targetValue: 1,
-        description: '4. Mega Parseli ($24x24) aç',
+        description: '4. parseli aç (24x24)',
       },
       {
         type: 'EXPORT_SPECIFIC_ITEM',
         targetItemId: 'rocket_thruster_block',
         targetValue: 10,
-        description: '10 adet Roket İtici Bloğu ihraç et',
+        description: '10 adet Güdümlü Roket İtici Blok ihraç et',
       },
       {
         type: 'TOTAL_EARNED',

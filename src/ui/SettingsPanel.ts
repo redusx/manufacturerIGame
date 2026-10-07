@@ -1,236 +1,196 @@
 /* ======================================================================
- * SettingsPanel.ts — Ayarlar paneli (ses kontrolü ve kayıt sıfırlama onayı ile)
- * Tamamen gerçek piksel-art raster dokuları ile oluşturuldu (docs/ART_DIRECTION.md)
+ * SettingsPanel.ts — Ayarlar penceresi
+ *
+ * Arayüz ölçeği (anında uygulanır ve saklanır), ses, tam ekran ve kayıt
+ * sıfırlama. Bir tercihin bu ekranda etkisi yoksa (ekrana sığmadığı için)
+ * düğmesi kapalıdır ve nedeni yazılır.
  * ====================================================================== */
 
 import Phaser from 'phaser';
-import { PALETTE, FONT_FAMILY, PixelUIHelper } from './theme.ts';
 import { sound } from '../audio/SoundManager.ts';
+import { SEMANTIC, SPACE, uiIcon } from './theme.ts';
+import { UiButton } from './system/UiButton.ts';
+import { UiConfirmDialog } from './system/UiConfirmDialog.ts';
+import { UiHost } from './system/UiHost.ts';
+import type { UiLayer } from './system/UiLayer.ts';
+import {
+  isPresetEffective,
+  UI_SCALE_LABELS,
+  UI_SCALE_PRESETS,
+  type UiScalePreset,
+} from './system/UiMetrics.ts';
+import { UiModal } from './system/UiModal.ts';
+import { createDivider } from './system/UiWidgets.ts';
 
-export class SettingsPanel {
-  private scene: Phaser.Scene;
-  public container!: Phaser.GameObjects.Container;
-  private overlay!: Phaser.GameObjects.Rectangle;
-  private panelBlocker!: Phaser.GameObjects.Rectangle;
-  private panelSlice!: Phaser.GameObjects.NineSlice;
-  private titleText!: Phaser.GameObjects.Text;
+const ROW_HEIGHT = 44;
 
-  // Ses Butonu
-  private soundBtnBg!: Phaser.GameObjects.NineSlice;
-  private soundBtnText!: Phaser.GameObjects.Text;
-  private soundBtnZone!: Phaser.GameObjects.Zone;
+/** Masaüstünde gösterilen klavye kısayolları */
+const SHORTCUT_LINES = [
+  'Boşluk / 1: Üret   ·   2: Bant   ·   3 / B: İnşa',
+  '4 / X: Sök   ·   5 / H: Hangar   ·   R: Döndür',
+  'WASD / Oklar: Kamera   ·   Tekerlek: Yakınlaştır',
+  'Esc: Kapat / İptal   ·   Tab, Enter: Düğmeler',
+];
 
-  // Sıfırlama Butonu
-  private resetBtnBg!: Phaser.GameObjects.NineSlice;
-  private resetBtnText!: Phaser.GameObjects.Text;
-  private resetZone!: Phaser.GameObjects.Zone;
-  private closeIcon!: Phaser.GameObjects.Image;
-  private closeZone!: Phaser.GameObjects.Zone;
+export class SettingsPanel extends UiModal {
+  private readonly onReset: () => void;
+  private readonly confirmDialog: UiConfirmDialog;
 
-  private confirmGroup!: Phaser.GameObjects.Container;
-  private confirmBgSlice!: Phaser.GameObjects.NineSlice;
-  private yesBtnBg!: Phaser.GameObjects.NineSlice;
-  private noBtnBg!: Phaser.GameObjects.NineSlice;
-
-  private _visible = false;
-  private onReset: () => void;
-
-  constructor(scene: Phaser.Scene, onReset: () => void) {
-    this.scene = scene;
+  constructor(layer: UiLayer, onReset: () => void) {
+    super(layer, { title: 'Ayarlar', maxWidth: 400, depth: 300, accent: SEMANTIC.secondary });
     this.onReset = onReset;
-    this.create();
+    this.confirmDialog = new UiConfirmDialog(layer);
   }
 
-  get visible(): boolean { return this._visible; }
+  protected buildBody(body: Phaser.GameObjects.Container, width: number): number {
+    const scene = this.scene;
+    const layer = this.layer;
+    let y = 0;
 
-  private create(): void {
-    const s = this.scene;
-    const font: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontFamily: FONT_FAMILY,
+    const sectionTitle = (title: string): void => {
+      body.add(layer.text(0, y, title, 'captionBold', { color: SEMANTIC.textMuted }));
+      y += 20;
     };
 
-    this.container = s.add.container(0, 0).setDepth(200).setVisible(false);
+    // --- Arayüz ölçeği -------------------------------------------------
+    sectionTitle('ARAYÜZ ÖLÇEĞİ');
+    const metrics = layer.metrics;
+    const columns = width >= 360 ? 4 : 2;
+    const gap = SPACE.sm;
+    const buttonWidth = (width - gap * (columns - 1)) / columns;
+    let anyClamped = false;
 
-    // Yarı saydam koyu arka plan (Yalnızca dışarı tıklanınca kapatır)
-    this.overlay = s.add.rectangle(0, 0, 4000, 4000, 0x070913, 0.75)
-      .setOrigin(0.5, 0.5)
-      .setInteractive()
-      .on('pointerdown', () => this.hide());
-    this.container.add(this.overlay);
+    UI_SCALE_PRESETS.forEach((preset, index) => {
+      const column = index % columns;
+      const row = Math.floor(index / columns);
+      const effective = isPresetEffective(metrics, preset);
+      const selected = UiHost.scalePreset === preset;
+      if (!effective) anyClamped = true;
 
-    // Modal Gövdesi Tıklama Engelleyici (Pencere içine tıklanınca kapanmasını önler)
-    this.panelBlocker = s.add.rectangle(0, 0, 280, 270, 0x000000, 0.001)
-      .setOrigin(0.5, 0.5)
-      .setInteractive()
-      .on('pointerdown', (_pointer: any, _lx: number, _ly: number, event?: Phaser.Types.Input.EventData) => {
-        event?.stopPropagation();
+      const button = new UiButton(layer, column * (buttonWidth + gap) + buttonWidth / 2, y + row * (ROW_HEIGHT + gap) + ROW_HEIGHT / 2, {
+        width: buttonWidth,
+        height: ROW_HEIGHT,
+        variant: selected ? 'primary' : 'secondary',
+        label: UI_SCALE_LABELS[preset],
+        textVariant: 'buttonSmall',
+        onClick: () => this.selectScale(preset),
       });
-    this.container.add(this.panelBlocker);
+      button.setSelected(selected);
+      // Bu ekrana sığmayan ölçek seçilemez; seçili olan ise her zaman görünür kalır
+      button.setEnabled(effective || selected);
+      body.add(button);
+    });
+    y += Math.ceil(UI_SCALE_PRESETS.length / columns) * (ROW_HEIGHT + gap);
 
-    // Modal Arka Planı (Raster 9-Slice)
-    this.panelSlice = PixelUIHelper.createModal(s, 0, 0, 280, 270);
-    this.container.add(this.panelSlice);
+    const scaleNote = anyClamped
+      ? 'Bu ekran daha büyük ölçeğe sığmıyor; kapalı seçenekler bu yüzden kullanılamaz.'
+      : 'Yazı, düğme ve pencerelerin büyüklüğünü değiştirir. Fabrika görünümü etkilenmez.';
+    const note = layer.text(0, y, scaleNote, 'caption', { color: SEMANTIC.textMuted, wrapWidth: width });
+    body.add(note);
+    y += note.height + SPACE.md;
 
-    // Başlık
-    this.titleText = s.add.text(0, -95, '⚙ AYARLAR', {
-      ...font, fontSize: '15px', color: PALETTE.resourceGoldHex, fontStyle: 'bold',
-    }).setOrigin(0.5);
-    this.container.add(this.titleText);
+    // --- Ses -------------------------------------------------------------
+    body.add(createDivider(scene, 0, y, width));
+    y += SPACE.md;
+    const muted = sound.isMuted();
+    y = this.addToggleRow(body, width, y, {
+      label: 'Ses efektleri',
+      icon: uiIcon(muted ? 'sound_off' : 'sound_on'),
+      on: !muted,
+      onToggle: () => {
+        const nowMuted = sound.toggleMute();
+        if (!nowMuted) sound.playClick();
+        this.rebuild();
+      },
+    });
 
-    // Kapat butonu (Piksel Kırmızı Çarpı İkonu)
-    this.closeIcon = s.add.image(115, -95, 'icon_close').setOrigin(0.5).setScale(1.2);
-    this.closeZone = s.add.zone(115, -95, 28, 28)
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => {
-        sound.playClick();
-        this.hide();
-      })
-      .on('pointerover', () => this.closeIcon.setScale(1.35))
-      .on('pointerout', () => this.closeIcon.setScale(1.2));
-    this.container.add([this.closeIcon, this.closeZone]);
-
-    // 1. Ses Efektleri Aç / Kapat Butonu (Raster Cyan Launch Butonu)
-    const soundLabel = sound.isMuted() ? '🔇 Ses: KAPALI' : '🔊 Ses: AÇIK';
-    this.soundBtnBg = PixelUIHelper.createButton(s, 0, -40, 200, 36, 'launch');
-    this.container.add(this.soundBtnBg);
-
-    this.soundBtnText = s.add.text(0, -40, soundLabel, {
-      ...font, fontSize: '11px', color: PALETTE.textDark, fontStyle: 'bold',
-    }).setOrigin(0.5);
-    this.container.add(this.soundBtnText);
-
-    this.soundBtnZone = s.add.zone(0, -40, 200, 36)
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => {
-        const muted = sound.toggleMute();
-        this.soundBtnText.setText(muted ? '🔇 Ses: KAPALI' : '🔊 Ses: AÇIK');
-        if (!muted) {
-          sound.playClick();
-        }
-      })
-      .on('pointerover', () => this.soundBtnBg.setScale(1.02))
-      .on('pointerout', () => this.soundBtnBg.setScale(1.0));
-    this.container.add(this.soundBtnZone);
-
-    // 2. Kayıt sıfırla butonu (Raster Tehlike Butonu)
-    this.resetBtnBg = PixelUIHelper.createButton(s, 0, 10, 200, 36, 'danger');
-    this.container.add(this.resetBtnBg);
-
-    this.resetBtnText = s.add.text(0, 10, '🗑 Kaydı Sıfırla', {
-      ...font, fontSize: '11px', color: '#ffffff', fontStyle: 'bold',
-    }).setOrigin(0.5);
-    this.container.add(this.resetBtnText);
-
-    this.resetZone = s.add.zone(0, 10, 200, 36)
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => {
-        sound.playClick();
-        this.resetBtnBg.setTexture('btn_danger_pressed');
-        this.showConfirm();
-      })
-      .on('pointerup', () => {
-        this.resetBtnBg.setTexture('btn_danger_normal');
-      })
-      .on('pointerover', () => {
-        this.resetBtnBg.setScale(1.02);
-      })
-      .on('pointerout', () => {
-        this.resetBtnBg.setScale(1.0);
-        this.resetBtnBg.setTexture('btn_danger_normal');
+    // --- Tam ekran (tarayıcı destekliyorsa) -------------------------------
+    if (typeof document !== 'undefined' && document.fullscreenEnabled) {
+      const isFullscreen = document.fullscreenElement !== null;
+      y = this.addToggleRow(body, width, y, {
+        label: 'Tam ekran',
+        icon: uiIcon('fullscreen'),
+        on: isFullscreen,
+        onToggle: () => {
+          const done = (): void => this.rebuild();
+          if (document.fullscreenElement) {
+            void document.exitFullscreen().then(done, done);
+          } else {
+            void document.documentElement.requestFullscreen().then(done, done);
+          }
+        },
       });
-    this.container.add(this.resetZone);
+    }
 
-    // Onay Grubu (Kayıt Sıfırlama)
-    this.confirmGroup = s.add.container(0, 65).setVisible(false);
+    // --- Klavye kısayolları (yalnız geniş ekranda) -------------------------
+    if (metrics.mode === 'landscape') {
+      body.add(createDivider(scene, 0, y, width));
+      y += SPACE.md;
+      sectionTitle('KLAVYE KISAYOLLARI');
+      for (const line of SHORTCUT_LINES) {
+        const text = layer.text(0, y, line, 'caption', { wrapWidth: width });
+        body.add(text);
+        y += text.height + 4;
+      }
+      y += SPACE.sm;
+    }
 
-    this.confirmBgSlice = PixelUIHelper.createCard(s, 0, 0, 240, 95).setOrigin(0.5, 0.5);
-    this.confirmGroup.add(this.confirmBgSlice);
+    // --- Kayıt -------------------------------------------------------------
+    body.add(createDivider(scene, 0, y, width));
+    y += SPACE.md;
+    const resetButton = new UiButton(layer, width / 2, y + ROW_HEIGHT / 2, {
+      width,
+      height: ROW_HEIGHT,
+      variant: 'danger',
+      label: 'KAYDI SIFIRLA',
+      icon: uiIcon('trash'),
+      iconTint: 0xffffff,
+      onClick: () =>
+        this.confirmDialog.ask({
+          title: 'Kayıt silinsin mi?',
+          message: 'Tüm fabrika, para ve roket ilerlemesi silinir. Bu işlem geri alınamaz.',
+          confirmLabel: 'SİL',
+          danger: true,
+          onConfirm: () => {
+            sound.playDemolish();
+            this.close();
+            this.onReset();
+          },
+        }),
+    });
+    body.add(resetButton);
+    y += ROW_HEIGHT;
 
-    const confirmText = s.add.text(0, -20, 'Emin misin? Tüm fabrika ve roket verisi silinecek!', {
-      ...font, fontSize: '10px', color: PALETTE.textPrimary, align: 'center',
-      wordWrap: { width: 220 },
-    }).setOrigin(0.5);
-    this.confirmGroup.add(confirmText);
-
-    // Evet Butonu (Raster Yeşil Buton)
-    this.yesBtnBg = PixelUIHelper.createButton(s, -55, 18, 80, 28, 'green');
-    const yesBtn = s.add.text(-55, 18, '✓ Evet', {
-      ...font, fontSize: '10px', color: PALETTE.btnAffordableText, fontStyle: 'bold',
-    }).setOrigin(0.5);
-    const yesZone = s.add.zone(-55, 18, 80, 28)
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => {
-        sound.playDemolish();
-        this.yesBtnBg.setTexture('btn_green_pressed');
-        this.onReset();
-        this.hide();
-      });
-    this.confirmGroup.add([this.yesBtnBg, yesBtn, yesZone]);
-
-    // Hayır Butonu (Raster Koyu Buton)
-    this.noBtnBg = PixelUIHelper.createButton(s, 55, 18, 80, 28, 'disabled');
-    const noBtn = s.add.text(55, 18, '✗ İptal', {
-      ...font, fontSize: '10px', color: PALETTE.textPrimary, fontStyle: 'bold',
-    }).setOrigin(0.5);
-    const noZone = s.add.zone(55, 18, 80, 28)
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => {
-        sound.playClick();
-        this.confirmGroup.setVisible(false);
-      });
-    this.confirmGroup.add([this.noBtnBg, noBtn, noZone]);
-
-    this.container.add(this.confirmGroup);
+    return y;
   }
 
-  show(): void {
-    sound.initContext();
-    sound.playClick();
-    this._visible = true;
-    this.soundBtnText.setText(sound.isMuted() ? '🔇 Ses: KAPALI' : '🔊 Ses: AÇIK');
-    this.confirmGroup.setVisible(false);
-    this.container.setVisible(true);
-    this.layout(this.scene.scale.width, this.scene.scale.height);
+  /** Solda etiket, sağda AÇIK/KAPALI düğmesi olan bir ayar satırı ekler; yeni Y'yi döner */
+  private addToggleRow(
+    body: Phaser.GameObjects.Container,
+    width: number,
+    y: number,
+    row: { label: string; icon: string; on: boolean; onToggle: () => void },
+  ): number {
+    const centerY = y + ROW_HEIGHT / 2;
+    const icon = this.scene.add.image(8, centerY, row.icon).setOrigin(0.5);
+    const label = this.layer.text(24, centerY, row.label, 'bodyBold').setOrigin(0, 0.5);
+    const buttonWidth = 96;
+    const button = new UiButton(this.layer, width - buttonWidth / 2, centerY, {
+      width: buttonWidth,
+      height: 40,
+      variant: row.on ? 'primary' : 'secondary',
+      label: row.on ? 'AÇIK' : 'KAPALI',
+      textVariant: 'buttonSmall',
+      silent: true,
+      onClick: row.onToggle,
+    });
+    body.add([icon, label, button]);
+    return y + ROW_HEIGHT + SPACE.sm;
   }
 
-  hide(): void {
-    this._visible = false;
-    this.container.setVisible(false);
-  }
-
-  private showConfirm(): void {
-    this.confirmGroup.setVisible(true);
-  }
-
-  layout(w: number, h: number): void {
-    this.container.setPosition(w / 2, h / 2);
-    const sf = Phaser.Math.Clamp(Math.min(w, h) / 480, 0.7, 1.2);
-
-    const modalW = Math.min(320 * sf, w - 30);
-    const modalH = Math.min(270 * sf, h - 40);
-
-    this.overlay.setSize(w * 2, h * 2);
-    this.panelBlocker.setSize(modalW, modalH);
-    this.panelSlice.setSize(modalW, modalH);
-
-    this.titleText.setPosition(0, -modalH / 2 + 25 * sf);
-    this.closeIcon.setPosition(modalW / 2 - 22 * sf, -modalH / 2 + 25 * sf);
-    this.closeZone.setPosition(modalW / 2 - 22 * sf, -modalH / 2 + 25 * sf);
-
-    this.soundBtnBg.setPosition(0, -modalH * 0.16);
-    this.soundBtnText.setPosition(0, -modalH * 0.16);
-    this.soundBtnZone.setPosition(0, -modalH * 0.16);
-
-    this.resetBtnBg.setPosition(0, modalH * 0.04);
-    this.resetBtnText.setPosition(0, modalH * 0.04);
-    this.resetZone.setPosition(0, modalH * 0.04);
-
-    this.confirmGroup.setPosition(0, modalH * 0.22);
-    this.confirmBgSlice.setSize(modalW - 30, Math.round(95 * sf));
+  private selectScale(preset: UiScalePreset): void {
+    if (UiHost.scalePreset === preset) return;
+    // Ölçek değişince katman tüm arayüzü (bu pencere dahil) yeniden yerleştirir
+    UiHost.setScalePreset(preset);
   }
 }

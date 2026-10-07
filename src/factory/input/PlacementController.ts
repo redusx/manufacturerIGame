@@ -196,6 +196,23 @@ export class PlacementController {
    * Dokunmatikte yerleşim iki adımlıdır (önce önizle, sonra aynı yere dokunup onayla).
    * Ucuz ve seri döşenen düz bant bunun dışındadır; tek dokunuşla kurulur.
    */
+  /**
+   * Girdi geçici olarak kapalı mı? (pencere açık, iki parmak hareketi sürüyor)
+   * Sahne tarafından verilir; kapalıyken basışlar yerleşim sayılmaz.
+   */
+  isInputBlocked?: () => boolean;
+
+  /** Hayaletin durduğu hücreye şu an yerleştirilebilir mi? */
+  get canConfirm(): boolean {
+    return this._isActive && (this.lastValidation?.isValid ?? false);
+  }
+
+  /** Hayaletin durduğu hücreye yerleştirir (dokunmatikteki "Onayla" düğmesi) */
+  confirmPlacement(): void {
+    if (!this._isActive) return;
+    this.tryPlaceCurrent();
+  }
+
   get needsTouchConfirm(): boolean {
     return this.selectedItem !== null && this.selectedItem.type !== 'CONVEYOR';
   }
@@ -277,6 +294,10 @@ export class PlacementController {
 
   private handlePointerMove(pointer: Phaser.Input.Pointer): void {
     if (!this._isActive || !this.selectedItem) return;
+    if (this.isInputBlocked?.()) {
+      this.beltStroke = null;
+      return;
+    }
 
     const coord = this.coordUnder(pointer);
 
@@ -300,6 +321,7 @@ export class PlacementController {
     const stroke = this.beltStroke;
     this.beltStroke = null;
     if (!stroke || !this._isActive || this.selectedItem?.type !== 'CONVEYOR') return;
+    if (this.isInputBlocked?.()) return;
 
     const isSingleClick = stroke.direction === null;
     this.placeBeltAt(stroke.last, stroke.direction ?? this.currentRotation, !isSingleClick);
@@ -321,6 +343,10 @@ export class PlacementController {
     currentlyOver?: Phaser.GameObjects.GameObject[],
   ): void {
     if (!this._isActive || !this.selectedItem) return;
+    if (this.isInputBlocked?.()) {
+      this.beltStroke = null;
+      return;
+    }
 
     // UI'a yapılan basış (ör. katalogdaki "İNŞA ET") zemine yerleşim sayılmaz
     if (isPointerOverUi(currentlyOver, this.camera)) return;

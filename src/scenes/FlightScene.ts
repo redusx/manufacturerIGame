@@ -19,10 +19,6 @@ import type { RocketHangarBridge } from '../factory/simulation/RocketHangarBridg
 import type { FactoryEconomy } from '../factory/simulation/FactoryEconomy';
 import { FlightReturnHelper } from './FlightReturnHelper';
 import {
-  DISTANCE_RESOURCE_RATE,
-  PART_PICKUP_VALUE,
-  CRYSTAL_PICKUP_VALUE,
-  DODGE_BONUS_VALUE,
   BOOST_SPEED_MULTIPLIER,
   getMaxHullHP,
   getMaxBoostDuration,
@@ -33,8 +29,10 @@ import {
   getLiftEfficiency,
   getGroundBounce,
 } from '../data/RocketData';
-import { formatNumber } from '../utils/format';
-import { PALETTE, FONT_FAMILY, PixelUIHelper } from '../ui/theme';
+import { PALETTE, FONT_FAMILY, SEMANTIC } from '../ui/theme';
+import { UiLayer } from '../ui/system/UiLayer.ts';
+import { FlightHud } from '../ui/FlightHud.ts';
+import { FlightReportModal } from '../ui/FlightReportModal.ts';
 import { sound } from '../audio/SoundManager.ts';
 import { fx } from '../effects/PixelParticleManager.ts';
 import { crazyGames } from '../integration/CrazyGamesSDK.ts';
@@ -133,37 +131,26 @@ export class FlightScene extends Phaser.Scene {
   private obstacleSpawnTimer = 0;
   private collectibleSpawnTimer = 0;
 
-  /* HUD */
-  private hudBgSlice!: Phaser.GameObjects.NineSlice;
-  private distText!: Phaser.GameObjects.Text;
-  private altText!: Phaser.GameObjects.Text;
-  private speedText!: Phaser.GameObjects.Text;
-  private scoreText!: Phaser.GameObjects.Text;
-  private earnedText!: Phaser.GameObjects.Text;
-  private coinSprite: Phaser.GameObjects.Sprite | null = null;
+  /* Arayüz: uçuş dünyasından ayrı kamerada, arayüz ölçeğiyle çizilir */
+  private ui!: UiLayer;
+  private hud!: FlightHud;
+  private reportModal!: FlightReportModal;
+
+  /** Uçuş dünyasının görünen boyutu (dünya birimi); fizik ve yerleşim bununla çalışır */
+  private viewW = 360;
+  private viewH = 640;
 
   /* Fırlatma Güç Göstergesi (Rampa Mini-Oyunu) */
-  private launchMeterContainer!: Phaser.GameObjects.Container;
-  private launchBarSlot!: Phaser.GameObjects.NineSlice;
-  private launchBarFill!: Phaser.GameObjects.NineSlice;
-  private launchPowerText!: Phaser.GameObjects.Text;
   private launchPowerTimer = 0;
   private currentLaunchPower = 0.5;
   private isLaunchLocked = false;
 
-  /* Ortalanmış Nitro Butonu & İç Barı */
-  private nitroBtnContainer!: Phaser.GameObjects.Container;
-  private nitroBtnBg!: Phaser.GameObjects.NineSlice;
-  private nitroBarFill!: Phaser.GameObjects.NineSlice;
-  private nitroBtnText!: Phaser.GameObjects.Text;
-  private nitroBtnSubtext!: Phaser.GameObjects.Text;
   private pointerHoldingBoost = false;
+  /** Uçuş sonunda hesaplanan prim (rapor kapanınca fabrikaya aktarılır) */
+  private reportTotal = 0;
 
   /* Kontroller */
   private keySpace!: Phaser.Input.Keyboard.Key;
-
-  /* Uçuş Sonu Raporu */
-  private reportContainer!: Phaser.GameObjects.Container;
 
   constructor() {
     super({ key: 'FlightScene' });
@@ -180,8 +167,15 @@ export class FlightScene extends Phaser.Scene {
   }
 
   create(): void {
-    const w = this.scale.width;
-    const h = this.scale.height;
+    // Arayüz ayrı bir kamerada çizilir; ana kamera uçuş dünyasını çizer. Bundan sonra
+    // sahneye eklenen her nesne dünyaya aittir, arayüz kökleri katman tarafından ayrılır.
+    const uiCamera = this.cameras.add(0, 0, this.scale.width, this.scale.height);
+    this.ui = new UiLayer(this, uiCamera);
+    this.ui.addWorldCamera(this.cameras.main);
+    this.applyWorldCamera();
+
+    const w = this.viewW;
+    const h = this.viewH;
 
     // Piksel art animasyonları (GameScene'den paylaşılmış olabilir, yoksa burada tanımla)
     if (!this.anims.exists('hit_spark_anim') && this.textures.exists('hit_spark')) {
@@ -278,26 +272,46 @@ export class FlightScene extends Phaser.Scene {
     this.currentAngle = -Phaser.Math.DegToRad(60);
     this.createRocket();
 
-    // 5. HUD ve Ortalanmış Nitro Butonu
-    this.createHUD();
+    // 5. Arayüz: üst çubuk, nitro düğmesi, fırlatma göstergesi ve uçuş sonu raporu
+    this.launchPowerTimer = 0;
+    this.isLaunchLocked = false;
+    this.pointerHoldingBoost = false;
+    this.hud = new FlightHud(this.ui, {
+      onNitroDown: () => {
+        if (this.flightState === 'flying') this.pointerHoldingBoost = true;
+      },
+      onNitroUp: () => {
+        this.pointerHoldingBoost = false;
+      },
+    });
+    this.reportModal = new FlightReportModal(this.ui, () => this.returnToFactory(this.reportTotal));
 
     // 6. Kontroller (SPACE, Sol Tık & Tüm Ekran Dokunmatik)
     this.setupControls(w, h);
 
-    // 7. Uçuş Sonu Rapor Paneli
-    this.createReportPanel(w, h);
+    // Pencere boyutu veya arayüz ölçeği değişince dünya kamerası ve arayüz yeniden yerleşir
+    this.ui.onLayout(() => this.handleResize());
+    this.refreshHUD();
+  }
 
-    // 8. Fırlatma Rampası Güç Barı Mini-Oyunu
-    this.createLaunchMeter(w, h);
+  /**
+   * Uçuş dünyasını ekrana sığdırır. Dünya, tuval cihaz çözünürlüğünde çizilse de
+   * eskisiyle aynı büyüklükte görünür: en az 360x640 dünya birimi görünür kalır.
+   */
+  private applyWorldCamera(): void {
+    const m = this.ui.metrics;
+    const cssScale = Math.max(1, Math.min(m.cssWidth / 360, m.cssHeight / 640));
+    // Piksel sanat bozulmasın diye zoom yarım adımlara oturtulur (ART_DIRECTION §3)
+    const zoom = Math.max(0.5, Math.floor((cssScale * m.renderScale) / 0.5 + 1e-6) * 0.5);
 
-    // Yeniden boyutlandırma dinleyicisi. ScaleManager oyun geneline ait olduğundan sahne
-    // kapanınca dinleyici kaldırılmalıdır; kalırsa uçuş bittikten sonraki ilk pencere
-    // boyutu değişiminde yok edilmiş HUD nesnelerine erişip hata fırlatır ve oyun
-    // bir daha yeniden boyutlanmaz.
-    this.scale.on('resize', this.handleResize, this);
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      this.scale.off('resize', this.handleResize, this);
-    });
+    const camera = this.cameras.main;
+    camera.setViewport(0, 0, m.canvasWidth, m.canvasHeight);
+    camera.setOrigin(0, 0);
+    camera.setScroll(0, 0);
+    camera.setZoom(zoom);
+
+    this.viewW = m.canvasWidth / zoom;
+    this.viewH = m.canvasHeight / zoom;
   }
 
   /* ================================================================
@@ -364,63 +378,6 @@ export class FlightScene extends Phaser.Scene {
    * FIRLATMA RAMPASI GÜÇ BARI MİNİ-OYUNU
    * ================================================================ */
 
-  private createLaunchMeter(w: number, h: number): void {
-    this.launchMeterContainer = this.add.container(w / 2, h * 0.44).setDepth(150);
-
-    const cardW = 260;
-    const cardH = 105;
-
-    const bgCard = PixelUIHelper.createCard(this, 0, 0, cardW, cardH).setOrigin(0.5);
-    this.launchMeterContainer.add(bgCard);
-
-    const font: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontFamily: FONT_FAMILY,
-    };
-
-    const title = this.add.text(0, -32, '🚀 FIRLATMA GÜCÜ', {
-      ...font, fontSize: '13px', color: PALETTE.resourceGoldHex, fontStyle: 'bold',
-    }).setOrigin(0.5);
-    this.launchMeterContainer.add(title);
-
-    // Bar Yuvası
-    const slotW = 200;
-    const slotH = 18;
-    this.launchBarSlot = this.add.nineslice(0, -6, 'ui_bar_slot', 0, slotW, slotH, 4, 4, 4, 4)
-      .setOrigin(0.5);
-    this.launchMeterContainer.add(this.launchBarSlot);
-
-    // Bar Dolgusu
-    this.launchBarFill = this.add.nineslice(-slotW / 2 + 2, -6, 'ui_bar_fill_gold', 0, 10, slotH - 4, 2, 2, 2, 2)
-      .setOrigin(0, 0.5);
-    this.launchMeterContainer.add(this.launchBarFill);
-
-    // Yüzde Metni
-    this.launchPowerText = this.add.text(0, -6, '%50', {
-      ...font, fontSize: '10px', color: '#ffffff', fontStyle: 'bold', stroke: '#0a0d1a', strokeThickness: 3,
-    }).setOrigin(0.5);
-    this.launchMeterContainer.add(this.launchPowerText);
-
-    // Ateşle Butonu & Talimatı
-    const btnW = 200;
-    const btnH = 28;
-    const btnBg = PixelUIHelper.createButton(this, 0, 26, btnW, btnH, 'green');
-    this.launchMeterContainer.add(btnBg);
-
-    const btnText = this.add.text(0, 26, '🔥 ATEŞLE! (TIKLA / SPACE)', {
-      ...font, fontSize: '11px', color: PALETTE.btnAffordableText, fontStyle: 'bold',
-    }).setOrigin(0.5);
-    this.launchMeterContainer.add(btnText);
-
-    const zone = this.add.zone(0, 0, cardW + 20, cardH + 20)
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => this.triggerLaunchFromMeter());
-    this.launchMeterContainer.add(zone);
-
-    this.launchPowerTimer = 0;
-    this.isLaunchLocked = false;
-  }
-
   private triggerLaunchFromMeter(): void {
     if (this.isLaunchLocked || this.flightState !== 'countdown') return;
     this.isLaunchLocked = true;
@@ -429,29 +386,16 @@ export class FlightScene extends Phaser.Scene {
     const powerRatio = Phaser.Math.Clamp(this.currentLaunchPower, 0.25, 1.0);
     this.launchVelocity = getLaunchVelocity(this.engineLevel) * (0.45 + 0.55 * powerRatio);
 
-    const w = this.scale.width;
-    const h = this.scale.height;
     const percent = Math.round(powerRatio * 100);
 
     if (powerRatio >= 0.88) {
-      this.showFloatingNotice(w / 2, h * 0.44 - 68, `⭐ MÜKEMMEL FIRLATMA! %${percent}`, '#f1c40f');
-    } else if (powerRatio >= 0.60) {
-      this.showFloatingNotice(w / 2, h * 0.44 - 68, `👍 İYİ FIRLATMA! %${percent}`, '#2ecc71');
+      this.hud.announce(`Mükemmel fırlatma! %${percent}`, SEMANTIC.moneyHex);
+    } else if (powerRatio >= 0.6) {
+      this.hud.announce(`İyi fırlatma! %${percent}`, SEMANTIC.primaryHex);
     } else {
-      this.showFloatingNotice(w / 2, h * 0.44 - 68, `⚠️ ORTA FIRLATMA! %${percent}`, '#e67e22');
+      this.hud.announce(`Zayıf fırlatma: %${percent}`, SEMANTIC.warningHex);
     }
-
-    this.tweens.add({
-      targets: this.launchMeterContainer,
-      alpha: 0,
-      scaleX: 0.8,
-      scaleY: 0.8,
-      duration: 180,
-      ease: 'Back.easeIn',
-      onComplete: () => {
-        this.launchMeterContainer.setVisible(false);
-      },
-    });
+    this.hud.hideLaunchMeter();
 
     this.blastOff();
   }
@@ -534,124 +478,6 @@ export class FlightScene extends Phaser.Scene {
   }
 
   /* ================================================================
-   * HUD VE ORTALANMIŞ NİTRO BUTONU
-   * ================================================================ */
-
-  private createHUD(): void {
-    const font: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontFamily: FONT_FAMILY,
-    };
-
-    const w = this.scale.width;
-    const h = this.scale.height;
-
-    this.hudBgSlice = PixelUIHelper.createPanel(this, 0, 0, w, 52).setDepth(80);
-
-    // Sol: Mesafe, İrtifa, Hız
-    this.distText = this.add.text(16, 10, '📏 Mesafe: 0 m', {
-      ...font, fontSize: '12px', color: PALETTE.textPrimary, fontStyle: 'bold',
-    }).setDepth(82);
-
-    this.altText = this.add.text(16, 26, '☁ İrtifa: 0 m', {
-      ...font, fontSize: '11px', color: PALETTE.rocketCyanHex, fontStyle: 'bold',
-    }).setDepth(82);
-
-    this.speedText = this.add.text(150, 10, '⚡ Hız: 0 km/s', {
-      ...font, fontSize: '11px', color: PALETTE.resourceGoldHex, fontStyle: 'bold',
-    }).setDepth(82);
-
-    // Orta: Kazanılan Kaynak ve Skor
-    this.earnedText = this.add.text(w / 2, 12, '+$0', {
-      ...font, fontSize: '15px', color: PALETTE.successGreenHex, fontStyle: 'bold',
-    }).setDepth(82).setOrigin(0.5, 0);
-
-    this.scoreText = this.add.text(w / 2, 31, '⭐ Skor: 0', {
-      ...font, fontSize: '11px', color: PALETTE.resourceGoldHex, fontStyle: 'bold',
-    }).setDepth(82).setOrigin(0.5, 0);
-
-    // Altın sikke ikonu
-    if (this.textures.exists('coin_gold')) {
-      this.coinSprite = this.add.sprite(0, 0, 'coin_gold', 0).setScale(1.6).setDepth(82);
-      if (this.anims.exists('coin_gold_spin')) {
-        this.coinSprite.play('coin_gold_spin');
-      }
-    }
-
-    // Ortalanmış Nitro Butonu & İç Barı
-    this.createNitroButton(w, h);
-
-    this.updateHUDLayout();
-  }
-
-  private createNitroButton(w: number, h: number): void {
-    const btnW = 200;
-    const btnH = 46;
-
-    this.nitroBtnContainer = this.add.container(w / 2, h - 45).setDepth(110);
-
-    this.nitroBtnBg = PixelUIHelper.createButton(this, 0, 0, btnW, btnH, 'launch');
-    this.nitroBtnContainer.add(this.nitroBtnBg);
-
-    // Butonun içine entegre nitro dolum barı
-    const maxFillW = btnW - 8;
-    this.nitroBarFill = this.add.nineslice(-btnW / 2 + 4, 0, 'ui_bar_fill_cyan', 0, maxFillW, btnH - 8, 3, 3, 3, 3)
-      .setOrigin(0, 0.5)
-      .setAlpha(0.85);
-    this.nitroBtnContainer.add(this.nitroBarFill);
-
-    const font: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontFamily: FONT_FAMILY,
-    };
-
-    this.nitroBtnText = this.add.text(0, -6, '⚡ NİTRO BOOST', {
-      ...font, fontSize: '13px', color: '#ffffff', fontStyle: 'bold', stroke: '#051818', strokeThickness: 3,
-    }).setOrigin(0.5);
-    this.nitroBtnContainer.add(this.nitroBtnText);
-
-    this.nitroBtnSubtext = this.add.text(0, 10, '[BOŞLUK / EKRANA BASILI TUT]', {
-      ...font, fontSize: '9px', color: '#e0f8ff', fontStyle: 'bold', stroke: '#051818', strokeThickness: 2,
-    }).setOrigin(0.5);
-    this.nitroBtnContainer.add(this.nitroBtnSubtext);
-
-    const zone = this.add.zone(0, 0, btnW, btnH)
-      .setOrigin(0.5)
-      .setInteractive()
-      .on('pointerdown', () => {
-        if (this.flightState === 'flying') {
-          this.pointerHoldingBoost = true;
-        }
-      })
-      .on('pointerup', () => {
-        this.pointerHoldingBoost = false;
-      })
-      .on('pointerout', () => {
-        this.pointerHoldingBoost = false;
-      });
-    this.nitroBtnContainer.add(zone);
-  }
-
-  private updateHUDLayout(): void {
-    const w = this.scale.width;
-    const h = this.scale.height;
-
-    this.hudBgSlice.setSize(w, 52);
-    this.earnedText.setPosition(w / 2, 12);
-    this.scoreText.setPosition(w / 2, 31);
-
-    if (this.coinSprite) {
-      this.coinSprite.setPosition(w / 2 - this.earnedText.width / 2 - 14, 20);
-    }
-
-    if (this.nitroBtnContainer) {
-      this.nitroBtnContainer.setPosition(w / 2, h - 45);
-    }
-
-    if (this.launchMeterContainer && this.launchMeterContainer.visible) {
-      this.launchMeterContainer.setPosition(w / 2, h * 0.44);
-    }
-  }
-
-  /* ================================================================
    * HER KARE GÜNCELLEME (UPDATE) & FİZİK MOTORU
    * ================================================================ */
 
@@ -663,20 +489,7 @@ export class FlightScene extends Phaser.Scene {
       this.launchPowerTimer += dt * 3.6;
       this.currentLaunchPower = (Math.sin(this.launchPowerTimer) + 1) / 2;
 
-      const slotW = 200;
-      const fillW = Math.max(4, Math.floor((slotW - 4) * this.currentLaunchPower));
-      this.launchBarFill.setSize(fillW, 12);
-
-      const percent = Math.round(this.currentLaunchPower * 100);
-      this.launchPowerText.setText(`%${percent}`);
-      if (percent >= 85) {
-        this.launchBarFill.setTexture('ui_bar_fill_green');
-        this.launchPowerText.setColor(PALETTE.resourceGoldHex);
-      } else {
-        this.launchBarFill.setTexture('ui_bar_fill_gold');
-        this.launchPowerText.setColor('#ffffff');
-      }
-
+      this.hud.setLaunchPower(this.currentLaunchPower);
       return;
     }
 
@@ -836,8 +649,8 @@ export class FlightScene extends Phaser.Scene {
    * ================================================================ */
 
   private updateParallaxAndCamera(dt: number): void {
-    const w = this.scale.width;
-    const h = this.scale.height;
+    const w = this.viewW;
+    const h = this.viewH;
     const groundH = 45;
     const baseGroundY = h - groundH;
 
@@ -949,8 +762,8 @@ export class FlightScene extends Phaser.Scene {
    * ================================================================ */
 
   private updateObstacles(dt: number): void {
-    const w = this.scale.width;
-    const h = this.scale.height;
+    const w = this.viewW;
+    const h = this.viewH;
     const speedY = -this.vy;
 
     // Engel üretimi (Yalnızca havada iken)
@@ -976,7 +789,7 @@ export class FlightScene extends Phaser.Scene {
         obs.hasBeenDodged = true;
         this.dodgedObstacles++;
         this.flightScore += 20;
-        this.showFloatingNotice(obs.x, obs.y - 15, '✨ KAÇILDI!', '#2ecc71');
+        this.showFloatingNotice(obs.x, obs.y - 15, 'KAÇILDI!', SEMANTIC.primaryHex);
       }
 
       // Ekran dışına çıkınca yok et (yatay veya dikey)
@@ -1018,8 +831,8 @@ export class FlightScene extends Phaser.Scene {
    * ================================================================ */
 
   private updateCollectibles(dt: number): void {
-    const w = this.scale.width;
-    const h = this.scale.height;
+    const w = this.viewW;
+    const h = this.viewH;
     const speedY = -this.vy;
 
     this.collectibleSpawnTimer += dt;
@@ -1109,17 +922,17 @@ export class FlightScene extends Phaser.Scene {
     if (item.type === 'gear') {
       this.collectedGears++;
       this.flightScore += 30;
-      this.showFloatingNotice(this.rocketScreenX, this.rocketScreenY - 20, `+${PART_PICKUP_VALUE} ⚙`, '#f1c40f');
+      this.showFloatingNotice(this.rocketScreenX, this.rocketScreenY - 20, '+1 DİŞLİ', SEMANTIC.moneyHex);
     } else if (item.type === 'crystal') {
       this.collectedCrystals++;
       this.flightScore += 65;
       // Hem motor yakıtını hem de nitroyu doldurur!
       this.currentFuel = Math.min(this.fuelCapacity, this.currentFuel + this.fuelCapacity * 0.25);
       this.currentBoost = Math.min(this.boostCapacity, this.currentBoost + this.boostCapacity * 0.35);
-      this.showFloatingNotice(this.rocketScreenX, this.rocketScreenY - 20, '⚡ YAKIT & NİTRO +%', '#00d2d3');
+      this.showFloatingNotice(this.rocketScreenX, this.rocketScreenY - 20, 'YAKIT + NİTRO', SEMANTIC.rocketHex);
     } else if (item.type === 'repair') {
       this.currentHP = Math.min(this.maxHP, this.currentHP + 35);
-      this.showFloatingNotice(this.rocketScreenX, this.rocketScreenY - 20, '+35 HP', '#2ecc71');
+      this.showFloatingNotice(this.rocketScreenX, this.rocketScreenY - 20, '+35 HP', SEMANTIC.primaryHex);
     }
 
     // Işıltı parçacıkları - piksel raster sprite
@@ -1220,6 +1033,8 @@ export class FlightScene extends Phaser.Scene {
       fontStyle: 'bold',
       stroke: '#0c1020',
       strokeThickness: 3,
+      // Dünyada çizilen yazı, dünya kamerasının zoom'unda keskin üretilir
+      resolution: this.cameras.main.zoom,
     }).setOrigin(0.5).setDepth(60);
 
     this.tweens.add({
@@ -1237,17 +1052,19 @@ export class FlightScene extends Phaser.Scene {
    * ================================================================ */
 
   private refreshHUD(): void {
-    this.distText.setText(`📏 Mesafe: ${Math.floor(this.distance)} m`);
-    this.altText.setText(`☁ İrtifa: ${Math.round(this.altitude * 0.25)} m`);
-
-    const currentSpeed = Math.round(Math.sqrt(this.vx * this.vx + this.vy * this.vy) * 0.7);
-    this.speedText.setText(`⚡ Hız: ${currentSpeed} km/s`);
-
-    const totalEarned = this.calculateTotalEarnedResources();
-    this.earnedText.setText(`+$${formatNumber(totalEarned)}`);
-    this.scoreText.setText(`⭐ Skor: ${this.flightScore}`);
-
-    // this.refreshBars();
+    this.hud.update({
+      distance: this.distance,
+      altitude: this.altitude * 0.25,
+      speed: Math.sqrt(this.vx * this.vx + this.vy * this.vy) * 0.7,
+      earned: this.calculateTotalEarnedResources(),
+      hp: this.currentHP,
+      maxHp: this.maxHP,
+      fuel: this.currentFuel,
+      maxFuel: this.fuelCapacity,
+      boost: this.currentBoost,
+      maxBoost: this.boostCapacity,
+      isBoosting: this.isBoosting,
+    });
   }
 
   private calculateTotalEarnedResources(): number {
@@ -1286,28 +1103,13 @@ export class FlightScene extends Phaser.Scene {
     });
   }
 
-  private createReportPanel(w: number, h: number): void {
-    this.reportContainer = this.add.container(w / 2, h / 2).setDepth(200).setVisible(false);
-  }
-
   private showFlightReport(isCrash: boolean, reasonText: string, totalResources: number): void {
-    const w = this.scale.width;
-    const h = this.scale.height;
-
-    this.reportContainer.setPosition(w / 2, h / 2);
-    this.reportContainer.removeAll(true);
-    this.reportContainer.setVisible(true);
-
-    const font: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontFamily: FONT_FAMILY,
-    };
-
     const prevBest = this.bridge
       ? this.bridge.getFlightStats().bestDistance
-      : (this.economy as any).flightStats?.bestDistance ?? 0;
+      : this.economy.stats.bestDistance;
     const currentMultiplier = this.factoryEconomy ? this.factoryEconomy.revenueMultiplier : 1.0;
 
-    const vm = FlightReturnHelper.buildReportViewModel({
+    const view = FlightReturnHelper.buildReportViewModel({
       distance: this.distance,
       durationSec: this.flightDuration,
       maxAltitude: this.maxAltitude,
@@ -1322,125 +1124,21 @@ export class FlightScene extends Phaser.Scene {
       incomePerSec: this.factoryEconomy?.getRevenuePerSec(),
     });
 
-    const panelW = Math.min(390, w - 24);
-    const hasMilestone = !!vm.milestoneBannerText;
-    const panelH = hasMilestone ? 370 : 340;
-
-    const bgModal = PixelUIHelper.createModal(this, 0, 0, panelW, panelH);
-    this.reportContainer.add(bgModal);
-
-    // Başlık
-    let titleStr: string;
-    let titleColor: string;
-    if (isCrash) {
-      titleStr = `💥 ${reasonText.toUpperCase()}`;
-      titleColor = PALETTE.dangerRedHex;
-    } else if (vm.isNewBestDistance) {
-      crazyGames.happytime();
-      titleStr = '🏆 YENİ MESAFE REKORU!';
-      titleColor = PALETTE.resourceGoldHex;
-    } else {
-      titleStr = '🏆 BAŞARILI UÇUŞ VE İNİŞ!';
-      titleColor = PALETTE.resourceGoldHex;
-    }
-
-    const titleText = this.add.text(0, -panelH / 2 + 24, titleStr, {
-      ...font, fontSize: '15px', color: titleColor, fontStyle: 'bold',
-    }).setOrigin(0.5);
-    this.reportContainer.add(titleText);
-
-    // İstatistik Verileri
-    const items = [
-      { label: '📏 Ulaşılan Mesafe:', val: `${vm.distanceText} (+$${vm.breakdown.distanceCash})` },
-      { label: '⏱ Havada Kalma Süresi:', val: vm.durationText },
-      { label: '☁ Maksimum İrtifa:', val: `${vm.maxAltitudeText} (+$${vm.breakdown.altitudeCash})` },
-      { label: '⚡ Maksimum Hız:', val: vm.maxSpeedText },
-      { label: '⚙ Toplanan Parçalar:', val: vm.gearsText },
-      { label: '💎 Enerji Kristalleri:', val: vm.crystalsText },
-      { label: '⭐ Toplam Uçuş Skoru:', val: vm.scoreText },
-    ];
-
-    let rowY = -panelH / 2 + 54;
-    for (const item of items) {
-      const lbl = this.add.text(-panelW / 2 + 22, rowY, item.label, {
-        ...font, fontSize: '11px', color: PALETTE.textMuted,
-      }).setOrigin(0, 0.5);
-
-      const val = this.add.text(panelW / 2 - 22, rowY, item.val, {
-        ...font, fontSize: '11px', color: PALETTE.textPrimary, fontStyle: 'bold',
-      }).setOrigin(1, 0.5);
-
-      this.reportContainer.add(lbl);
-      this.reportContainer.add(val);
-      rowY += 22;
-    }
-
-    // Kilometre Taşı Çarpan Banner'ı (Varsa)
-    if (vm.milestoneBannerText) {
+    if (view.isNewBestDistance || view.unlockedMilestones.length > 0) {
       crazyGames.happytime();
       sound.playMilestone();
-      fx.emitConfetti(this, this.scale.width / 2, this.scale.height / 2, 28);
-
-      const bannerY = rowY + 10;
-      const bannerBox = PixelUIHelper.createCard(this, 0, bannerY, panelW - 36, 26).setOrigin(0.5, 0.5);
-      this.reportContainer.add(bannerBox);
-
-      const bannerText = this.add.text(0, bannerY, vm.milestoneBannerText, {
-        ...font, fontSize: '10.5px', color: PALETTE.resourceGoldHex, fontStyle: 'bold',
-      }).setOrigin(0.5);
-      this.reportContainer.add(bannerText);
-
-      rowY += 30;
+      fx.emitConfetti(this, this.ui.width / 2, this.ui.height / 2, 28, 'ui');
     }
 
-    // Toplam Kazanım Kartı
-    const gainBoxY = rowY + 12;
-    const gainBox = PixelUIHelper.createCard(this, 0, gainBoxY, panelW - 36, 36).setOrigin(0.5, 0.5);
-    this.reportContainer.add(gainBox);
-
-    const gainText = this.add.text(
-      0,
-      gainBoxY,
-      `UÇUŞ PRİMİ: +$${formatNumber(totalResources)}\n(fabrikanın ${vm.breakdown.incomeSeconds} sn'lik geliri)`,
-      { ...font, fontSize: '11px', color: PALETTE.successGreenHex, fontStyle: 'bold', align: 'center' },
-    ).setOrigin(0.5);
-    this.reportContainer.add(gainText);
-
-    // Fabrikaya Dön Butonu
-    const btnY = panelH / 2 - 28;
-    const btnW = panelW - 50;
-    const btnH = 40;
-
-    const returnBtn = PixelUIHelper.createButton(this, 0, btnY, btnW, btnH, 'manual');
-    this.reportContainer.add(returnBtn);
-
-    const btnText = this.add.text(0, btnY, '🏭 FABRİKAYA DÖN (Geliştirme Yap)', {
-      ...font, fontSize: '12.5px', color: '#1f1003', fontStyle: 'bold',
-    }).setOrigin(0.5);
-    this.reportContainer.add(btnText);
-
-    const returnZone = this.add.zone(0, btnY, btnW, btnH)
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => {
-        sound.playClick();
-        returnBtn.setTexture('btn_manual_pressed');
-        this.returnToFactory(totalResources);
-      })
-      .on('pointerover', () => {
-        returnBtn.setTexture('btn_manual_hover');
-      })
-      .on('pointerout', () => {
-        returnBtn.setTexture('btn_manual_normal');
-      });
-    this.reportContainer.add(returnZone);
-
-    this.reportContainer.setScale(0.85);
-    this.tweens.add({
-      targets: this.reportContainer,
-      scaleX: 1, scaleY: 1,
-      duration: 180,
-      ease: 'Back.easeOut',
+    this.reportTotal = totalResources;
+    this.hud.setVisible(false);
+    this.reportModal.showReport({
+      isCrash,
+      reason: reasonText,
+      totalCash: totalResources,
+      gears: this.collectedGears,
+      crystals: this.collectedCrystals,
+      view,
     });
   }
 
@@ -1481,10 +1179,10 @@ export class FlightScene extends Phaser.Scene {
     }
   }
 
+  /** Pencere boyutu veya arayüz ölçeği değişince dünya kamerasını ve arayüzü yeniden yerleştirir */
   private handleResize(): void {
-    const w = this.scale.width;
-    const h = this.scale.height;
-    this.updateHUDLayout();
-    this.createNitroButton(w, h);
+    this.applyWorldCamera();
+    this.groundTileSprite.setSize(this.viewW, 45);
+    this.hud.layout();
   }
 }

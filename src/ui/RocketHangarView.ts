@@ -1,771 +1,399 @@
 /* ======================================================================
- * RocketHangarView.ts — Canlı Roket Montaj Hangarı ve Fırlatma Kontrolleri
- * Tamamen gerçek piksel-art raster dokuları ile oluşturuldu (docs/ART_DIRECTION.md)
+ * RocketHangarView.ts — Roket hangarı penceresi
+ *
+ * Roketi gösterir, dört modülünü fabrikada üretilen parçalar + parayla
+ * yükseltir ve uçuşu başlatır. Her modül kartı tek bakışta okunur: seviye,
+ * etkisi, beklediği parça (ilerleme çubuğuyla), bedeli ve tek bir eylem.
+ * Pahalı kestirme (hızlı inşa) normal yükseltmeden farklı renkte gösterilir.
+ * Uçuşu başlatma düğmesi pencerenin altında sabittir.
  * ====================================================================== */
 
 import Phaser from 'phaser';
+import { EconomyManager } from '../economy/EconomyManager';
 import {
   ROCKET_UPGRADES,
-  type RocketUpgradeDef,
   getMaxHullHP,
   getFlightSpeed,
-  getSteeringSpeed,
   getMaxBoostDuration,
   getFuelCapacity,
+  type RocketUpgradeDef,
 } from '../data/RocketData';
-import type { EconomyManager } from '../economy/EconomyManager';
+import type { RocketHangarBridge, RocketModuleCategory } from '../factory/simulation/RocketHangarBridge';
+import type { FactoryEconomy } from '../factory/simulation/FactoryEconomy';
+import { defaultItemRegistry } from '../factory/simulation/ItemRegistry.ts';
+import { FLIGHT_DISTANCE_MILESTONES } from '../scenes/FlightReturnHelper.ts';
 import { formatNumber } from '../utils/format';
-import { PALETTE, FONT_FAMILY, PixelUIHelper } from './theme';
-import {
-  RocketHangarBridge,
-  type RocketModuleCategory,
-} from '../factory/simulation/RocketHangarBridge.ts';
-import type { FactoryEconomy } from '../factory/simulation/FactoryEconomy.ts';
-import { RocketHangarHelper } from './RocketHangarHelper.ts';
+import { SEMANTIC, SPACE, uiIcon } from './theme';
+import { UiButton } from './system/UiButton.ts';
+import { UiLayer } from './system/UiLayer.ts';
+import { UiModal } from './system/UiModal.ts';
+import { UiChip, UiProgressBar, createCard, createInset, createPips } from './system/UiWidgets.ts';
 
-interface UpgradeCardElement {
-  def: RocketUpgradeDef;
-  container: Phaser.GameObjects.Container;
-  bgSlice: Phaser.GameObjects.NineSlice;
-  iconSprite: Phaser.GameObjects.Image;
-  nameText: Phaser.GameObjects.Text;
-  levelText: Phaser.GameObjects.Text;
-  statText: Phaser.GameObjects.Text;
-  partsText: Phaser.GameObjects.Text;
-  btnBg: Phaser.GameObjects.NineSlice;
-  btnText: Phaser.GameObjects.Text;
-  costText: Phaser.GameObjects.Text;
-  zone: Phaser.GameObjects.Zone;
-  btnX: number;
-  btnW: number;
-  btnH: number;
+type ModuleState = 'max' | 'ready' | 'quick' | 'missingParts' | 'missingCash';
+
+interface ModuleCardRef {
+  category: RocketModuleCategory;
+  partRows: Array<{ itemId: string; required: number; countText: Phaser.GameObjects.Text; bar: UiProgressBar }>;
 }
 
-export class RocketHangarView {
-  private scene: Phaser.Scene;
-  private economy: EconomyManager;
-  private onLaunch: () => void;
-  private hangarBridge?: RocketHangarBridge;
-  private factoryEconomy?: FactoryEconomy;
+const LIVE_REFRESH_INTERVAL_MS = 150;
+const PREVIEW_HEIGHT = 128;
 
-  public container: Phaser.GameObjects.Container;
-  private backdrop!: Phaser.GameObjects.Rectangle;
-  private panelBlocker!: Phaser.GameObjects.Rectangle;
-  private modalBg!: Phaser.GameObjects.NineSlice;
-  private closeBtnBg!: Phaser.GameObjects.NineSlice;
-  private closeBtnIcon!: Phaser.GameObjects.Image;
-  private closeZone!: Phaser.GameObjects.Zone;
-  private _isOpen = false;
+export class RocketHangarView extends UiModal {
+  private readonly economy: EconomyManager;
+  private readonly onLaunch: () => void;
+  private readonly hangarBridge: RocketHangarBridge;
+  private readonly factoryEconomy: FactoryEconomy;
+  private readonly onDenied: (message: string) => void;
 
-  /* Rampa Alanı */
-  private padContainer: Phaser.GameObjects.Container;
-  private launchPlatformSprite!: Phaser.GameObjects.Image;
-  private padGantrySprite!: Phaser.GameObjects.Image;
-
-  /* Roket Katmanları */
-  private rocketContainer: Phaser.GameObjects.Container;
-  private hullSprite!: Phaser.GameObjects.Image;
-  private engineSprite!: Phaser.GameObjects.Image;
-  private wingsSprite!: Phaser.GameObjects.Image;
-  private tankSprite!: Phaser.GameObjects.Image;
-  private flameSprite!: Phaser.GameObjects.Image;
-
-  /* Fırlatma Butonu */
-  private launchBtnContainer: Phaser.GameObjects.Container;
-  private launchBtnBg!: Phaser.GameObjects.NineSlice;
-  private launchBtnText!: Phaser.GameObjects.Text;
-  private launchSubText!: Phaser.GameObjects.Text;
-  private launchZone!: Phaser.GameObjects.Zone;
-
-  /* Geliştirme Kartları */
-  private cardsContainer: Phaser.GameObjects.Container;
-  private cardElements: UpgradeCardElement[] = [];
-
-  /* Üst Bilgi */
-  private headerText!: Phaser.GameObjects.Text;
-  private statsText!: Phaser.GameObjects.Text;
-
-  /** Son yerleşimde kullanılan ekran boyutu ve başlık metni yüksekliği */
-  private layoutW = 0;
-  private layoutH = 0;
-  private laidOutStatsHeight = -1;
+  private rocketContainer: Phaser.GameObjects.Container | null = null;
+  private launchButton: UiButton | null = null;
+  private cardRefs: ModuleCardRef[] = [];
+  private structureSignature = '';
+  private lastLiveRefresh = 0;
+  private isLaunching = false;
 
   constructor(
-    scene: Phaser.Scene,
+    layer: UiLayer,
     economy: EconomyManager,
     onLaunch: () => void,
-    hangarBridge?: RocketHangarBridge,
-    factoryEconomy?: FactoryEconomy,
+    hangarBridge: RocketHangarBridge,
+    factoryEconomy: FactoryEconomy,
+    onDenied: (message: string) => void = () => undefined,
   ) {
-    this.scene = scene;
+    super(layer, { title: 'Roket Hangarı', maxWidth: 760, depth: 205, accent: SEMANTIC.rocket });
     this.economy = economy;
     this.onLaunch = onLaunch;
     this.hangarBridge = hangarBridge;
     this.factoryEconomy = factoryEconomy;
-
-    this.container = scene.add.container(0, 0).setDepth(205).setVisible(false);
-    const font: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontFamily: FONT_FAMILY,
-    };
-
-    // 1. Ekran Karartma Katmanı (Yalnızca dışarı tıklanınca kapatır)
-    this.backdrop = scene.add.rectangle(0, 0, 100, 100, 0x05070e, 0.75)
-      .setOrigin(0, 0)
-      .setInteractive()
-      .on('pointerdown', () => this.hide());
-    this.container.add(this.backdrop);
-
-    // 2. Modal Gövdesi Tıklama Engelleyici (Pencere içine tıklanınca kapanmasını önler)
-    this.panelBlocker = scene.add.rectangle(0, 0, 440, 520, 0x000000, 0.001)
-      .setOrigin(0, 0)
-      .setInteractive()
-      .on('pointerdown', (_pointer: any, _lx: number, _ly: number, event?: Phaser.Types.Input.EventData) => {
-        event?.stopPropagation();
-      });
-    this.container.add(this.panelBlocker);
-
-    // 3. Modal Çerçevesi (9-Slice)
-    this.modalBg = PixelUIHelper.createModal(scene, 0, 0, 440, 520).setOrigin(0, 0);
-    this.container.add(this.modalBg);
-
-    // 3. Kapatma Butonu
-    this.closeBtnBg = PixelUIHelper.createButton(scene, 0, 0, 28, 28, 'disabled');
-    this.container.add(this.closeBtnBg);
-
-    this.closeBtnIcon = scene.add.image(0, 0, 'icon_close').setOrigin(0.5).setScale(1.1);
-    this.container.add(this.closeBtnIcon);
-
-    this.closeZone = scene.add.zone(0, 0, 32, 32)
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => this.hide())
-      .on('pointerover', () => this.closeBtnBg.setTexture('btn_danger_normal'))
-      .on('pointerout', () => this.closeBtnBg.setTexture('btn_disabled'));
-    this.container.add(this.closeZone);
-
-    /* Başlık */
-    this.headerText = scene.add.text(0, 0, '🚀 FIRLATMA VE MONTAJ HANGARI', {
-      ...font, fontSize: '15px', color: PALETTE.resourceGoldHex, fontStyle: 'bold',
-    }).setOrigin(0.5);
-    this.container.add(this.headerText);
-
-    this.statsText = scene.add.text(0, 0, '', {
-      ...font, fontSize: '11px', color: PALETTE.textMuted,
-    }).setOrigin(0.5);
-    this.container.add(this.statsText);
-
-    /* Rampa & Roket Alanı (Gerçek Piksel Raster Dokular) */
-    this.padContainer = scene.add.container(0, 0);
-
-    // Çelik rampa kaidesi (launch_platform)
-    this.launchPlatformSprite = scene.add.image(0, 25, 'launch_platform').setOrigin(0.5, 0.5);
-    this.launchPlatformSprite.setScale(2.0);
-    this.padContainer.add(this.launchPlatformSprite);
-
-    // Gantry kulesi (launch_pad)
-    if (scene.textures.exists('launch_pad')) {
-      this.padGantrySprite = scene.add.image(-48, -5, 'launch_pad').setOrigin(0.5, 0.7);
-      this.padGantrySprite.setScale(1.8);
-      this.padContainer.add(this.padGantrySprite);
-    }
-
-    /* Roket Montaj Parçaları */
-    this.rocketContainer = scene.add.container(0, 0);
-
-    // Motor alevi (arka)
-    this.flameSprite = scene.add.image(-28, 0, 'flame_idle').setOrigin(1, 0.5);
-    this.flameSprite.setScale(2.2);
-    this.rocketContainer.add(this.flameSprite);
-
-    // Motor
-    this.engineSprite = scene.add.image(-16, 0, 'rocket_engine_1').setOrigin(0.5);
-    this.engineSprite.setScale(2.5);
-    this.rocketContainer.add(this.engineSprite);
-
-    // Yakıt tankları
-    this.tankSprite = scene.add.image(-4, 0, 'rocket_tank_1').setOrigin(0.5);
-    this.tankSprite.setScale(2.5);
-    this.rocketContainer.add(this.tankSprite);
-
-    // Kanatlar
-    this.wingsSprite = scene.add.image(-8, 0, 'rocket_wings_1').setOrigin(0.5);
-    this.wingsSprite.setScale(2.5);
-    this.rocketContainer.add(this.wingsSprite);
-
-    // Ana gövde (en üst)
-    this.hullSprite = scene.add.image(4, 0, 'rocket_hull_1').setOrigin(0.5);
-    this.hullSprite.setScale(2.5);
-    this.rocketContainer.add(this.hullSprite);
-
-    // Roketi 45 derece açıyla rampada göster
-    this.rocketContainer.setRotation(-Math.PI / 4);
-
-    this.padContainer.add(this.rocketContainer);
-    this.container.add(this.padContainer);
-
-    /* Fırlatma Düğmesi (Büyük Arcade Siyanür Konsol Butonu) */
-    this.launchBtnContainer = scene.add.container(0, 0);
-    this.launchBtnBg = PixelUIHelper.createButton(scene, 0, 0, 180, 44, 'launch');
-    this.launchBtnContainer.add(this.launchBtnBg);
-
-    this.launchBtnText = scene.add.text(0, -6, '🚀 UÇUŞU BAŞLAT', {
-      ...font, fontSize: '15px', color: '#041717', fontStyle: 'bold',
-    }).setOrigin(0.5);
-    this.launchBtnContainer.add(this.launchBtnText);
-
-    this.launchSubText = scene.add.text(0, 10, 'YATAY SAĞA KAYDIRMALI UÇUŞ', {
-      ...font, fontSize: '9px', color: '#041717', fontStyle: 'bold',
-    }).setOrigin(0.5);
-    this.launchBtnContainer.add(this.launchSubText);
-
-    this.launchZone = scene.add.zone(0, 0, 180, 44)
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => {
-        this.launchBtnBg.setTexture('btn_launch_pressed');
-        this.handleLaunchClick();
-      })
-      .on('pointerover', () => {
-        this.launchBtnBg.setTexture('btn_launch_hover');
-        this.launchBtnContainer.setScale(1.03);
-      })
-      .on('pointerout', () => {
-        this.launchBtnBg.setTexture('btn_launch_normal');
-        this.launchBtnContainer.setScale(1.0);
-      });
-    this.launchBtnContainer.add(this.launchZone);
-    this.container.add(this.launchBtnContainer);
-
-    /* Geliştirme Kartları */
-    this.cardsContainer = scene.add.container(0, 0);
-    this.container.add(this.cardsContainer);
-
-    this.createUpgradeCards();
-    this.updateRocketVisuals();
-
-    // Ritmik alev titreşimi
-    scene.tweens.add({
-      targets: this.flameSprite,
-      scaleX: 1.9, scaleY: 1.4,
-      alpha: 0.85,
-      duration: 120,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut',
-    });
+    this.onDenied = onDenied;
   }
 
-  private createUpgradeCards(): void {
-    const s = this.scene;
-    const font: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontFamily: FONT_FAMILY,
-    };
+  // -------------------------------------------------------------
+  // DURUM
+  // -------------------------------------------------------------
 
-    const iconKeys: Record<string, string> = {
-      hull: 'icon_heart',
-      engine: 'icon_lightning',
-      wings: 'icon_rocket',
-      boost: 'pickup_crystal',
-    };
-
-    for (let i = 0; i < ROCKET_UPGRADES.length; i++) {
-      const def = ROCKET_UPGRADES[i];
-      const cardCont = s.add.container(0, 0);
-
-      // Kart Arka Planı (9-Slice Raster)
-      const bgSlice = PixelUIHelper.createCard(s, 0, 0, 100, 40).setOrigin(0.5, 0.5);
-      cardCont.add(bgSlice);
-
-      // Parça İkonu (Gerçek Piksel Raster Sprite'ı)
-      const iconKey = iconKeys[def.id] || 'icon_gear';
-      const iconSprite = s.add.image(-80, 0, iconKey).setOrigin(0.5).setScale(1.2);
-      cardCont.add(iconSprite);
-
-      const nameText = s.add.text(-60, -10, def.name, {
-        ...font, fontSize: '11.5px', color: PALETTE.textPrimary, fontStyle: 'bold',
-      }).setOrigin(0, 0.5);
-      cardCont.add(nameText);
-
-      const levelText = s.add.text(35, -10, '', {
-        ...font, fontSize: '10px', color: PALETTE.resourceGoldHex, fontStyle: 'bold',
-      }).setOrigin(1, 0.5);
-      cardCont.add(levelText);
-
-      const statText = s.add.text(-60, 8, '', {
-        ...font, fontSize: '9.5px', color: PALETTE.textMuted,
-      }).setOrigin(0, 0.5);
-      cardCont.add(statText);
-
-      // Gerekli parça satırı (kartın tüm genişliğini kullanır, düğmenin altından geçmez)
-      const partsText = s.add.text(-60, 20, '', {
-        ...font, fontSize: '9px', color: PALETTE.factoryAmberHex,
-      }).setOrigin(0, 0.5);
-      cardCont.add(partsText);
-
-      // 9-Slice Buton
-      const btnBg = PixelUIHelper.createButton(s, 80, 0, 74, 28, 'green');
-      cardCont.add(btnBg);
-
-      const btnText = s.add.text(80, -5, 'GELİŞTİR', {
-        ...font, fontSize: '10px', color: PALETTE.btnAffordableText, fontStyle: 'bold',
-      }).setOrigin(0.5);
-      cardCont.add(btnText);
-
-      const costText = s.add.text(80, 7, '', {
-        ...font, fontSize: '9px', color: PALETTE.btnAffordableText, fontStyle: 'bold',
-      }).setOrigin(0.5);
-      cardCont.add(costText);
-
-      const zone = s.add.zone(80, 0, 74, 28)
-        .setOrigin(0.5)
-        .setInteractive({ useHandCursor: true })
-        .on('pointerdown', () => this.handleUpgradeClick(def.id));
-      cardCont.add(zone);
-
-      this.cardsContainer.add(cardCont);
-
-      this.cardElements.push({
-        def,
-        container: cardCont,
-        bgSlice,
-        iconSprite,
-        nameText,
-        levelText,
-        statText,
-        partsText,
-        btnBg,
-        btnText,
-        costText,
-        zone,
-        btnX: 80,
-        btnW: 74,
-        btnH: 28,
-      });
-    }
+  private levelOf(category: RocketModuleCategory): number {
+    return this.hangarBridge.getModuleLevel(category);
   }
 
-  /** Hangar köprüsünü ve fabrika ekonomisini canlı olarak bağlar veya günceller */
-  setHangarBridge(bridge: RocketHangarBridge, factoryEconomy?: FactoryEconomy): void {
-    this.hangarBridge = bridge;
-    if (factoryEconomy) {
-      this.factoryEconomy = factoryEconomy;
+  private stateOf(def: RocketUpgradeDef): ModuleState {
+    const category = def.id as RocketModuleCategory;
+    const cost = this.hangarBridge.getUpgradeCost(category);
+    if (!cost || this.levelOf(category) >= def.maxLevel) return 'max';
+
+    const hasParts = this.hangarBridge.hasRequiredParts(category);
+    if (hasParts) {
+      return this.factoryEconomy.canAfford(cost.cashCost) ? 'ready' : 'missingCash';
     }
-    this.updateRocketVisuals();
-    this.refresh();
+    return this.hangarBridge.canAffordQuickBuild(category, this.factoryEconomy) ? 'quick' : 'missingParts';
   }
 
-  getHangarBridge(): RocketHangarBridge | undefined {
-    return this.hangarBridge;
+  private computeStructureSignature(): string {
+    return ROCKET_UPGRADES.map((def) => `${def.id}:${this.levelOf(def.id as RocketModuleCategory)}:${this.stateOf(def)}`).join('|');
   }
 
-  getFactoryEconomy(): FactoryEconomy | undefined {
-    return this.factoryEconomy;
+  protected onOpened(): void {
+    this.isLaunching = false;
   }
 
-  private handleUpgradeClick(id: string): void {
-    const category = id as RocketModuleCategory;
-
-    if (this.hangarBridge && this.factoryEconomy) {
-      let upgraded = this.hangarBridge.upgradeModule(category, this.factoryEconomy, false);
-      if (!upgraded && this.hangarBridge.canAffordQuickBuild(category, this.factoryEconomy)) {
-        upgraded = this.hangarBridge.upgradeModule(category, this.factoryEconomy, true);
-      }
-      if (upgraded) {
-        const newLvl = this.hangarBridge.getModuleLevel(category);
-        this.economy.setRocketUpgradeLevel(id, newLvl);
-        this.playUpgradeEffect(id);
-        this.updateRocketVisuals();
-        this.refresh();
-      }
-    } else {
-      if (this.economy.buyRocketUpgrade(id)) {
-        this.playUpgradeEffect(id);
-        this.updateRocketVisuals();
-        this.refresh();
-      }
-    }
-  }
-
-  private handleLaunchClick(): void {
-    this.scene.tweens.add({
-      targets: this.rocketContainer,
-      x: 80,
-      y: -120,
-      scaleX: 1.1, scaleY: 1.1,
-      duration: 350,
-      ease: 'Back.easeIn',
-      onComplete: () => {
-        this.hide();
-        this.onLaunch();
-      },
-    });
-
-    this.scene.cameras.main.shake(300, 0.005);
-  }
-
-  private playUpgradeEffect(id: string): void {
-    const card = this.cardElements.find(c => c.def.id === id);
-    if (card) {
-      this.scene.tweens.add({
-        targets: card.container,
-        scaleX: 1.05, scaleY: 1.05,
-        duration: 90, yoyo: true,
-        ease: 'Quad.easeOut',
-      });
-    }
-
-    this.scene.tweens.add({
-      targets: this.rocketContainer,
-      scaleX: 1.25, scaleY: 1.25,
-      duration: 120, yoyo: true,
-      ease: 'Back.easeOut',
-    });
-
-    // Değişen parçaya özel anlık vurgu/parıldama mikro-animasyonu
-    const targetSprite =
-      id === 'hull' ? this.hullSprite :
-      id === 'engine' ? this.engineSprite :
-      id === 'wings' ? this.wingsSprite :
-      id === 'boost' ? this.tankSprite : null;
-
-    if (targetSprite) {
-      this.scene.tweens.add({
-        targets: targetSprite,
-        scaleX: 3.2, scaleY: 3.2,
-        duration: 140,
-        yoyo: true,
-        ease: 'Sine.easeOut',
-        onComplete: () => {
-          targetSprite.setScale(2.5);
-        },
-      });
-    }
-  }
-
-  updateRocketVisuals(): void {
-    const hullLevel = this.hangarBridge
-      ? this.hangarBridge.getModuleLevel('hull')
-      : this.economy.getRocketUpgradeLevel('hull');
-    const engineLevel = this.hangarBridge
-      ? this.hangarBridge.getModuleLevel('engine')
-      : this.economy.getRocketUpgradeLevel('engine');
-    const wingsLevel = this.hangarBridge
-      ? this.hangarBridge.getModuleLevel('wings')
-      : this.economy.getRocketUpgradeLevel('wings');
-    const boostLevel = this.hangarBridge
-      ? this.hangarBridge.getModuleLevel('boost')
-      : this.economy.getRocketUpgradeLevel('boost');
-
-    // Seviye 1, 2, 3 doğrudan ilgili görsel doku kademesine (rocket_*_1, 2, 3) eşlenir
-    const hullTier = Math.min(3, Math.max(1, hullLevel));
-    const engineTier = Math.min(3, Math.max(1, engineLevel));
-    const wingsTier = Math.min(3, Math.max(1, wingsLevel));
-    const boostTier = Math.min(3, Math.max(1, boostLevel));
-
-    if (this.scene.textures.exists(`rocket_hull_${hullTier}`)) {
-      this.hullSprite.setTexture(`rocket_hull_${hullTier}`);
-    }
-    if (this.scene.textures.exists(`rocket_engine_${engineTier}`)) {
-      this.engineSprite.setTexture(`rocket_engine_${engineTier}`);
-    }
-    if (this.scene.textures.exists(`rocket_wings_${wingsTier}`)) {
-      this.wingsSprite.setTexture(`rocket_wings_${wingsTier}`);
-    }
-    if (this.scene.textures.exists(`rocket_tank_${boostTier}`)) {
-      this.tankSprite.setTexture(`rocket_tank_${boostTier}`);
-    }
-  }
-
+  /** Açıkken her karede çağrılır; parça sayaçlarını ve düğme durumlarını günceller */
   refresh(): void {
-    this.updateRocketVisuals();
+    if (!this.isOpen || this.isLaunching) return;
+    const now = this.scene.time.now;
+    if (now - this.lastLiveRefresh < LIVE_REFRESH_INTERVAL_MS) return;
+    this.lastLiveRefresh = now;
 
-    const hullLevel = this.hangarBridge
-      ? this.hangarBridge.getModuleLevel('hull')
-      : this.economy.getRocketUpgradeLevel('hull');
-    const engineLevel = this.hangarBridge
-      ? this.hangarBridge.getModuleLevel('engine')
-      : this.economy.getRocketUpgradeLevel('engine');
-    const wingsLevel = this.hangarBridge
-      ? this.hangarBridge.getModuleLevel('wings')
-      : this.economy.getRocketUpgradeLevel('wings');
-    const boostLevel = this.hangarBridge
-      ? this.hangarBridge.getModuleLevel('boost')
-      : this.economy.getRocketUpgradeLevel('boost');
-
-    const hp = getMaxHullHP(hullLevel);
-    const speed = getFlightSpeed(engineLevel);
-    const steer = getSteeringSpeed(wingsLevel);
-    const boostSec = getMaxBoostDuration(boostLevel);
-    const fuelSec = getFuelCapacity(engineLevel);
-
-    const statsLine = `Zırh: ${hp} HP | Hız: ${speed} | Yakıt: ${fuelSec.toFixed(1)}s | Nitro: ${boostSec.toFixed(1)}s`;
-    const stockHeader = this.hangarBridge
-      ? `\n${RocketHangarHelper.formatHangarStockHeader(this.hangarBridge)}`
-      : '';
-    this.statsText.setText(statsLine + stockHeader);
-
-    // Stok satırı uzayıp metin yeni satıra taşarsa alttaki roket görseli üstüne binmesin
-    if (this.layoutW > 0 && this.statsText.height !== this.laidOutStatsHeight) {
-      this.applyLayout();
+    if (this.computeStructureSignature() !== this.structureSignature) {
+      this.rebuild();
+      return;
     }
-
-    const economyRef = this.factoryEconomy ?? {
-      canAfford: (cost: number) => this.economy.resources.gte(cost),
-      money: Number(this.economy.resources),
-    };
-
-    for (const card of this.cardElements) {
-      const def = card.def;
-      const category = def.id as RocketModuleCategory;
-
-      if (this.hangarBridge) {
-        const vm = RocketHangarHelper.getCardViewModel(
-          category,
-          def.name,
-          this.hangarBridge,
-          economyRef,
-          def.getStatText(this.hangarBridge.getModuleLevel(category)),
-          def.maxLevel,
-          true,
-        );
-
-        card.levelText.setText(vm.levelText);
-        card.statText.setText(def.getStatText(vm.level));
-        card.partsText.setText(vm.isMax ? '' : `Parça: ${vm.partsDetailText}`);
-        if (vm.isMax) {
-          card.btnBg.setTexture('btn_disabled');
-          card.btnText.setText('MAKSİMUM');
-          card.btnText.setColor(PALETTE.textMuted);
-          card.costText.setText('');
-          card.zone.input!.enabled = false;
-        } else {
-          card.btnText.setText(vm.btnText);
-          card.costText.setText(vm.costText);
-
-          if (vm.canAfford) {
-            card.btnBg.setTexture('btn_green_normal');
-            card.btnText.setColor(PALETTE.btnAffordableText);
-            card.costText.setColor(PALETTE.btnAffordableText);
-            card.zone.input!.enabled = true;
-          } else {
-            card.btnBg.setTexture('btn_disabled');
-            card.btnText.setColor(PALETTE.btnDisabledText);
-            card.costText.setColor(PALETTE.btnDisabledText);
-            card.zone.input!.enabled = false;
-          }
-        }
-      } else {
-        const level = this.economy.getRocketUpgradeLevel(def.id);
-        const isMax = level >= def.maxLevel;
-        const cost = this.economy.getRocketUpgradeCost(def.id);
-        const canAfford = !isMax && this.economy.resources.gte(cost);
-
-        card.levelText.setText(isMax ? 'MAKS' : `Sv. ${level}/${def.maxLevel}`);
-        card.statText.setText(def.getStatText(level));
-        card.partsText.setText('');
-
-        if (isMax) {
-          card.btnBg.setTexture('btn_disabled');
-          card.btnText.setText('MAKSİMUM');
-          card.btnText.setColor(PALETTE.textMuted);
-          card.costText.setText('');
-          card.zone.input!.enabled = false;
-        } else {
-          card.btnText.setText('GELİŞTİR');
-          card.costText.setText(`⚙ ${formatNumber(cost)}`);
-
-          if (canAfford) {
-            card.btnBg.setTexture('btn_green_normal');
-            card.btnText.setColor(PALETTE.btnAffordableText);
-            card.costText.setColor(PALETTE.btnAffordableText);
-            card.zone.input!.enabled = true;
-          } else {
-            card.btnBg.setTexture('btn_disabled');
-            card.btnText.setColor(PALETTE.btnDisabledText);
-            card.costText.setColor(PALETTE.btnDisabledText);
-            card.zone.input!.enabled = false;
-          }
-        }
+    for (const card of this.cardRefs) {
+      for (const row of card.partRows) {
+        const stock = Math.min(row.required, this.hangarBridge.getPartCount(row.itemId));
+        row.countText.setText(`${stock}/${row.required}`);
+        row.bar.setProgress(row.required > 0 ? stock / row.required : 1);
       }
     }
   }
 
-  isOpen(): boolean {
-    return this._isOpen;
+  // -------------------------------------------------------------
+  // İÇERİK
+  // -------------------------------------------------------------
+
+  protected buildBody(body: Phaser.GameObjects.Container, width: number): number {
+    this.cardRefs = [];
+    this.rocketContainer = null;
+    this.structureSignature = this.computeStructureSignature();
+
+    // Geniş pencerede roket solda, modüller sağda; darda alt alta
+    const twoColumns = width >= 600;
+    const sideWidth = twoColumns ? 250 : width;
+    const cardsX = twoColumns ? sideWidth + SPACE.md : 0;
+    const cardsWidth = twoColumns ? width - cardsX : width;
+
+    const sideHeight = this.buildRocketPanel(body, sideWidth);
+    const cardsHeight = this.buildModuleCards(body, cardsX, twoColumns ? 0 : sideHeight + SPACE.md, cardsWidth);
+
+    return twoColumns ? Math.max(sideHeight, cardsHeight) : sideHeight + SPACE.md + cardsHeight;
   }
 
-  show(): void {
-    this._isOpen = true;
-    this.container.setVisible(true);
-    this.rocketContainer.setPosition(0, 0);
-    this.rocketContainer.setScale(1.0);
-    this.updateRocketVisuals();
-    this.refresh();
+  /** Roket görseli, özet değerler ve uçuş rekoru */
+  private buildRocketPanel(body: Phaser.GameObjects.Container, width: number): number {
+    const scene = this.scene;
+    const layer = this.layer;
+    let y = 0;
 
-    this.container.setAlpha(0);
-    this.scene.tweens.add({
-      targets: this.container,
-      alpha: 1,
-      duration: 140,
-      ease: 'Quad.easeOut',
-    });
-  }
-
-  hide(): void {
-    if (!this._isOpen) return;
-    this._isOpen = false;
-    this.scene.tweens.add({
-      targets: this.container,
-      alpha: 0,
-      duration: 120,
-      ease: 'Quad.easeIn',
-      onComplete: () => {
-        this.container.setVisible(false);
-      },
-    });
-  }
-
-  layout(w: number, h: number): void {
-    this.layoutW = w;
-    this.layoutH = h;
-    this.refresh();
-    this.applyLayout();
-  }
-
-  /**
-   * Pencereyi içeriğe göre yukarıdan aşağı yerleştirir: başlık → durum metni →
-   * rampa/roket → 4 kart → fırlatma düğmesi. Pencere yüksekliği içerikten hesaplanır.
-   */
-  private applyLayout(): void {
-    const w = this.layoutW;
-    const h = this.layoutH;
-    this.backdrop.setSize(w, h);
-
-    const sf = Phaser.Math.Clamp(Math.min(w, h) / 480, 0.65, 1.2);
-    const cx = w / 2;
-    const cardH = 52;
-    const cardGap = Math.max(4, Math.round(6 * sf));
-    const cardColGap = 8;
-    // Rampa + gantry + roket görseli merkezinden ~65px yukarı ve aşağı uzanır
-    const padHalfH = 65;
-    const launchH = Math.max(36, Math.round(44 * sf));
-
-    // Kısa ekranda (yatay telefon) tek sütun + roket görseli sığmaz: görsel gizlenir,
-    // genişlik yetiyorsa kartlar iki sütuna dizilir.
-    const fullHeight = 36 + 30 + padHalfH * 2 + this.cardElements.length * (cardH + cardGap) + launchH + 26;
-    const isShort = fullHeight > h - 12;
-    const cols = isShort && w >= 640 ? 2 : 1;
-    const showPad = !isShort;
-    const modalW = Math.min(cols === 2 ? 760 : 480, w - 20);
-
-    // --- Ölçüler (pencerenin üst kenarına göre) ---
-    this.headerText.setFontSize(`${Math.max(12, Math.round(14 * sf))}px`);
-    this.statsText
-      .setOrigin(0.5, 0)
-      .setAlign('center')
-      .setFontSize(`${Math.max(9.5, Math.round(10.5 * sf))}px`)
-      .setWordWrapWidth(modalW - 32);
-    this.laidOutStatsHeight = this.statsText.height;
-
-    const statsTop = 36;
-    const padCenter = statsTop + this.statsText.height + 6 + padHalfH;
-
-    const cardW = (modalW - 32 - (cols - 1) * cardColGap) / cols;
-    const cardRows = Math.ceil(this.cardElements.length / cols);
-    const cardsTop = showPad ? padCenter + padHalfH - 4 : statsTop + this.statsText.height + 8;
-    const cardsBottom = cardsTop + cardRows * (cardH + cardGap) - cardGap;
-
-    const launchCenter = cardsBottom + 12 + launchH / 2;
-    const modalH = launchCenter + launchH / 2 + 14;
-
-    const modalX = cx - modalW / 2;
-    const modalY = Math.round(h / 2 - modalH / 2);
-
-    // --- Çerçeve ---
-    this.panelBlocker.setPosition(modalX, modalY);
-    this.panelBlocker.setSize(modalW, modalH);
-
-    this.modalBg.setPosition(modalX, modalY);
-    this.modalBg.setSize(modalW, modalH);
-
-    // Kapat butonu (Sağ Üst)
-    this.closeBtnBg.setPosition(modalX + modalW - 22, modalY + 22);
-    this.closeBtnIcon.setPosition(modalX + modalW - 22, modalY + 22);
-    this.closeZone.setPosition(modalX + modalW - 22, modalY + 22);
-
-    // Başlık ve İstatistikler
-    this.headerText.setPosition(cx, modalY + 22);
-    this.statsText.setPosition(cx, modalY + statsTop);
-
-    // Rampa Alanı (Gantry + Roket)
-    this.padContainer.setPosition(cx, modalY + padCenter);
-    this.padContainer.setVisible(showPad);
-
-    // --- Geliştirme Kartları (4 kart alt alta) ---
-    this.cardsContainer.setPosition(cx, modalY + cardsTop + cardH / 2);
-
-    const row1Y = -cardH / 2 + 13;
-    const row2Y = row1Y + 13;
-    const row3Y = row2Y + 13;
-    const btnCenterY = (row1Y + row2Y) / 2;
-
-    for (let i = 0; i < this.cardElements.length; i++) {
-      const card = this.cardElements[i];
-      card.container.setPosition(
-        ((i % cols) - (cols - 1) / 2) * (cardW + cardColGap),
-        Math.floor(i / cols) * (cardH + cardGap),
-      );
-
-      card.bgSlice.setSize(cardW, cardH);
-
-      const bW = Math.max(76, Math.round(84 * sf));
-      const bH = 26;
-      const btnX = cardW / 2 - bW / 2 - 8;
-
-      card.btnX = btnX;
-      card.btnW = bW;
-      card.btnH = bH;
-
-      card.btnBg.setPosition(btnX, btnCenterY);
-      card.btnBg.setSize(bW, bH);
-
-      card.zone.setPosition(btnX, btnCenterY);
-      card.zone.setSize(bW, bH);
-      card.btnText.setPosition(btnX, btnCenterY - 5);
-      card.btnText.setFontSize(`${Math.max(9, Math.round(9.5 * sf))}px`);
-
-      card.costText.setPosition(btnX, btnCenterY + 6);
-      card.costText.setFontSize(`${Math.max(9, Math.round(8.5 * sf))}px`);
-
-      const leftX = -cardW / 2 + 16;
-      const textX = leftX + 22;
-      card.iconSprite.setPosition(leftX, btnCenterY);
-      card.iconSprite.setScale(Math.max(0.8, sf * 1.0));
-
-      card.nameText.setPosition(textX, row1Y);
-      card.nameText.setFontSize(`${Math.max(10, Math.round(11 * sf))}px`);
-
-      card.levelText.setPosition(btnX - bW / 2 - 8, row1Y);
-      card.levelText.setFontSize(`${Math.max(9, Math.round(9.5 * sf))}px`);
-
-      card.statText.setPosition(textX, row2Y);
-      card.statText.setFontSize(`${Math.max(9, Math.round(9.5 * sf))}px`);
-
-      card.partsText.setPosition(textX, row3Y);
-      card.partsText.setFontSize(`${Math.max(9, Math.round(9 * sf))}px`);
+    body.add(createInset(scene, 0, y, width, PREVIEW_HEIGHT));
+    const pad = scene.add.container(width / 2, y + PREVIEW_HEIGHT / 2 + 8);
+    pad.add(scene.add.image(0, 26, 'launch_platform').setOrigin(0.5).setScale(1.5));
+    if (scene.textures.exists('launch_pad')) {
+      pad.add(scene.add.image(-40, 4, 'launch_pad').setOrigin(0.5, 0.7).setScale(1.5));
     }
 
-    // --- Fırlatma Düğmesi (En Alt) ---
-    const btnW = Math.min(modalW - 32, Math.round(320 * sf));
+    const rocket = scene.add.container(4, 0);
+    const part = (key: string, x: number): void => {
+      if (scene.textures.exists(key)) rocket.add(scene.add.image(x, 0, key).setOrigin(0.5).setScale(2));
+    };
+    rocket.add(scene.add.image(-24, 0, 'flame_idle').setOrigin(1, 0.5).setScale(2));
+    part(`rocket_engine_${this.levelOf('engine')}`, -13);
+    part(`rocket_tank_${this.levelOf('boost')}`, -3);
+    part(`rocket_wings_${this.levelOf('wings')}`, -6);
+    part(`rocket_hull_${this.levelOf('hull')}`, 3);
+    rocket.setRotation(-Math.PI / 4);
+    pad.add(rocket);
+    body.add(pad);
+    this.rocketContainer = rocket;
+    y += PREVIEW_HEIGHT + SPACE.sm;
 
-    this.launchBtnContainer.setPosition(cx, modalY + launchCenter);
-    this.launchBtnBg.setSize(btnW, launchH);
-    this.launchZone.setSize(btnW, launchH);
-    this.launchBtnText.setFontSize(`${Math.max(12, Math.round(14 * sf))}px`);
-    this.launchSubText.setFontSize(`${Math.max(9, Math.round(9 * sf))}px`);
+    // Özet değerler: her biri ikon + sayı
+    const stats: Array<[string, string, number]> = [
+      ['icon_heart', `${getMaxHullHP(this.levelOf('hull'))} HP`, SEMANTIC.danger],
+      ['icon_lightning', `Hız ${getFlightSpeed(this.levelOf('engine'))}`, SEMANTIC.rocket],
+      [uiIcon('drop'), `Yakıt ${getFuelCapacity(this.levelOf('engine')).toFixed(1)} sn`, SEMANTIC.factory],
+      [uiIcon('star'), `Nitro ${getMaxBoostDuration(this.levelOf('boost')).toFixed(1)} sn`, SEMANTIC.money],
+    ];
+    let x = 0;
+    for (const [icon, label, color] of stats) {
+      const chip = new UiChip(layer, 0, 0, label, color, { icon });
+      if (x > 0 && x + chip.chipWidth > width) {
+        x = 0;
+        y += 26;
+      }
+      chip.setPosition(x, y);
+      body.add(chip);
+      x += chip.chipWidth + SPACE.xs + 2;
+    }
+    y += 22 + SPACE.sm;
+
+    // Rekor ve sıradaki mesafe hedefi: uçmanın fabrikaya ne kazandırdığı
+    const best = this.hangarBridge.getFlightStats().bestDistance || this.economy.stats.bestDistance;
+    const nextTarget = FLIGHT_DISTANCE_MILESTONES.find((milestone) => milestone.targetMeters > best);
+    const record = layer.text(0, y, `Rekor: ${best} m`, 'bodyBold', { color: SEMANTIC.rocketHex });
+    body.add(record);
+    y += record.height + 2;
+    const goalText = nextTarget
+      ? `Sonraki hedef ${formatNumber(nextTarget.targetMeters)} m: kalıcı +%${Math.round(nextTarget.multiplierBonus * 100)} fabrika geliri`
+      : 'Tüm mesafe hedefleri tamamlandı.';
+    const goal = layer.text(0, y, goalText, 'caption', { color: SEMANTIC.textMuted, wrapWidth: width });
+    body.add(goal);
+    y += goal.height;
+
+    return y;
   }
 
-  setVisible(visible: boolean): void {
-    this.container.setVisible(visible);
+  private buildModuleCards(
+    body: Phaser.GameObjects.Container,
+    x: number,
+    startY: number,
+    width: number,
+  ): number {
+    const scene = this.scene;
+    const layer = this.layer;
+    // Dar kartta düğme yazının yanına sığmaz; altına iner
+    const stacked = width < 380;
+    const buttonWidth = stacked ? width - SPACE.sm * 2 : 112;
+    const buttonHeight = stacked ? 40 : 48;
+    const textRight = stacked ? width - SPACE.sm : width - SPACE.sm - buttonWidth - SPACE.sm;
+    let y = startY;
+
+    for (const def of ROCKET_UPGRADES) {
+      const category = def.id as RocketModuleCategory;
+      const level = this.levelOf(category);
+      const state = this.stateOf(def);
+      const cost = this.hangarBridge.getUpgradeCost(category);
+      const partCount = state === 'max' ? 0 : (cost?.requiredParts.length ?? 0);
+
+      const textHeight = 50 + partCount * 30;
+      const cardHeight = Math.max(72, textHeight + SPACE.sm) + (stacked && state !== 'max' ? buttonHeight + SPACE.sm : 0);
+      const card = scene.add.container(x, y);
+      card.add(createCard(scene, 0, 0, width, cardHeight));
+
+      // Modülün o seviyedeki görseli
+      card.add(createInset(scene, SPACE.sm, SPACE.sm, 48, 48));
+      const spriteKey = `${def.spritePrefix}${Math.min(3, Math.max(1, level))}`;
+      if (scene.textures.exists(spriteKey)) {
+        card.add(scene.add.image(SPACE.sm + 24, SPACE.sm + 24, spriteKey).setOrigin(0.5).setScale(2));
+      }
+
+      const textX = SPACE.sm + 48 + SPACE.sm;
+      const name = layer.text(textX, SPACE.sm, '', 'heading');
+      UiLayer.fit(name, def.name, textRight - textX - 36);
+      card.add(name);
+      card.add(createPips(scene, textRight - 28, SPACE.sm + 9, def.maxLevel, level));
+
+      const stat = layer.text(textX, SPACE.sm + 22, '', 'caption', { color: SEMANTIC.textMuted });
+      UiLayer.ellipsize(stat, def.getStatText(level), textRight - textX);
+      card.add(stat);
+
+      const ref: ModuleCardRef = { category, partRows: [] };
+      if (state === 'max') {
+        card.add(new UiChip(layer, textX, SPACE.sm + 40, 'En üst seviye', SEMANTIC.primary, { icon: 'icon_check' }));
+      } else if (cost) {
+        // Beklenen parçalar: fabrikada üretilip sandığa ulaşınca buraya gelir
+        cost.requiredParts.forEach((req, index) => {
+          const rowY = SPACE.sm + 44 + index * 30;
+          const item = defaultItemRegistry.get(req.itemId);
+          const icon = scene.add.image(textX + 8, rowY + 6, item?.spriteKey ?? 'pickup_gear').setOrigin(0.5);
+          if (item?.colorTint !== undefined) icon.setTint(item.colorTint);
+          card.add(icon);
+
+          const stock = Math.min(req.count, this.hangarBridge.getPartCount(req.itemId));
+          const countText = layer.text(textRight, rowY, `${stock}/${req.count}`, 'captionBold').setOrigin(1, 0);
+          const label = layer.text(textX + 20, rowY, '', 'caption');
+          UiLayer.fit(label, req.itemName, textRight - textX - 20 - countText.width - SPACE.sm, 9);
+          const bar = new UiProgressBar(scene, textX, rowY + 16, textRight - textX, 8, 'cyan');
+          bar.setProgress(req.count > 0 ? stock / req.count : 1);
+          card.add([label, countText, bar]);
+          ref.partRows.push({ itemId: req.itemId, required: req.count, countText, bar });
+        });
+
+        const buttonX = stacked ? width / 2 : width - SPACE.sm - buttonWidth / 2;
+        const buttonY = stacked ? cardHeight - SPACE.sm - buttonHeight / 2 : cardHeight / 2;
+        card.add(this.buildModuleButton(def, state, buttonX, buttonY, buttonWidth, buttonHeight));
+      }
+
+      this.cardRefs.push(ref);
+      body.add(card);
+      y += cardHeight + SPACE.sm;
+    }
+
+    return y - SPACE.sm - startY;
+  }
+
+  private buildModuleButton(
+    def: RocketUpgradeDef,
+    state: ModuleState,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+  ): UiButton {
+    const category = def.id as RocketModuleCategory;
+    const cost = this.hangarBridge.getUpgradeCost(category);
+    const cash = cost?.cashCost ?? 0;
+    const quickCost = this.hangarBridge.getTotalUpgradeCostWithMissingParts(category);
+
+    if (state === 'ready') {
+      return new UiButton(this.layer, x, y, {
+        width,
+        height,
+        variant: 'primary',
+        label: 'YÜKSELT',
+        sublabel: `$${formatNumber(cash)}`,
+        silent: true,
+        onClick: () => this.upgrade(category, false),
+      });
+    }
+
+    if (state === 'quick') {
+      // Parça beklemeden parayla tamamlama: pahalı kestirme, farklı renkte
+      return new UiButton(this.layer, x, y, {
+        width,
+        height,
+        variant: 'gold',
+        label: 'HIZLI İNŞA',
+        sublabel: `$${formatNumber(quickCost)}`,
+        textVariant: 'buttonSmall',
+        silent: true,
+        onClick: () => this.upgrade(category, true),
+      });
+    }
+
+    const missingParts = state === 'missingParts';
+    const button = new UiButton(this.layer, x, y, {
+      width,
+      height,
+      label: missingParts ? 'PARÇA EKSİK' : 'YÜKSELT',
+      sublabel: `$${formatNumber(cash)}`,
+      textVariant: 'buttonSmall',
+      onClick: () => undefined,
+      onDisabledClick: () =>
+        this.onDenied(
+          missingParts
+            ? 'Parçalar eksik: fabrikada üretip sevkiyat sandığına ulaştır, kendiliğinden hangara gelir.'
+            : `Yetersiz bakiye: $${formatNumber(Math.ceil(Math.max(0, cash - this.factoryEconomy.money)))} daha gerekli.`,
+        ),
+    });
+    button.setEnabled(false);
+    return button;
+  }
+
+  protected buildFooter(footer: Phaser.GameObjects.Container, width: number): number {
+    const height = 52;
+    const buttonWidth = Math.min(width, 360);
+    this.launchButton = new UiButton(this.layer, width / 2, height / 2, {
+      width: buttonWidth,
+      height,
+      variant: 'rocket',
+      label: 'UÇUŞU BAŞLAT',
+      icon: 'icon_rocket',
+      iconScale: 1.5,
+      silent: true,
+      onClick: () => this.launch(),
+    });
+    footer.add(this.launchButton);
+    return height;
+  }
+
+  protected primaryButton(): UiButton | null {
+    return this.launchButton;
+  }
+
+  // -------------------------------------------------------------
+  // EYLEMLER
+  // -------------------------------------------------------------
+
+  private upgrade(category: RocketModuleCategory, quickBuild: boolean): void {
+    const upgraded = this.hangarBridge.upgradeModule(category, this.factoryEconomy, quickBuild);
+    if (!upgraded) return;
+    // Kasa sınıfı roket seviyelerini de saklar; olay dinleyicileri ses ve efekt verir
+    this.economy.setRocketUpgradeLevel(category, this.hangarBridge.getModuleLevel(category));
+    this.rebuild();
+  }
+
+  /** Roket rampadan kalkar, pencere kapanır ve uçuş sahnesi başlar */
+  private launch(): void {
+    if (this.isLaunching) return;
+    this.isLaunching = true;
+
+    const finish = (): void => {
+      this.isLaunching = false;
+      this.close();
+      this.onLaunch();
+    };
+
+    if (!this.rocketContainer) {
+      finish();
+      return;
+    }
+    this.scene.tweens.add({
+      targets: this.rocketContainer,
+      x: this.rocketContainer.x + 70,
+      y: this.rocketContainer.y - 100,
+      duration: 320,
+      ease: 'Back.easeIn',
+      onComplete: finish,
+    });
   }
 }

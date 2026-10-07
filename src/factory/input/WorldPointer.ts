@@ -6,7 +6,7 @@
  * bir basışın UI'a mı yoksa fabrika zeminine mi ait olduğunu ayırır.
  * ====================================================================== */
 
-import type Phaser from 'phaser';
+import Phaser from 'phaser';
 import type { GridCoord } from '../types.ts';
 import { GridCoordinates } from '../view/GridCoordinates.ts';
 
@@ -53,4 +53,39 @@ export function pointerToGrid(
 ): GridCoord {
   const worldPoint = pointer.positionToCamera(worldCamera) as Phaser.Math.Vector2;
   return GridCoordinates.worldToGrid(worldPoint.x, worldPoint.y, tileSize, originX, originY);
+}
+
+/** Basış ile bırakış arasında bu kadar CSS pikselinden az oynayan işaretçi "dokunuş" sayılır */
+const TAP_SLOP_CSS_PX = 8;
+
+/** Basış bir dokunuş mu (yerinde bırakıldı), yoksa sürükleme mi (kaydırma, çizim)? */
+export function isTap(pointer: Phaser.Input.Pointer): boolean {
+  // Tuval cihaz çözünürlüğünde çizilir; eşik CSS pikselinden tuval pikseline çevrilir
+  const canvasPxPerCssPx = pointer.manager.scaleManager.displayScale.x || 1;
+  const moved = Phaser.Math.Distance.Between(pointer.downX, pointer.downY, pointer.upX, pointer.upY);
+  return moved <= TAP_SLOP_CSS_PX * canvasPxPerCssPx;
+}
+
+/**
+ * Dünya nesnesine "dokun-bırak" dinleyicisi bağlar. Basışta değil bırakışta tetiklenir;
+ * böylece nesnenin üzerinde başlayan kaydırma veya iki parmak hareketi tıklama sayılmaz.
+ */
+export function bindWorldTap(
+  target: Phaser.GameObjects.GameObject,
+  onTap: (pointer: Phaser.Input.Pointer) => void,
+  canStart?: () => boolean,
+): void {
+  let armed = false;
+  target.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+    // Yalnızca birincil tuş/dokunuş; basış anında bir araç etkinse (canStart) o basış araca aittir
+    armed = pointer.button === 0 && (canStart ? canStart() : true);
+  });
+  target.on('pointerout', () => {
+    armed = false;
+  });
+  target.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+    if (!armed) return;
+    armed = false;
+    if (isTap(pointer)) onTap(pointer);
+  });
 }

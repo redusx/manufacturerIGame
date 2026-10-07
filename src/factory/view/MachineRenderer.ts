@@ -18,6 +18,7 @@ import {
 } from './MachineVisualGeometry.ts';
 import { GridCoordinates } from './GridCoordinates.ts';
 import { PALETTE, FONT_FAMILY } from '../../ui/theme.ts';
+import { bindWorldTap } from '../input/WorldPointer.ts';
 
 export interface MachineRendererConfig {
   tileSize?: number;
@@ -51,6 +52,9 @@ export class MachineRenderer {
 
   /** Makineye tıklandığında tetiklenen callback (Inspector modalı için) */
   onMachineClicked?: (machine: MachineEntity) => void;
+
+  /** Basış bir tıklamayı başlatabilir mi? (Araç etkinken basış araca aittir) */
+  canStartClick?: () => boolean;
 
   constructor(
     scene: Phaser.Scene,
@@ -201,11 +205,15 @@ export class MachineRenderer {
     // 6. Etkileşim Alanı (Tıklama Bölgesi)
     const hitZone = this.scene.add.zone(0, 0, bounds.pixelW, bounds.pixelH);
     hitZone.setInteractive({ useHandCursor: true });
-    hitZone.on('pointerdown', () => {
-      if (this.onMachineClicked) {
-        this.onMachineClicked(machine);
-      }
-    });
+    bindWorldTap(
+      hitZone,
+      () => {
+        if (this.onMachineClicked) {
+          this.onMachineClicked(machine);
+        }
+      },
+      () => (this.canStartClick ? this.canStartClick() : true),
+    );
     bayContainer.add(hitZone);
 
     this.rootContainer.add(bayContainer);

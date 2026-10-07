@@ -1198,3 +1198,27 @@
 
 **Doğrulama:** `npm test` 262/262, `npx tsc --noEmit` temiz, `npm run build` başarılı. Tarayıcıda 812x375'te katalog, hangar, makine inceleme, giriş ve ayarlar pencereleri sığdı; masaüstünde hangar ve inceleme penceresi değişmedi; yeni konsol hatası yok.
 
+### [2026-10-06] — UI/UX 2.0: Arayüzün Baştan Kurulması
+
+**Amaç:** Arayüzü her ekran boyutunda okunaklı, tutarlı ve dokunma/fare/klavye ile eşit kullanılabilir hâle getirmek. Oynanış, ekonomi, ilerleme ve roket içeriği değişmedi; M9 eklenmedi.
+
+**Yapılanlar:**
+- **Altyapı (`src/ui/system/`):** `UiMetrics` (çizim çözünürlüğü, ölçek kademeleri, düzen modu), `UiHost` (tuval boyutu, ölçek tercihi, güvenli alan), `UiLayer` (arayüz kamerası, dünya/arayüz ayrımı, net yazı, pencere yığını, klavye odağı), `UiButton`, `UiModal`, `UiWidgets`, `UiConfirmDialog`.
+- **Tema:** `theme.ts`'e anlamsal renkler, yazı ölçeği, boşluklar ve doku listesi eklendi; kullanılmayan `PixelUIHelper` ve `FONT_SIZES` kaldırıldı. Arayüz dokuları `tools/generate_ui_assets.py` ile üretildi (48 PNG).
+- **Fabrika ekranı:** `HUD` yeniden yazıldı; `MilestoneBar` yerine `ObjectiveCard` + `StagesModal`; alt menü yerine `Toolbar` + `ToolContextBar`; `GameScene` arayüzü `UiLayer` üzerine taşındı.
+- **Pencereler:** katalog, makine, terminal, hangar, ayarlar, çevrimdışı kazanç `UiModal` üzerinde yeniden yazıldı; emoji yerine piksel simgeler.
+- **Uçuş:** `FlightHud` ve `FlightReportModal`; `FlightScene` ayrı arayüz kamerası kullanır. Nitro düğmesi kalkıştan önce gizlidir.
+- **Girdi:** iki parmakla yakınlaştırma/kaydırma; dokunmatikte onaylı yerleştirme ve söküm; makine, bant, zemin ve parsel rozeti bırakışta tepki verir (`WorldPointer.bindWorldTap`); zemindeki rozetten parsel satın alma onay ister; klavye kısayolları ve odak gezinme; her tuş olayının tam bir kez işlenmesi (`main.ts`).
+- **Diğer:** kilitli parsel rozeti zoom'dan bağımsız boyutta ve binlik ayraçlı fiyatla; parsel açılışındaki yanlış konumlanan yazı kaldırıldı (bildirim zaten gösteriyor); `MilestoneManager` metinlerindeki 14 yazım hatası düzeltildi; `GameScene.preload`'dan kullanılmayan 31 doku yüklemesi çıkarıldı.
+- **Belgeler:** `UI_UX_SYSTEM.md` (yeni), `DECISIONS.md` DEC-020 … DEC-022, `PROJECT_STATUS.md`, `README.md`, `UI_STYLE_SPEC.md` (not).
+
+**Test sırasında bulunup düzeltilenler:**
+- İki parmak hareketinden sonraki ilk dokunuş yutuluyordu (hareket bayrağı bir sonraki basışta temizleniyordu; nesnelerin dinleyicisi kameranınkinden önce çalışıyor).
+- Makineye/banta/parsel rozetine basış anında tepki veriliyordu; üzerlerinde başlayan kaydırma pencere açıyor, rozet para harcatabiliyordu.
+- Aynı oyun adımında gelen tuş olayları Phaser tarafından yeniden işleniyordu; hızlı basılan ok + Enter odağı fazladan kaydırıp yanlış düğmeyi tetikliyordu.
+- Bildirim, yeni açılan pencerenin içeriğini örtüyordu.
+- Nitro düğmesi dikey telefonda rampadaki roketi örtüyordu.
+- Parsel açılış yazısı tuval pikseliyle konumlandığı için yeni kamera düzeninde yanlış yerdeydi.
+- Dar kartlarda uzun makine/parça adları kırpılıyordu (önce küçült, sonra kısalt).
+
+**Doğrulama:** `npm test` 262/262, `npx tsc --noEmit` temiz, `npm run build` başarılı. Tarayıcıda (cihaz piksel oranı 2) 375x812, 390x844, 812x375, 844x390, 768x1024, 1024x768, 1280x720, 1366x768, 1920x1080 ve 2560x1080'de açılış; telefonda dikey/yatay ve masaüstünde bütün akışlar elle oynandı (dokunma: sentetik dokunma olayları). Her boyutta kullanılabilir bütün ölçek kademelerinde ana ekran ve altı pencere için otomatik taşma/kırpılma denetimi temiz. Ayrıntılı tablo: `UI_UX_SYSTEM.md` §17. Fiziksel telefon/tablette oynanmadı.

@@ -147,6 +147,8 @@ export class CameraMath {
    *
    * @param marginPx Fabrikanın çevresinde bırakılacak ekran pikseli boşluk
    * @param cropTolerance 1x altına düşmemek için kabul edilen toplam kırpma (dünya pikseli)
+   * @param comfortZoom Hücrelerin rahat dokunulabildiği en küçük zoom. Tuval cihaz
+   *   çözünürlüğünde çizildiğinde "1x" bu değere karşılık gelir (cihaz piksel oranı).
    */
   static computeFitZoom(
     worldWidth: number,
@@ -155,6 +157,7 @@ export class CameraMath {
     marginPx = 12,
     cropTolerance = 0,
     levels: readonly number[] = CameraMath.FIT_ZOOM_LEVELS,
+    comfortZoom = 1,
   ): number {
     const sorted = [...levels].sort((a, b) => b - a);
 
@@ -165,11 +168,11 @@ export class CameraMath {
           worldHeight * zoom + marginPx * 2 <= viewport.height,
       ) ?? sorted[sorted.length - 1];
 
-    if (fullFit >= 1 || cropTolerance <= 0) return fullFit;
+    if (fullFit >= comfortZoom || cropTolerance <= 0) return fullFit;
 
     const croppedFit = sorted.find(
       (zoom) =>
-        zoom <= 1 &&
+        zoom <= comfortZoom &&
         (worldWidth - cropTolerance) * zoom <= viewport.width &&
         (worldHeight - cropTolerance) * zoom <= viewport.height,
     );

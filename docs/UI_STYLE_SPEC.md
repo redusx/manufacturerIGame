@@ -1,5 +1,7 @@
 # UI Stil Spesifikasyonu (UI Style Specification)
 
+> **Not (2026-10-06):** Arayüz UI/UX 2.0 ile yeniden kuruldu. Güncel bileşenler, yazı ölçeği, ölçek ve girdi kuralları `UI_UX_SYSTEM.md`'dedir; bu belgedeki `PixelUIHelper` ve eski yazı boyutları artık kodda yoktur. Çeliştiği yerde `UI_UX_SYSTEM.md` geçerlidir.
+
 **Belge Amacı:** Bu spesifikasyon, *Manufacturer* oyununun 16-bit retro-fütüristik endüstriyel piksel sanat stilini tüm ekranlarda tutarlı kılmak, okunabilirlik ve ergonomi standartlarını bağlayıcı kurallarla belirlemek için hazırlanmıştır.  
 **İlgili Belgeler:** `AGENTS.md`, `docs/ART_DIRECTION.md`, `docs/UI_VISUAL_AUDIT.md`
 

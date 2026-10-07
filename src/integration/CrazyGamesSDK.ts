@@ -39,12 +39,16 @@ export class CrazyGamesSDK {
   private static instance: CrazyGamesSDK | null = null;
   private rawSdk: CrazyGamesSDKRaw | null = null;
   private initialized = false;
+  /** Gerçek SDK'nın init()'i tamamlandı mı? Öncesinde SDK'ya dokunmak hata fırlatır. */
+  private sdkReady = false;
   private isGameplayRunning = false;
   private wasSoundMutedBeforeAd = false;
 
   private constructor(customSdk?: CrazyGamesSDKRaw) {
     if (customSdk) {
+      // Dışarıdan verilen SDK (testler) başlatma beklemeden kullanılabilir
       this.rawSdk = customSdk;
+      this.sdkReady = true;
     }
   }
 
@@ -84,6 +88,12 @@ export class CrazyGamesSDK {
       if (this.rawSdk) {
         await this.rawSdk.init();
         this.initialized = true;
+        this.sdkReady = true;
+        // Başlatma bitmeden istenen oyun başlangıcı şimdi bildirilir
+        if (this.isGameplayRunning) {
+          this.isGameplayRunning = false;
+          this.gameplayStart();
+        }
         return true;
       }
     } catch (err) {
@@ -95,15 +105,25 @@ export class CrazyGamesSDK {
   }
 
   /**
+   * Kullanıma hazır SDK. CrazyGames dışındaki alan adlarında (ör. yerel ağ IP'si)
+   * SDK, init() bitmeden `game` / `ad` alanlarına erişilince hata fırlatır; sahne
+   * kurulumu bu yüzden yarıda kalmasın diye hazır olana dek null döner.
+   */
+  private get readySdk(): CrazyGamesSDKRaw | null {
+    return this.sdkReady ? this.rawSdk : null;
+  }
+
+  /**
    * Oyuncunun aktif oyuna başladığını bildirir.
    */
   public gameplayStart(): void {
     if (this.isGameplayRunning) return;
     this.isGameplayRunning = true;
 
-    if (this.rawSdk?.game?.gameplayStart) {
+    const sdk = this.readySdk;
+    if (sdk) {
       try {
-        this.rawSdk.game.gameplayStart();
+        sdk.game?.gameplayStart?.();
       } catch (err) {
         console.warn('[CrazyGamesSDK] gameplayStart hatası:', err);
       }
@@ -117,9 +137,10 @@ export class CrazyGamesSDK {
     if (!this.isGameplayRunning) return;
     this.isGameplayRunning = false;
 
-    if (this.rawSdk?.game?.gameplayStop) {
+    const sdk = this.readySdk;
+    if (sdk) {
       try {
-        this.rawSdk.game.gameplayStop();
+        sdk.game?.gameplayStop?.();
       } catch (err) {
         console.warn('[CrazyGamesSDK] gameplayStop hatası:', err);
       }
@@ -130,9 +151,10 @@ export class CrazyGamesSDK {
    * Başarı anlarında (Kilometre taşı açılışı, rekor uçuş mesafesi) çağrılır.
    */
   public happytime(): void {
-    if (this.rawSdk?.game?.happytime) {
+    const sdk = this.readySdk;
+    if (sdk) {
       try {
-        this.rawSdk.game.happytime();
+        sdk.game?.happytime?.();
       } catch (err) {
         console.warn('[CrazyGamesSDK] happytime hatası:', err);
       }
@@ -145,8 +167,14 @@ export class CrazyGamesSDK {
    * @returns Reklam başarıyla izlendiyse true, hata/iptal durumunda false döner.
    */
   public async requestAd(type: AdType): Promise<boolean> {
-    const sdk = this.rawSdk;
-    if (!sdk?.ad?.requestAd) {
+    const sdk = this.readySdk;
+    let hasAds = false;
+    try {
+      hasAds = typeof sdk?.ad?.requestAd === 'function';
+    } catch {
+      hasAds = false;
+    }
+    if (!sdk || !hasAds) {
       // SDK yoksa (Yerel test / geliştirme ortamı): doğrudan başarılı say
       return true;
     }
@@ -185,6 +213,7 @@ export class CrazyGamesSDK {
   /** Testler için durumu sıfırlar */
   public resetForTest(): void {
     this.initialized = false;
+    this.sdkReady = false;
     this.isGameplayRunning = false;
     this.rawSdk = null;
   }

@@ -1,298 +1,159 @@
 /* ======================================================================
- * HUD.ts — Üst bilgi çubuğu (kaynak, üretim hızı, ayarlar butonu)
- * Tamamen gerçek piksel-art raster dokuları ile oluşturuldu (docs/ART_DIRECTION.md)
+ * HUD.ts — Üst bilgi çubuğu
+ *
+ * Oyuncunun en sık baktığı iki değer öndedir: kasadaki para (büyük, altın) ve
+ * saniyelik gelir (yeşil rozet). Uçuş rekoru ikincil bilgidir ve yalnız yer
+ * varsa görünür. Sağda ayarlar düğmesi durur. Çubuk güvenli alanın (çentik)
+ * altından başlar ve fabrikayı kapatmayacak kadar incedir.
  * ====================================================================== */
 
 import Phaser from 'phaser';
 import type { DecimalSource } from 'break_eternity.js';
 import { D } from '../utils/decimal';
 import { formatNumber, formatRate } from '../utils/format';
-import { PALETTE, FONT_FAMILY, PixelUIHelper } from './theme';
+import { SEMANTIC, SPACE } from './theme';
+import { UiButton } from './system/UiButton.ts';
+import { UiChip } from './system/UiWidgets.ts';
+import type { UiLayer } from './system/UiLayer.ts';
+
+/** Çubuğun güvenli alan hariç yüksekliği (arayüz birimi) */
+export const HUD_BAR_HEIGHT = 48;
 
 export class HUD {
-  private scene: Phaser.Scene;
+  private readonly layer: UiLayer;
+  private readonly root: Phaser.GameObjects.Container;
 
-  private bg!: Phaser.GameObjects.NineSlice;
-  private resourcePillBg!: Phaser.GameObjects.NineSlice;
-  private ratePillBg!: Phaser.GameObjects.NineSlice;
-  private flightPillBg!: Phaser.GameObjects.NineSlice;
-  private coinSprite: Phaser.GameObjects.Sprite | null = null;
-  private resourceText!: Phaser.GameObjects.Text;
-  private gearIcon!: Phaser.GameObjects.Image;
-  private rateText!: Phaser.GameObjects.Text;
-  private trophyIcon!: Phaser.GameObjects.Image;
-  private flightBadgeText!: Phaser.GameObjects.Text;
-  private settingsBtnBg!: Phaser.GameObjects.NineSlice;
-  private settingsBtnIcon!: Phaser.GameObjects.Image;
-  private settingsZone!: Phaser.GameObjects.Zone;
+  private readonly bg: Phaser.GameObjects.NineSlice;
+  private readonly coin: Phaser.GameObjects.Sprite;
+  private readonly moneyText: Phaser.GameObjects.Text;
+  private readonly incomeChip: UiChip;
+  private readonly recordIcon: Phaser.GameObjects.Image;
+  private readonly recordText: Phaser.GameObjects.Text;
+  private readonly settingsButton: UiButton;
 
-  private onSettingsClick: () => void;
+  private barBottom = HUD_BAR_HEIGHT;
+  private centerY = HUD_BAR_HEIGHT / 2;
+  private leftEdge: number = SPACE.sm;
+  private rightEdge = 300;
+  private showRecord = false;
+  private bestDistance = 0;
+  /** Para ve gelir bloğunun bittiği yer; yatay düzende hedef kartı buradan başlar */
+  private leftGroupEnd = 0;
+  /** Sağ bloğun (rekor + ayarlar) başladığı yer */
+  private rightGroupStart = 0;
 
-  constructor(scene: Phaser.Scene, onSettingsClick: () => void) {
-    this.scene = scene;
-    this.onSettingsClick = onSettingsClick;
-    this.create();
+  constructor(layer: UiLayer, onSettingsClick: () => void) {
+    this.layer = layer;
+    const scene = layer.scene;
+    this.root = layer.container(100);
+
+    this.bg = scene.add.nineslice(0, 0, 'ui_panel_hud', 0, 100, HUD_BAR_HEIGHT, 6, 6, 6, 6).setOrigin(0, 0);
+    this.root.add(this.bg);
+
+    this.coin = scene.add.sprite(0, 0, scene.textures.exists('coin_gold') ? 'coin_gold' : 'icon_coin', 0);
+    this.coin.setOrigin(0.5).setScale(1.5);
+    if (scene.anims.exists('coin_gold_spin')) {
+      this.coin.play('coin_gold_spin');
+    }
+    this.root.add(this.coin);
+
+    this.moneyText = layer.text(0, 0, '$0', 'display', { color: SEMANTIC.moneyHex, stroke: true }).setOrigin(0, 0.5);
+    this.root.add(this.moneyText);
+
+    this.incomeChip = new UiChip(layer, 0, 0, '+$0/sn', SEMANTIC.primary, { variant: 'bodyBold', height: 26 });
+    this.root.add(this.incomeChip);
+
+    this.recordIcon = scene.add.image(0, 0, 'icon_trophy').setOrigin(0.5);
+    this.recordText = layer.text(0, 0, '0 m', 'captionBold', { color: SEMANTIC.rocketHex }).setOrigin(0, 0.5);
+    this.root.add([this.recordIcon, this.recordText]);
+
+    this.settingsButton = new UiButton(layer, 0, 0, {
+      width: 40,
+      height: 40,
+      variant: 'secondary',
+      icon: 'icon_settings',
+      iconScale: 1.5,
+      onClick: onSettingsClick,
+    });
+    this.root.add(this.settingsButton);
+    layer.registerFocusable(this.settingsButton);
   }
 
-  private create(): void {
-    const s = this.scene;
-    const font: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontFamily: FONT_FAMILY,
-    };
+  /** Çubuğun alt kenarı (güvenli alan dahil); altındaki içerik buradan başlar */
+  get bottom(): number {
+    return this.barBottom;
+  }
 
-    // 1. Üst Panel Arka Planı (9-Slice Raster)
-    this.bg = PixelUIHelper.createPanel(s, 0, 0, 100, 48).setDepth(100);
+  /** Yatay düzende hedef kartının sığabileceği boş aralık */
+  get freeSlot(): { left: number; right: number; centerY: number } {
+    return { left: this.leftGroupEnd, right: this.rightGroupStart, centerY: this.centerY };
+  }
 
-    // 2. Telemetri Kapsül Arka Planları (Beveled 9-Slice Bezels)
-    this.resourcePillBg = PixelUIHelper.createCard(s, 0, 0, 100, 32).setDepth(101).setOrigin(0, 0.5);
-    this.ratePillBg = PixelUIHelper.createCard(s, 0, 0, 100, 28).setDepth(101).setOrigin(0, 0.5);
-    this.flightPillBg = PixelUIHelper.createCard(s, 0, 0, 100, 28).setDepth(101).setOrigin(1, 0.5);
+  layout(): void {
+    const m = this.layer.metrics;
+    this.barBottom = m.safe.top + HUD_BAR_HEIGHT;
+    this.centerY = m.safe.top + HUD_BAR_HEIGHT / 2;
+    this.leftEdge = m.safe.left + SPACE.sm;
+    this.rightEdge = m.width - m.safe.right - SPACE.sm;
+    // Rekor ikincil bilgidir: dar ekranda para ve gelire yer açmak için gizlenir
+    this.showRecord = m.width >= 560;
 
-    // 3. Dönen Altın Sikke Sprite'ı (Piksel Asset)
-    if (s.textures.exists('coin_gold')) {
-      this.coinSprite = s.add.sprite(0, 0, 'coin_gold', 0)
-        .setOrigin(0.5)
-        .setScale(2)
-        .setDepth(103);
+    this.bg.setPosition(0, 0).setSize(m.width, this.barBottom);
+    this.settingsButton.setPosition(this.rightEdge - 20, this.centerY);
+    this.coin.setPosition(this.leftEdge + 12, this.centerY);
+    this.moneyText.setPosition(this.leftEdge + 30, this.centerY);
 
-      if (s.anims.exists('coin_gold_spin')) {
-        this.coinSprite.play('coin_gold_spin');
-      }
-    } else {
-      this.coinSprite = s.add.sprite(0, 0, 'icon_coin')
-        .setOrigin(0.5)
-        .setScale(1.5)
-        .setDepth(103);
-    }
-
-    // 4. Kaynak Sayısı Metni (Piksel Konturlu Yüksek Kontrast)
-    this.resourceText = s.add.text(0, 0, '0', {
-      ...font,
-      fontSize: '20px',
-      color: PALETTE.resourceGoldHex,
-      fontStyle: 'bold',
-      stroke: '#05070e',
-      strokeThickness: 2,
-    }).setOrigin(0, 0.5).setDepth(103);
-
-    // 5. Üretim Hızı İkonu ve Metni
-    this.gearIcon = s.add.image(0, 0, 'icon_gear').setOrigin(0.5).setScale(1.2).setDepth(103);
-    this.rateText = s.add.text(0, 0, '', {
-      ...font,
-      fontSize: '11.5px',
-      color: '#2ecc71',
-      fontStyle: 'bold',
-      stroke: '#05070e',
-      strokeThickness: 2,
-    }).setOrigin(0, 0.5).setDepth(103);
-
-    // 6. Uçuş Rekor İkonu ve Rozeti (Sağa dayalı)
-    this.trophyIcon = s.add.image(0, 0, 'icon_trophy').setOrigin(0.5).setScale(1.1).setDepth(103);
-    this.flightBadgeText = s.add.text(0, 0, 'Rekor: 0m', {
-      ...font,
-      fontSize: '12px',
-      color: PALETTE.rocketCyanHex,
-      fontStyle: 'bold',
-      stroke: '#05070e',
-      strokeThickness: 2,
-    }).setOrigin(1, 0.5).setDepth(103);
-
-    // 7. Ayarlar Butonu (Piksel 9-Slice Buton + icon_settings)
-    this.settingsBtnBg = PixelUIHelper.createButton(s, 0, 0, 32, 32, 'disabled').setDepth(102);
-    this.settingsBtnIcon = s.add.image(0, 0, 'icon_settings').setOrigin(0.5).setScale(1.3).setDepth(103);
-
-    this.settingsZone = s.add.zone(0, 0, 34, 34)
-      .setOrigin(0.5)
-      .setDepth(104)
-      .setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => this.onSettingsClick())
-      .on('pointerover', () => {
-        this.settingsBtnBg.setTexture('btn_green_hover');
-      })
-      .on('pointerout', () => {
-        this.settingsBtnBg.setTexture('btn_disabled');
-      });
+    this.reposition();
   }
 
   update(resources: DecimalSource, perSecond: DecimalSource, bestDistance = 0): void {
-    const resDec = D(resources);
-    const ppsDec = D(perSecond);
-
-    this.resourceText.setText(formatNumber(resDec));
-    if (ppsDec.gt(0)) {
-      this.rateText.setText(`+$${formatRate(ppsDec)}/sn`);
-    } else {
-      this.rateText.setText('0 /sn (Tıkla!)');
-    }
-    this.flightBadgeText.setText(`Rekor: ${bestDistance}m`);
-
-    // Metin uzunlukları değiştiğinde aralıkları anında dinamik olarak yeniden ayarla
-    this.repositionTextElements();
+    this.moneyText.setText(`$${formatNumber(D(resources))}`);
+    this.incomeChip.setChip(`+$${formatRate(D(perSecond))}/sn`, SEMANTIC.primary);
+    this.bestDistance = bestDistance;
+    this.recordText.setText(`${bestDistance} m`);
+    this.reposition();
   }
 
-  private baseCoinScale = 1.6;
-  private cachedW = 800;
-  private cachedSf = 1.0;
+  /** Metin genişlikleri değişince blokları yeniden dizer; sığmayan gelir rozeti gizlenir */
+  private reposition(): void {
+    const settingsLeft = this.rightEdge - 40 - SPACE.sm;
 
-  layout(w: number, _h: number, sf: number): void {
-    this.cachedW = w;
-    this.cachedSf = sf;
-
-    const barH = Math.round(48 * sf);
-    const pad = Math.round(14 * sf);
-
-    // 1. Üst Panel 9-Slice
-    this.bg.setPosition(0, 0);
-    this.bg.setSize(w, barH);
-
-    // 2. Dönen Altın Sikke Boyutu
-    const coinX = pad + Math.round(16 * sf);
-    const coinY = barH / 2;
-
-    this.baseCoinScale = Math.max(1.3, sf * 1.6);
-    if (this.coinSprite) {
-      this.scene.tweens.killTweensOf(this.coinSprite);
-      this.coinSprite.setPosition(coinX, coinY);
-      this.coinSprite.setScale(this.baseCoinScale);
+    let rightStart = settingsLeft;
+    const recordVisible = this.showRecord && this.bestDistance > 0;
+    this.recordIcon.setVisible(recordVisible);
+    this.recordText.setVisible(recordVisible);
+    if (recordVisible) {
+      const recordWidth = 16 + 4 + this.recordText.width;
+      rightStart = settingsLeft - recordWidth - SPACE.sm;
+      this.recordIcon.setPosition(rightStart + 8, this.centerY);
+      this.recordText.setPosition(rightStart + 20, this.centerY);
     }
+    this.rightGroupStart = rightStart;
 
-    this.resourceText.setFontSize(`${Math.max(14, Math.round(20 * sf))}px`);
-    this.rateText.setFontSize(`${Math.max(9, Math.round(11 * sf))}px`);
-    this.flightBadgeText.setFontSize(`${Math.max(9, Math.round(11 * sf))}px`);
-
-    this.gearIcon.setScale(Math.max(0.8, sf * 1.0));
-    this.trophyIcon.setScale(Math.max(0.8, sf * 1.0));
-
-    // 4. Ayarlar Butonu (Sağ Kenar)
-    const btnSize = Math.round(32 * sf);
-    const btnX = w - pad - btnSize / 2;
-    const btnY = barH / 2;
-
-    this.settingsBtnBg.setPosition(btnX, btnY);
-    this.settingsBtnBg.setSize(btnSize, btnSize);
-    this.settingsBtnIcon.setPosition(btnX, btnY);
-    this.settingsBtnIcon.setScale(Math.max(0.9, sf * 1.2));
-    this.settingsZone.setPosition(btnX, btnY);
-    this.settingsZone.setSize(btnSize + 4, btnSize + 4);
-
-    // Dinamik metin konumlandırma
-    this.repositionTextElements();
+    const moneyEnd = this.moneyText.x + this.moneyText.width;
+    const chipX = moneyEnd + SPACE.sm;
+    const chipFits = chipX + this.incomeChip.chipWidth <= rightStart;
+    this.incomeChip.setVisible(chipFits).setPosition(chipX, this.centerY - 13);
+    this.leftGroupEnd = chipFits ? chipX + this.incomeChip.chipWidth : moneyEnd;
   }
 
-  private repositionTextElements(): void {
-    const sf = this.cachedSf;
-    const w = this.cachedW;
-    const barH = Math.round(48 * sf);
-    const pad = Math.round(14 * sf);
-    const coinY = barH / 2;
-
-    // 1. Altın sikke ve para kapsülü
-    const pillPad = Math.round(6 * sf);
-    const resW = this.resourceText.width;
-    const resPillW = Math.round(resW + 42 * sf);
-    const resPillH = Math.round(32 * sf);
-
-    this.resourcePillBg.setPosition(pad, coinY);
-    this.resourcePillBg.setSize(resPillW, resPillH);
-
-    const coinX = pad + Math.round(16 * sf);
-    if (this.coinSprite) {
-      this.coinSprite.setPosition(coinX, coinY);
-    }
-    const resX = coinX + Math.round(16 * sf);
-    this.resourceText.setPosition(resX, coinY);
-
-    // 2. Üretim hızı kapsülü (Telemetri Rozeti)
-    const rateW = this.rateText.width;
-    const ratePillX = pad + resPillW + Math.round(10 * sf);
-    const ratePillW = Math.round(rateW + 32 * sf);
-    const ratePillH = Math.round(28 * sf);
-
-    this.ratePillBg.setPosition(ratePillX, coinY);
-    this.ratePillBg.setSize(ratePillW, ratePillH);
-
-    const gearX = ratePillX + Math.round(14 * sf);
-    this.gearIcon.setPosition(gearX, coinY);
-    this.rateText.setPosition(gearX + Math.round(12 * sf), coinY);
-
-    // 3. Ayarlar butonu konumu
-    const btnSize = Math.round(32 * sf);
-    const btnX = w - pad - btnSize / 2;
-
-    // 4. Uçuş Rekor Rozeti Kapsülü — Sağa dayalı
-    const badgeW = this.flightBadgeText.width;
-    const flightMargin = Math.round(16 * sf);
-    const flightRight = btnX - btnSize / 2 - flightMargin;
-    const flightPillW = Math.round(badgeW + 34 * sf);
-    const flightPillH = Math.round(28 * sf);
-
-    this.flightPillBg.setPosition(flightRight, coinY);
-    this.flightPillBg.setSize(flightPillW, flightPillH);
-
-    this.flightBadgeText.setPosition(flightRight - Math.round(8 * sf), coinY);
-    this.trophyIcon.setPosition(flightRight - badgeW - Math.round(18 * sf), coinY);
-  }
-
+  /** Para kazanıldığında kısa bir vurgu */
   pulse(): void {
-    if (this.coinSprite) {
-      // Önce eski tweenleri durdur ve scale'i kesin olarak sıfırla
-      this.scene.tweens.killTweensOf(this.coinSprite);
-      this.coinSprite.setScale(this.baseCoinScale);
-      this.coinSprite.setAlpha(1);
-      const targetScale = this.baseCoinScale * 1.18;
-      this.scene.tweens.add({
-        targets: this.coinSprite,
-        scaleX: targetScale,
-        scaleY: targetScale,
-        duration: 65,
-        yoyo: true,
-        ease: 'Quad.easeOut',
-        onComplete: () => {
-          if (this.coinSprite) {
-            this.coinSprite.setScale(this.baseCoinScale);
-          }
-        },
-      });
-    }
-
-    this.scene.tweens.killTweensOf(this.resourceText);
-    this.resourceText.setScale(1);
-    this.scene.tweens.add({
-      targets: this.resourceText,
-      scaleX: 1.08,
-      scaleY: 1.08,
-      duration: 65,
+    const tweens = this.layer.scene.tweens;
+    tweens.killTweensOf(this.coin);
+    this.coin.setScale(1.5);
+    tweens.add({
+      targets: this.coin,
+      scale: 1.8,
+      duration: 70,
       yoyo: true,
       ease: 'Quad.easeOut',
-      onComplete: () => {
-        this.resourceText.setScale(1);
-      },
+      onComplete: () => this.coin.setScale(1.5),
     });
   }
 
+  /** Uçan sikkelerin hedefi (arayüz birimi) */
   getResourceTargetPos(): { x: number; y: number } {
-    if (this.coinSprite) {
-      return { x: this.coinSprite.x, y: this.coinSprite.y };
-    }
-    return { x: 30, y: 24 };
-  }
-
-  ignoreCamera(camera: Phaser.Cameras.Scene2D.Camera): void {
-    const list: (Phaser.GameObjects.GameObject | null)[] = [
-      this.bg,
-      this.resourcePillBg,
-      this.ratePillBg,
-      this.flightPillBg,
-      this.coinSprite,
-      this.resourceText,
-      this.gearIcon,
-      this.rateText,
-      this.trophyIcon,
-      this.flightBadgeText,
-      this.settingsBtnBg,
-      this.settingsBtnIcon,
-      this.settingsZone,
-    ];
-    camera.ignore(list.filter((x): x is Phaser.GameObjects.GameObject => x !== null));
+    return { x: this.coin.x, y: this.coin.y };
   }
 }

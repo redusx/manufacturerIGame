@@ -118,6 +118,28 @@ export class DemolishTool {
     return this._isActive;
   }
 
+  /**
+   * Girdi geçici olarak kapalı mı? (pencere açık, iki parmak hareketi sürüyor)
+   * Sahne tarafından verilir; kapalıyken basışlar söküm sayılmaz.
+   */
+  isInputBlocked?: () => boolean;
+
+  /** İşaretli, sökülebilir bir hedef var mı? */
+  get hasDemolishTarget(): boolean {
+    return this._isActive && (this.currentTarget?.canDemolish ?? false);
+  }
+
+  /** İşaretli hedefin adı (yoksa null) */
+  get targetName(): string | null {
+    return this.hasDemolishTarget ? (this.currentTarget?.name ?? null) : null;
+  }
+
+  /** İşaretli hedefi söker (dokunmatikteki "Onayla" düğmesi) */
+  confirmDemolish(): void {
+    if (!this._isActive) return;
+    this.executeDemolishCurrent();
+  }
+
   // -------------------------------------------------------------
   // GİRDİ BAĞLANTILARI
   // -------------------------------------------------------------
@@ -198,7 +220,9 @@ export class DemolishTool {
   }
 
   private handlePointerMove(pointer: Phaser.Input.Pointer): void {
-    if (!this._isActive) return;
+    if (!this._isActive || this.isInputBlocked?.()) return;
+    // Dokunmatikte parmağı sürüklemek hedefi değiştirmez; hedef dokunuşla seçilir
+    if (pointer.wasTouch) return;
 
     this.moveTargetTo(this.coordUnder(pointer));
   }
@@ -207,7 +231,7 @@ export class DemolishTool {
     pointer: Phaser.Input.Pointer,
     currentlyOver?: Phaser.GameObjects.GameObject[],
   ): void {
-    if (!this._isActive) return;
+    if (!this._isActive || this.isInputBlocked?.()) return;
 
     // UI'a yapılan basış (ör. katalogdaki "SÖK") zeminde söküm sayılmaz
     if (isPointerOverUi(currentlyOver, this.camera)) return;
@@ -336,7 +360,7 @@ export class DemolishTool {
     }
 
     // Yıkım rozeti: Ad ve İade Tutarı
-    const label = `YIK: ${info.name} (+$${info.refundAmount} ⚙)`;
+    const label = `SÖK: ${info.name} (+$${info.refundAmount})`;
     this.badgeText
       .setPosition(topCenterX, topMinY - 6)
       .setText(label)
@@ -354,7 +378,7 @@ export class DemolishTool {
     );
 
     const floatingText = this.scene.add
-      .text(center.x, center.y, `+$${result.refundAmount} ⚙ (İADE)`, {
+      .text(center.x, center.y, `+$${result.refundAmount} iade`, {
         fontFamily: FONT_FAMILY,
         fontSize: '11px',
         color: PALETTE.resourceGoldHex,

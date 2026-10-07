@@ -20,6 +20,8 @@ import {
 import { PALETTE, FONT_FAMILY } from '../../ui/theme.ts';
 import { GridCoordinates } from './GridCoordinates.ts';
 import { INTAKE_SHORT_NAMES } from '../input/PlacementMath.ts';
+import { bindWorldTap, isTap } from '../input/WorldPointer.ts';
+import { SCREEN_LABEL_NAME } from '../../ui/system/UiLayer.ts';
 
 export { GridCoordinates };
 
@@ -66,6 +68,10 @@ export class GridView {
   /** Sıradaki parsel rozeti en son hangi "alınabilir" durumuyla çizildi (kilitli parsel yoksa null) */
   private lockedPlotAffordable: boolean | null = null;
 
+  /** Kilitli parsel rozeti; kamera uzaklaşınca okunaklı kalsın diye ölçeklenir */
+  private lockedBadge: Phaser.GameObjects.Container | null = null;
+  private labelScale = 1;
+
   constructor(
     scene: Phaser.Scene,
     grid: GridMap,
@@ -104,6 +110,15 @@ export class GridView {
 
   private disarmFloorPress(): void {
     this.floorPressArmed = false;
+  }
+
+  /**
+   * Zemin üstü etiketlerin (kilitli parsel rozeti) ölçeği. Sahne, rozet kamera
+   * zoom'undan bağımsız olarak ekranda aynı boyutta kalsın diye zoom'un tersini verir.
+   */
+  setLabelScale(scale: number): void {
+    this.labelScale = scale;
+    this.lockedBadge?.setScale(scale);
   }
 
   // -------------------------------------------------------------
@@ -223,11 +238,7 @@ export class GridView {
         if (!this.floorPressArmed) return;
         this.floorPressArmed = false;
 
-        const dragDist = Phaser.Math.Distance.Between(
-          pointer.downX, pointer.downY,
-          pointer.upX, pointer.upY,
-        );
-        if (dragDist < 6 && this.onCellClicked) {
+        if (isTap(pointer) && this.onCellClicked) {
           const localX = pointer.worldX - this.originX;
           const localY = pointer.worldY - this.originY;
           const coord = this.worldToGrid(localX, localY);
@@ -389,6 +400,7 @@ export class GridView {
   private renderLockedPlots(activeW: number, activeH: number): void {
     this.lockedPlotsContainer.removeAll(true);
     this.lockedPlotAffordable = null;
+    this.lockedBadge = null;
 
     for (const plot of FACTORY_PLOTS) {
       if (this.economy.isPlotUnlocked(plot.index)) continue;
@@ -423,14 +435,15 @@ export class GridView {
       const badgeContainer = this.scene.add.container(centerX, centerY);
 
       // Rozet: uzun parsel adı kutudan taşmasın diye satıra bölünür, yükseklik metne göre ayarlanır
-      const badgeW = 120;
+      const badgeW = 132;
       const canAfford = this.economy.canAfford(plot.cost);
       this.lockedPlotAffordable = canAfford;
 
       // Parsel Adı
       const titleText = this.scene.add.text(0, 0, plot.name, {
         fontFamily: FONT_FAMILY,
-        fontSize: '9px',
+        fontSize: '11px',
+        fontStyle: 'bold',
         color: PALETTE.textPrimary,
         align: 'center',
         wordWrap: { width: badgeW - 12 },
@@ -438,14 +451,14 @@ export class GridView {
       titleText.setOrigin(0.5, 0);
 
       // Boyut ve Maliyet
-      const costStr = plot.cost > 0 ? `$${plot.cost}` : 'Ücretsiz';
+      const costStr = plot.cost > 0 ? `$${plot.cost.toLocaleString('en-US')}` : 'Ücretsiz';
       const costText = this.scene.add.text(
         0,
         0,
-        `[${plot.targetWidth}x${plot.targetHeight}]  ${costStr}`,
+        `${plot.targetWidth}x${plot.targetHeight} · ${costStr}`,
         {
           fontFamily: FONT_FAMILY,
-          fontSize: '9px',
+          fontSize: '11px',
           color: canAfford ? PALETTE.resourceGoldHex : PALETTE.textMuted,
         },
       );
@@ -467,13 +480,19 @@ export class GridView {
       // İnteraktif tıklama alanı
       const hitZone = this.scene.add.zone(0, 0, badgeW, badgeH);
       hitZone.setInteractive({ useHandCursor: canAfford });
-      hitZone.on('pointerdown', () => {
-        if (this.onPlotUnlockRequested) {
-          this.onPlotUnlockRequested(plot.index);
-        }
-      });
+      bindWorldTap(
+        hitZone,
+        () => {
+          if (this.onPlotUnlockRequested) {
+            this.onPlotUnlockRequested(plot.index);
+          }
+        },
+        () => (this.canStartCellClick ? this.canStartCellClick() : true),
+      );
 
       badgeContainer.add([badgeBg, titleText, costText, hitZone]);
+      badgeContainer.setName(SCREEN_LABEL_NAME).setScale(this.labelScale);
+      this.lockedBadge = badgeContainer;
       plotContainer.add(badgeContainer);
 
       this.lockedPlotsContainer.add(plotContainer);

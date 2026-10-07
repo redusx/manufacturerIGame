@@ -21,6 +21,7 @@ import {
 } from './ConveyorGeometry.ts';
 import { GridCoordinates } from './GridCoordinates.ts';
 import { PALETTE } from '../../ui/theme.ts';
+import { bindWorldTap } from '../input/WorldPointer.ts';
 
 export interface ConveyorRendererConfig {
   tileSize?: number;
@@ -53,6 +54,9 @@ export class ConveyorRenderer {
 
   /** Konveyör hücresine tıklandığında tetiklenen callback */
   onConveyorClicked?: (coord: GridCoord) => void;
+
+  /** Basış bir tıklamayı başlatabilir mi? (Araç etkinken basış araca aittir) */
+  canStartClick?: () => boolean;
 
   constructor(
     scene: Phaser.Scene,
@@ -290,11 +294,15 @@ export class ConveyorRenderer {
     // 3. Etkileşim Bölgesi (Tıklama desteği)
     const hitZone = this.scene.add.zone(0, 0, this.tileSize, this.tileSize);
     hitZone.setInteractive({ useHandCursor: true });
-    hitZone.on('pointerdown', () => {
-      if (this.onConveyorClicked) {
-        this.onConveyorClicked({ x, y });
-      }
-    });
+    bindWorldTap(
+      hitZone,
+      () => {
+        if (this.onConveyorClicked) {
+          this.onConveyorClicked({ x, y });
+        }
+      },
+      () => (this.canStartClick ? this.canStartClick() : true),
+    );
     cellContainer.add(hitZone);
 
     this.rootContainer.add(cellContainer);

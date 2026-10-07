@@ -1,6 +1,7 @@
 /**
- * Central Pixel Art Theme & Design System for Manufacturer
- * Defined in docs/ART_DIRECTION.md
+ * Merkezi tema: renk paleti (docs/ART_DIRECTION.md §2) ve UI 2.0 tasarım
+ * belirteçleri (docs/UI_UX_SYSTEM.md). Arayüzdeki her renk, yazı boyutu ve
+ * boşluk buradan gelir.
  */
 
 export const PALETTE = {
@@ -59,259 +60,131 @@ export const PALETTE = {
   btnCyanText: '#0b0e17', // was #021818
 };
 
-export const FONT_FAMILY = "'Press Start 2P', monospace";
+/** ART_DIRECTION §5: temiz, yüksek okunabilirlikli sans-serif (her platformda hazır bulunur) */
+export const FONT_FAMILY = 'Arial, Helvetica, sans-serif';
 
-export const FONT_SIZES = {
-  header: '20px',
-  title: '15px',
-  body: '12px',
-  stat: '11px',
-  badge: '10px',
-  micro: '9px',
-};
+/* =========================================================================
+ * UI 2.0 TASARIM BELİRTEÇLERİ (docs/UI_UX_SYSTEM.md)
+ * Tüm ölçüler arayüz birimidir; ekrandaki gerçek boyutu UiMetrics.zoom belirler.
+ * ========================================================================= */
 
 /**
- * Common Pixel-Art UI drawing helper routines for crisp Phaser Graphics
+ * Anlamsal renkler: bir anlam her ekranda aynı renkle gösterilir.
+ * Hepsi ART_DIRECTION §2 paletinden gelir.
  */
-export class PixelUIHelper {
-  /**
-   * Draw a multi-layered pixel beveled panel
-   */
-  static drawPanel(
-    g: Phaser.GameObjects.Graphics,
-    x: number,
-    y: number,
-    w: number,
-    h: number,
-    fillColor = PALETTE.cardBg,
-    alpha = 1
-  ): void {
-    g.fillStyle(fillColor, alpha);
-    g.fillRect(x, y, w, h);
+export const SEMANTIC = {
+  /** Ana eylem / satın alınabilir / olumlu sonuç */
+  primary: PALETTE.successGreen,
+  primaryHex: PALETTE.successGreenHex,
+  /** İkincil, nötr eylem */
+  secondary: PALETTE.borderLight,
+  secondaryHex: PALETTE.borderLightHex,
+  /** Para, fiyat, kaynak, ilerleme */
+  money: PALETTE.resourceGold,
+  moneyHex: PALETTE.resourceGoldHex,
+  /** Fabrika / elle üretim */
+  factory: PALETTE.factoryAmber,
+  factoryHex: PALETTE.factoryAmberHex,
+  /** Roket, hangar, uçuş */
+  rocket: PALETTE.rocketCyan,
+  rocketHex: PALETTE.rocketCyanHex,
+  /** Uyarı ve kilitli içerik */
+  warning: PALETTE.warningOrange,
+  warningHex: PALETTE.warningOrangeHex,
+  /** Tehlikeli / geri alınamaz eylem, hata */
+  danger: PALETTE.dangerRed,
+  dangerHex: PALETTE.dangerRedHex,
+  /** Devre dışı */
+  disabled: PALETTE.btnDisabled,
+  disabledHex: PALETTE.btnDisabledHex,
+  textPrimary: PALETTE.textPrimary,
+  textMuted: PALETTE.textMuted,
+  textOnBright: PALETTE.textDark,
+  textOnDark: '#ffffff',
+  /** Metin ve ikon konturu */
+  outlineHex: '#070913',
+} as const;
 
-    // Dark outer border
-    g.lineStyle(1, PALETTE.borderDark, 1);
-    g.strokeRect(x, y, w, h);
+export type UiTextVariant =
+  | 'display'
+  | 'title'
+  | 'heading'
+  | 'button'
+  | 'buttonSmall'
+  | 'body'
+  | 'bodyBold'
+  | 'caption'
+  | 'captionBold';
 
-    // 1px inner highlight (top & left)
-    g.lineStyle(1, PALETTE.borderHighlight, 0.9);
-    g.lineBetween(x + 1, y + 1, x + w - 2, y + 1);
-    g.lineBetween(x + 1, y + 1, x + 1, y + h - 2);
+/** Yazı ölçeği. En küçük yazı 11 birimdir (ART_DIRECTION alt sınırı 9). */
+export const TYPE_SCALE: Readonly<Record<UiTextVariant, { size: number; bold: boolean }>> = {
+  display: { size: 22, bold: true },
+  title: { size: 18, bold: true },
+  heading: { size: 15, bold: true },
+  button: { size: 14, bold: true },
+  buttonSmall: { size: 12, bold: true },
+  body: { size: 13, bold: false },
+  bodyBold: { size: 13, bold: true },
+  caption: { size: 11, bold: false },
+  captionBold: { size: 11, bold: true },
+};
 
-    // 1px inner shadow (bottom & right)
-    g.lineStyle(1, 0x000000, 0.4);
-    g.lineBetween(x + 1, y + h - 1, x + w - 1, y + h - 1);
-    g.lineBetween(x + w - 1, y + 1, x + w - 1, y + h - 1);
-  }
+export const SPACE = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 } as const;
 
-  /**
-   * Draw a beveled pixel button
-   */
-  static drawButton(
-    g: Phaser.GameObjects.Graphics,
-    x: number,
-    y: number,
-    w: number,
-    h: number,
-    fillColor: number,
-    borderColor = PALETTE.borderDark,
-    highlightColor = 0xffffff,
-    highlightAlpha = 0.25
-  ): void {
-    // Fill
-    g.fillStyle(fillColor, 1);
-    g.fillRect(x, y, w, h);
+/** Dokunma hedefinin en küçük kenarı (görsel daha küçük olsa bile basılabilir alan bu kadardır) */
+export const TOUCH_MIN = 44;
 
-    // Border
-    g.lineStyle(1, borderColor, 1);
-    g.strokeRect(x, y, w, h);
+export type UiButtonVariant = 'primary' | 'secondary' | 'rocket' | 'factory' | 'gold' | 'danger';
 
-    // Top & left 1px bevel highlight
-    if (highlightAlpha > 0) {
-      g.lineStyle(1, highlightColor, highlightAlpha);
-      g.lineBetween(x + 1, y + 1, x + w - 2, y + 1);
-      g.lineBetween(x + 1, y + 1, x + 1, y + h - 2);
-    }
+/** Düğme varyantlarının etiket rengi: parlak gövdede koyu, koyu gövdede açık yazı */
+export const BUTTON_LABEL_COLORS: Readonly<Record<UiButtonVariant | 'disabled', string>> = {
+  primary: SEMANTIC.textOnBright,
+  secondary: SEMANTIC.textOnDark,
+  rocket: SEMANTIC.textOnBright,
+  factory: SEMANTIC.textOnBright,
+  gold: SEMANTIC.textOnBright,
+  danger: SEMANTIC.textOnDark,
+  disabled: SEMANTIC.textMuted,
+};
 
-    // Bottom & right 1px bevel shadow
-    g.lineStyle(1, 0x000000, 0.45);
-    g.lineBetween(x + 1, y + h - 1, x + w - 1, y + h - 1);
-    g.lineBetween(x + w - 1, y + 1, x + w - 1, y + h - 1);
-  }
+/** UI 2.0 dokuları (public/assets/ui/, tools/generate_ui_assets.py üretir) */
+const UI_BUTTON_STATES: ReadonlyArray<[string, readonly string[]]> = [
+  ['primary', ['normal', 'hover', 'pressed']],
+  ['secondary', ['normal', 'hover', 'pressed']],
+  ['rocket', ['normal', 'hover', 'pressed']],
+  ['factory', ['normal', 'hover', 'pressed']],
+  ['gold', ['normal', 'hover', 'pressed']],
+  ['danger', ['normal', 'hover', 'pressed']],
+  ['disabled', ['normal']],
+];
 
-  /**
-   * Draw a beveled pixel progress/status bar (Fallback graphics or legacy)
-   */
-  static drawProgressBar(
-    g: Phaser.GameObjects.Graphics,
-    x: number,
-    y: number,
-    w: number,
-    h: number,
-    progress: number,
-    fillColor: number,
-    bgColor = 0x0e1220,
-    accentGlow = true
-  ): void {
-    const clampedProgress = Phaser.Math.Clamp(progress, 0, 1);
+const UI_ICON_NAMES = [
+  'arrow_right', 'belt', 'chevron_down', 'clock', 'crate', 'drop', 'expand', 'fullscreen', 'hand',
+  'info', 'intake', 'lock', 'plus', 'rotate', 'sound_off', 'sound_on', 'star', 'textsize', 'trash',
+  'up', 'warning', 'wrench',
+] as const;
 
-    // Bar background
-    g.fillStyle(bgColor, 1);
-    g.fillRect(x, y, w, h);
+export type UiIconName = (typeof UI_ICON_NAMES)[number];
 
-    // Border
-    g.lineStyle(1, PALETTE.borderDark, 1);
-    g.strokeRect(x, y, w, h);
+/** Doku anahtarı -> dosya yolu; sahnenin preload aşamasında yüklenir */
+export const UI_TEXTURES: ReadonlyArray<{ key: string; path: string }> = [
+  ...UI_BUTTON_STATES.flatMap(([variant, states]) =>
+    states.map((state) => ({
+      key: `ui2_btn_${variant}_${state}`,
+      path: `assets/ui/btn_${variant}_${state}.png`,
+    })),
+  ),
+  ...UI_ICON_NAMES.map((name) => ({ key: `ui2_icon_${name}`, path: `assets/ui/icon_${name}.png` })),
+  { key: 'ui2_frame', path: 'assets/ui/frame.png' },
+  { key: 'ui2_frame_thin', path: 'assets/ui/frame_thin.png' },
+  { key: 'ui2_chip', path: 'assets/ui/chip.png' },
+  { key: 'ui2_header', path: 'assets/ui/header.png' },
+  { key: 'ui2_px', path: 'assets/ui/px.png' },
+  { key: 'ui2_scroll_thumb', path: 'assets/ui/scroll_thumb.png' },
+  { key: 'ui2_pip', path: 'assets/ui/pip.png' },
+];
 
-    // Fill
-    const fillW = Math.floor((w - 2) * clampedProgress);
-    if (fillW > 0) {
-      g.fillStyle(fillColor, 1);
-      g.fillRect(x + 1, y + 1, fillW, h - 2);
-
-      if (accentGlow && h > 4) {
-        // 1px top highlight across filled section
-        g.lineStyle(1, 0xffffff, 0.4);
-        g.lineBetween(x + 1, y + 1, x + fillW, y + 1);
-      }
-    }
-
-    // Bottom inner shadow
-    g.lineStyle(1, 0x000000, 0.5);
-    g.lineBetween(x + 1, y + h - 1, x + w - 1, y + h - 1);
-  }
-
-  /* =========================================================================
-   * RASTER PIXEL-ART NINE-SLICE UI GENERATORS
-   * ========================================================================= */
-
-  /**
-   * Create a true raster pixel art card background (9-slice)
-   */
-  static createCard(
-    scene: Phaser.Scene,
-    x: number,
-    y: number,
-    w: number,
-    h: number
-  ): Phaser.GameObjects.NineSlice {
-    return scene.add.nineslice(x, y, 'ui_card_bg', 0, w, h, 6, 6, 6, 6).setOrigin(0, 0);
-  }
-
-  /**
-   * Create a true raster pixel art HUD / Header panel (9-slice)
-   */
-  static createPanel(
-    scene: Phaser.Scene,
-    x: number,
-    y: number,
-    w: number,
-    h: number
-  ): Phaser.GameObjects.NineSlice {
-    return scene.add.nineslice(x, y, 'ui_panel_hud', 0, w, h, 6, 6, 6, 6).setOrigin(0, 0);
-  }
-
-  /**
-   * Create a true raster pixel art dialog / modal frame (9-slice)
-   */
-  static createModal(
-    scene: Phaser.Scene,
-    x: number,
-    y: number,
-    w: number,
-    h: number
-  ): Phaser.GameObjects.NineSlice {
-    return scene.add.nineslice(x, y, 'ui_modal_bg', 0, w, h, 8, 8, 8, 8).setOrigin(0.5, 0.5);
-  }
-
-  /**
-   * Create a true raster pixel art toast / notification box (9-slice)
-   */
-  static createToast(
-    scene: Phaser.Scene,
-    x: number,
-    y: number,
-    w: number,
-    h: number
-  ): Phaser.GameObjects.NineSlice {
-    return scene.add.nineslice(x, y, 'ui_toast_bg', 0, w, h, 6, 6, 6, 6).setOrigin(0.5, 0.5);
-  }
-
-  /**
-   * Create a true raster pixel art button (9-slice)
-   */
-  static createButton(
-    scene: Phaser.Scene,
-    x: number,
-    y: number,
-    w: number,
-    h: number,
-    type: 'green' | 'disabled' | 'danger' | 'manual' | 'launch' | 'tabActive' | 'tabInactive' = 'green'
-  ): Phaser.GameObjects.NineSlice {
-    let key = 'btn_green_normal';
-    let corner = 6;
-    if (type === 'disabled') {
-      key = 'btn_disabled';
-    } else if (type === 'danger') {
-      key = 'btn_danger_normal';
-    } else if (type === 'manual') {
-      key = 'btn_manual_normal';
-      corner = 8;
-    } else if (type === 'launch') {
-      key = 'btn_launch_normal';
-      corner = 8;
-    } else if (type === 'tabActive') {
-      key = 'btn_tab_active';
-      corner = 4;
-    } else if (type === 'tabInactive') {
-      key = 'btn_tab_inactive';
-      corner = 4;
-    }
-    return scene.add.nineslice(x, y, key, 0, w, h, corner, corner, corner, corner).setOrigin(0.5, 0.5);
-  }
-
-  /**
-   * Create or get a pixel art hazard stripe texture (seamless 45-degree yellow/black warning stripes)
-   */
-  static ensureHazardTexture(scene: Phaser.Scene): string {
-    const key = 'hazard_stripe_tile';
-    if (scene.textures.exists(key)) return key;
-
-    const canvas = scene.textures.createCanvas(key, 32, 16);
-    if (!canvas) return key;
-
-    const ctx = canvas.context;
-    ctx.imageSmoothingEnabled = false;
-
-    // Fill dark industrial base
-    ctx.fillStyle = '#141a2e'; // was #141824
-    ctx.fillRect(0, 0, 32, 16);
-
-    // Draw 45-degree hazard yellow diagonal stripes
-    ctx.fillStyle = '#ffd166';
-    ctx.beginPath();
-    ctx.moveTo(0, 0); ctx.lineTo(8, 0); ctx.lineTo(0, 8); ctx.closePath(); ctx.fill();
-
-    ctx.beginPath();
-    ctx.moveTo(12, 0); ctx.lineTo(24, 0); ctx.lineTo(8, 16); ctx.lineTo(-4, 16); ctx.closePath(); ctx.fill();
-
-    ctx.beginPath();
-    ctx.moveTo(28, 0); ctx.lineTo(40, 0); ctx.lineTo(24, 16); ctx.lineTo(12, 16); ctx.closePath(); ctx.fill();
-
-    ctx.beginPath();
-    ctx.moveTo(44, 0); ctx.lineTo(48, 0); ctx.lineTo(40, 16); ctx.lineTo(28, 16); ctx.closePath(); ctx.fill();
-
-    // Top 1px bevel highlight
-    ctx.fillStyle = '#ffffff';
-    ctx.globalAlpha = 0.25;
-    ctx.fillRect(0, 0, 32, 1);
-
-    // Bottom 1px shadow
-    ctx.fillStyle = '#000000';
-    ctx.globalAlpha = 0.5;
-    ctx.fillRect(0, 15, 32, 1);
-
-    canvas.refresh();
-    return key;
-  }
+/** UI 2.0 ikon dokusunun anahtarı */
+export function uiIcon(name: UiIconName): string {
+  return `ui2_icon_${name}`;
 }

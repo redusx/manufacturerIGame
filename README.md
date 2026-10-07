@@ -23,7 +23,7 @@ npm run build
 
 | Dosya / Klasör | Sorumluluk |
 |---|---|
-| `src/main.ts` | Phaser oyun başlatma, ekran boyutu |
+| `src/main.ts` | Phaser oyun başlatma; tuval ve arayüz ölçeğinin `UiHost`'a bağlanması |
 | `src/scenes/GameScene.ts` | Fabrika sahnesi: simülasyon döngüsü, UI ve araçların bağlanması |
 | `src/scenes/FlightScene.ts` | Roket uçuşu sahnesi |
 | `src/factory/simulation/` | Saf simülasyon: ızgara, bantlar, makineler, reçeteler, eşyalar, fabrika ekonomisi, hangar köprüsü |
@@ -32,8 +32,11 @@ npm run build
 | `src/factory/view/` | Izgara, bant, makine çizimi; kamera; makine inceleme penceresi |
 | `src/factory/persistence/`, `src/save/` | localStorage kayıt/yükleme, çevrimdışı gelir |
 | `src/economy/EconomyManager.ts` | Oyunun tek kasası: para, toplam kazanç, roket seviyeleri |
-| `src/ui/` | HUD, aşama çubuğu, katalog, hangar, ayarlar, tema |
+| `src/ui/system/` | Arayüz altyapısı: ölçek ve düzen hesabı, arayüz katmanı, düğme, pencere, onay, bildirim |
+| `src/ui/` | HUD, hedef kartı, araç çubuğu, katalog, hangar, aşamalar, ayarlar, uçuş arayüzü, tema |
+| `tools/generate_ui_assets.py` | Arayüz dokularını (`public/assets/ui/`) üreten betik |
 | `docs/PROJECT_STATUS.md`, `docs/DECISIONS.md` | Güncel durum ve bağlayıcı tasarım kararları |
+| `docs/UI_UX_SYSTEM.md` | Arayüz sistemi: ölçek, düzen modları, girdi ve pencere kuralları |
 
 ## Teknoloji
 
@@ -55,3 +58,4 @@ npm test
 - Roket hangarı: modüller fabrikada üretilen parçalar + nakit ile yükseltilir
 - Roket uçuşu fabrika gelirine bağlı bir prim ve kalıcı gelir çarpanı kazandırır; uçarken fabrika çalışmaya devam eder
 - İlerleme localStorage'a kaydedilir; oyundan ayrıyken çevrimdışı gelir (en fazla 4 saat, %50 verim)
+- Telefon, tablet ve masaüstünde dikey/yatay çalışır; dokunma, fare ve klavye desteklenir; arayüz ölçeği ayarlardan değiştirilir

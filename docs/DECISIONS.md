@@ -134,3 +134,34 @@
   4. **Parsel 4:** $50.000 → $30.000.
   5. **Toplam ciro:** yalnız ihracat ve tıklama; aşama ödülü artık sayılmaz (eskiden 2. ve 4. aşama ödüller yüzünden anında tamamlanıyordu).
 * **Ölçüm:** Aynı bot ve aynı yerleşimle, gerçek simülasyon sınıfları üzerinde. Eski değerler: 9. aşama 10,8 dk, 2. ve 4. aşama 0,0 dk, ciro $25.138 (çoğu ödül). Yeni değerler: 9. aşama 15,6 dk, aşamalar 0,9 / 1,3 / 1,1 / 1,5 / 1,6 / 2,6 / 2,1 / 2,8 / 1,6 dk, gelir $0,9 → $35/sn.
+
+### [DEC-020] Arayüz: Cihaz Çözünürlüğünde Çizim, Birim Tabanlı Düzen
+* **Tarih:** 2026-10-06
+* **Karar:**
+  1. Tuval CSS boyutu × cihaz piksel oranında (en fazla 3, yaklaşık 4K piksel bütçesiyle) çizilir. Arayüz "birim" cinsinden yerleştirilir; arayüz kamerasının zoom'u 0,5'in katıdır.
+  2. Dünya (fabrika, uçuş) ve arayüz ayrı kameralarla çizilir; sahneye eklenen nesne varsayılan olarak dünyaya aittir.
+  3. Bütün pencereler tek temel sınıftan (`UiModal`), bütün düğmeler tek bileşenden (`UiButton`) türer. Dikey ekranda pencereler alttan açılan sayfadır; sığmayan içerik küçültülmez, kaydırılır.
+  4. Görsel dil piksel sanat olarak kalır (kullanıcı kararı); `ART_DIRECTION.md` değişmedi. Yazı tipi oradaki §5 gereği `Arial, Helvetica, sans-serif`'tir; kodda adı geçen ama hiç yüklenmeyen piksel font kaldırıldı, yeni font eklenmedi.
+* **Gerekçe:** Eski düzen tuvali düşük çözünürlükte çizip CSS ile büyütüyordu; yazılar yüksek DPI ekranda bulanık, küçük ekranda okunaksızdı ve her pencere kendi ölçülerini taşıyordu.
+* **Ayrıntı:** `UI_UX_SYSTEM.md`.
+
+### [DEC-021] Arayüz Ölçeği Ayarı
+* **Tarih:** 2026-10-06
+* **Karar:** Ayarlarda dört kademe vardır: Küçük, Normal, Büyük, Çok Büyük (Normal'in 0,8 / 1 / 1,2 / 1,4 katı, 0,5 zoom adımına yuvarlanır). Tercih oyun kaydından ayrı tutulur (`manufacturer_ui_prefs_v1`); kayıt sıfırlansa da korunur. Ölçek, arayüz ekranını 300x480 (dikey) / 480x300 (yatay) birimin altına düşüremez; bu yüzden küçük ekranlarda üst kademeler kullanılamaz ve ayarlarda kapalı görünür.
+* **Gerekçe:** Düzenin her kademede kırılmadan çalışması, sınırsız büyütmeden daha önemlidir.
+
+### [DEC-022] Girdi Kuralları
+* **Tarih:** 2026-10-06
+* **Karar:**
+  1. Fabrikadaki makine, bant, zemin ve parsel rozeti basışta değil bırakışta tepki verir; üzerlerinde başlayan kaydırma ya da iki parmak hareketi tıklama sayılmaz.
+  2. Dokunmatikte yerleştirme ve söküm iki adımlıdır (hedefi seç → Onayla); farede tek tıktır.
+  3. Fabrika zeminindeki rozetten parsel satın alma onay ister; katalogdaki fiyatlı düğme doğrudan satın alır.
+  4. Araç çubuğu sırası ve kısayolları: ÜRET (1/Boşluk), BANT (2), İNŞA (3/B), SÖK (4/X), HANGAR (5/H).
+  5. Müzik olmadığı için müzik ayarı eklenmedi; yalnızca ses efektleri ayarı vardır.
+* **Gerekçe:** Dokunmatikte kaydırma sırasında yanlışlıkla makine penceresi açılıyor ya da para harcanabiliyordu.
+
+### [DEC-023] Makine Girdisi Her Kenardan Alınır
+* **Tarih:** 2026-10-06
+* **Karar:** Makineye doğru akan bant, makinenin hangi hücresine ve hangi kenarına dayanırsa dayansın girdiyi teslim eder. Giriş portu işareti yalnızca önerilen yönü gösterir. Çıkış portu bağlayıcı kalır: ürün yalnızca çıkış portunun önündeki banda verilir. Makine, etkin reçetesinin istemediği eşyayı almaz.
+* **Gerekçe:** Oyuncu 5. aşamada presi (1x2, tek girişi üst hücrenin kuzeyinde) yandan besledi; doğru eşya geldiği hâlde bant sessizce tıkandı ve bu hata gibi göründü. Küçük port işaretiyle tek kenar kuralı öğretilemiyordu.
+* **Not:** Aşama metinlerindeki eşya adları da eşya kayıtlarıyla eşitlendi ("Demir Levha" → "Çelik Levha", "Çelik Dişli" → "Hassas Dişli" vb.); oyunda "Demir Levha" adında bir eşya yoktu.

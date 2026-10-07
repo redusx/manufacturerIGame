@@ -1,10 +1,13 @@
 /* ======================================================================
- * src/factory/view/MachineInspectorModal.ts — Makine İnceleme ve Geliştirme Modalı
+ * src/factory/view/MachineInspectorModal.ts — Makine penceresi
  *
- * Tıklanan makinenin durumunu, girdi ve çıktı tampon stoğunu, aktif reçetesini
- * ve seviye yükseltme ($Base * 1.15^lvl) butonunu gösteren Phaser 3 modalı.
+ * Bir makineye dokununca açılır ve yukarıdan aşağı şu sırayla okunur:
+ * durum ve seviye → ne ürettiği ve ne hızla → reçete (girdi → çıktı) →
+ * reçete seçimi → depolar → yükseltme. Ana eylem (Yükselt) ve tehlikeli
+ * eylem (Sök) pencerenin altında sabittir.
  *
- * docs/ART_DIRECTION.md, DEC-007 ve src/ui/theme.ts standartlarına tam uyumludur.
+ * Canlı değerler (durum, depolar, üretim çevrimi) açıkken sürekli yenilenir;
+ * pencerenin yapısı yalnız makine, seviye veya reçete değişince yeniden kurulur.
  * ====================================================================== */
 
 import Phaser from 'phaser';
@@ -15,755 +18,453 @@ import { RecipeRegistry, defaultRecipeRegistry } from '../simulation/RecipeRegis
 import { ItemRegistry, defaultItemRegistry } from '../simulation/ItemRegistry.ts';
 import {
   MachineInspectorHelper,
+  type InspectorBufferItem,
   type MachineInspectorData,
 } from './MachineInspectorHelper.ts';
-import { PALETTE, FONT_FAMILY, PixelUIHelper } from '../../ui/theme.ts';
+import { formatNumber } from '../../utils/format.ts';
+import { SEMANTIC, SPACE, uiIcon } from '../../ui/theme.ts';
+import { UiButton } from '../../ui/system/UiButton.ts';
+import type { UiLayer } from '../../ui/system/UiLayer.ts';
+import { UiModal } from '../../ui/system/UiModal.ts';
+import {
+  UiChip,
+  UiProgressBar,
+  createDivider,
+  createInset,
+  type UiBarColor,
+} from '../../ui/system/UiWidgets.ts';
 
 export interface MachineInspectorModalConfig {
   onUpgrade?: (machine: MachineEntity, newLevel: number) => void;
+  /** Parası yetmeyen yükseltme düğmesine basılınca */
+  onUpgradeDenied?: () => void;
   onRecipeChanged?: (machine: MachineEntity, recipeId: string) => void;
   onDemolishRequested?: (machine: MachineEntity) => void;
   onClose?: () => void;
 }
 
-export class MachineInspectorModal {
-  readonly scene: Phaser.Scene;
-  readonly engine: ProductionEngine;
-  readonly economy: FactoryEconomy;
-  readonly recipeRegistry: RecipeRegistry;
-  readonly itemRegistry: ItemRegistry;
+interface BufferRow {
+  itemId: string;
+  kind: 'input' | 'output';
+  countText: Phaser.GameObjects.Text;
+  bar: UiProgressBar;
+}
 
-  /** Olay dinleyicileri */
-  onUpgrade?: (machine: MachineEntity, newLevel: number) => void;
-  onRecipeChanged?: (machine: MachineEntity, recipeId: string) => void;
-  onDemolishRequested?: (machine: MachineEntity) => void;
-  onClose?: () => void;
+/** Canlı değerlerin yenilenme aralığı (ms) */
+const LIVE_REFRESH_INTERVAL_MS = 100;
 
-  /** İncelenen makine */
+/** Durum yalnız renkle değil, ikon ve metinle de anlatılır */
+const STATUS_ICONS: Readonly<Record<string, string>> = {
+  PROCESSING: 'icon_check',
+  WAITING_INPUT: uiIcon('clock'),
+  BLOCKED_OUTPUT: uiIcon('warning'),
+  IDLE: uiIcon('info'),
+};
+
+export class MachineInspectorModal extends UiModal {
+  private readonly engine: ProductionEngine;
+  private readonly economy: FactoryEconomy;
+  private readonly recipeRegistry: RecipeRegistry;
+  private readonly itemRegistry: ItemRegistry;
+  private readonly callbacks: MachineInspectorModalConfig;
+
   private targetMachine: MachineEntity | null = null;
-  private _isOpen = false;
+  private structureSignature = '';
+  private lastLiveRefresh = 0;
 
-  /** Tasarım boyutları; dar ekranda genişlik küçülür, tarif sayısı arttıkça yükseklik uzar */
-  private static readonly MAX_MODAL_WIDTH = 380;
-  private static readonly MIN_MODAL_HEIGHT = 460;
-  /** Kısa ekrana sığdırırken pencerenin küçültülebileceği en düşük oran */
-  private static readonly MIN_FIT_SCALE = 0.7;
-  private modalWidth = MachineInspectorModal.MAX_MODAL_WIDTH;
-
-  /** Tarif düğmelerinin en son hangi durum için kurulduğu */
-  private recipeChipsSignature = '';
-
-  /** Görsel Bileşenler */
-  readonly container: Phaser.GameObjects.Container;
-  private backdrop: Phaser.GameObjects.Rectangle;
-  private panelBlocker: Phaser.GameObjects.Rectangle;
-  private panelGraphics: Phaser.GameObjects.Graphics;
-  private bufferGraphics: Phaser.GameObjects.Graphics;
-
-  // Başlık öğeleri
-  private titleText: Phaser.GameObjects.Text;
-  private levelBadgeText: Phaser.GameObjects.Text;
-  private closeButtonText: Phaser.GameObjects.Text;
-
-  // Durum ve ikon
-  private machineIcon: Phaser.GameObjects.Image;
-  private statusBadgeText: Phaser.GameObjects.Text;
-  private speedText: Phaser.GameObjects.Text;
-
-  // Reçete alanı
-  private recipeSectionTitle: Phaser.GameObjects.Text;
-  private recipeDetailsText: Phaser.GameObjects.Text;
-  private recipeChipsContainer: Phaser.GameObjects.Container;
-
-  // Tampon metinleri
-  private bufferSectionTitle: Phaser.GameObjects.Text;
-  private inputBufferText: Phaser.GameObjects.Text;
-  private outputBufferText: Phaser.GameObjects.Text;
-
-  // Butonlar
-  private upgradeButtonBg: Phaser.GameObjects.Graphics;
-  private upgradeButtonText: Phaser.GameObjects.Text;
-  private upgradeButtonHitArea: Phaser.GameObjects.Rectangle;
-
-  private demolishButtonBg: Phaser.GameObjects.Graphics;
-  private demolishButtonText: Phaser.GameObjects.Text;
-  private demolishButtonHitArea: Phaser.GameObjects.Rectangle;
-
-  /** Yenileme zamanlayıcısı */
-  private timeSinceLastRefresh = 0;
-  private readonly REFRESH_INTERVAL_SEC = 0.1; // 100ms
+  // Canlı güncellenen öğeler
+  private statusChip: UiChip | null = null;
+  private statusChipRight = 0;
+  private cycleBar: UiProgressBar | null = null;
+  private bufferRows: BufferRow[] = [];
+  private upgradeButton: UiButton | null = null;
 
   constructor(
-    scene: Phaser.Scene,
+    layer: UiLayer,
     engine: ProductionEngine,
     economy: FactoryEconomy,
     config: MachineInspectorModalConfig = {},
     recipeRegistry: RecipeRegistry = defaultRecipeRegistry,
     itemRegistry: ItemRegistry = defaultItemRegistry,
   ) {
-    this.scene = scene;
+    super(layer, { title: '', maxWidth: 440, accent: SEMANTIC.factory });
     this.engine = engine;
     this.economy = economy;
+    this.callbacks = config;
     this.recipeRegistry = recipeRegistry;
     this.itemRegistry = itemRegistry;
-
-    this.onUpgrade = config.onUpgrade;
-    this.onRecipeChanged = config.onRecipeChanged;
-    this.onDemolishRequested = config.onDemolishRequested;
-    this.onClose = config.onClose;
-
-    // Ana konteyner (ScrollFactor 0 = ekrana sabit, Depth 200 = en üst katman)
-    this.container = this.scene.add.container(0, 0).setDepth(200).setScrollFactor(0).setVisible(false);
-
-    // 1. Karartma Perdesi (Backdrop) - Sadece dışına tıklanınca kapatır
-    const { width, height } = this.scene.scale;
-    this.backdrop = this.scene.add
-      .rectangle(0, 0, width, height, PALETTE.modalOverlay, 0.7)
-      .setOrigin(0, 0)
-      .setInteractive()
-      .on('pointerdown', () => this.close());
-
-    // 2. Modal Gövdesi Tıklama Engelleyici (Pencere içine tıklanınca kapanmasını önler)
-    this.panelBlocker = this.scene.add
-      .rectangle(0, 0, this.modalWidth, MachineInspectorModal.MIN_MODAL_HEIGHT, 0x000000, 0.001)
-      .setOrigin(0, 0)
-      .setInteractive()
-      .on('pointerdown', (_pointer: any, _lx: number, _ly: number, event?: Phaser.Types.Input.EventData) => {
-        event?.stopPropagation();
-      });
-
-    // 3. Çizim Grafikleri
-    this.panelGraphics = this.scene.add.graphics();
-    this.bufferGraphics = this.scene.add.graphics();
-
-    // 3. Başlık ve Kapatma Butonu
-    this.titleText = this.scene.add.text(0, 0, '', {
-      fontFamily: FONT_FAMILY,
-      fontSize: '12px',
-      color: PALETTE.textPrimary,
-    });
-
-    this.levelBadgeText = this.scene.add.text(0, 0, '', {
-      fontFamily: FONT_FAMILY,
-      fontSize: '10px',
-      color: PALETTE.resourceGoldHex,
-    });
-
-    this.closeButtonText = this.scene.add
-      .text(0, 0, '[X]', {
-        fontFamily: FONT_FAMILY,
-        fontSize: '12px',
-        color: PALETTE.textMuted,
-      })
-      .setInteractive({ useHandCursor: true })
-      .on('pointerover', () => this.closeButtonText.setColor(PALETTE.dangerRedHex))
-      .on('pointerout', () => this.closeButtonText.setColor(PALETTE.textMuted))
-      .on('pointerdown', () => this.close());
-
-    // 4. Makine İkonu ve Durum Bilgileri
-    this.machineIcon = this.scene.add.image(0, 0, 'machine_press').setDisplaySize(40, 40);
-
-    this.statusBadgeText = this.scene.add.text(0, 0, '', {
-      fontFamily: FONT_FAMILY,
-      fontSize: '10px',
-      color: PALETTE.successGreenHex,
-    });
-
-    this.speedText = this.scene.add.text(0, 0, '', {
-      fontFamily: FONT_FAMILY,
-      fontSize: '10px',
-      color: PALETTE.textMuted,
-    });
-
-    // 5. Reçete Alanı
-    this.recipeSectionTitle = this.scene.add.text(0, 0, 'AKTİF REÇETE', {
-      fontFamily: FONT_FAMILY,
-      fontSize: '10px',
-      color: PALETTE.factoryAmberHex,
-    });
-
-    this.recipeDetailsText = this.scene.add.text(0, 0, '', {
-      fontFamily: FONT_FAMILY,
-      fontSize: '9px',
-      color: PALETTE.textPrimary,
-      lineSpacing: 4,
-      wordWrap: { width: this.modalWidth - 32 },
-    });
-
-    this.recipeChipsContainer = this.scene.add.container(0, 0);
-
-    // 6. Tampon Alanı
-    this.bufferSectionTitle = this.scene.add.text(0, 0, 'DAHİLİ TAMPONLAR', {
-      fontFamily: FONT_FAMILY,
-      fontSize: '10px',
-      color: PALETTE.factoryAmberHex,
-    });
-
-    this.inputBufferText = this.scene.add.text(0, 0, '', {
-      fontFamily: FONT_FAMILY,
-      fontSize: '9px',
-      color: PALETTE.rocketCyanHex,
-    });
-
-    this.outputBufferText = this.scene.add.text(0, 0, '', {
-      fontFamily: FONT_FAMILY,
-      fontSize: '9px',
-      color: PALETTE.successGreenHex,
-    });
-
-    // 7. Yükseltme Butonu
-    this.upgradeButtonBg = this.scene.add.graphics();
-    this.upgradeButtonText = this.scene.add.text(0, 0, '', {
-      fontFamily: FONT_FAMILY,
-      fontSize: '10px',
-      color: '#0b0e17',
-      align: 'center',
-    }).setOrigin(0.5);
-
-    this.upgradeButtonHitArea = this.scene.add
-      .rectangle(0, 0, 348, 38, 0x000000, 0)
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => this.handleUpgradeClick());
-
-    // 8. Yıkım / İade Butonu
-    this.demolishButtonBg = this.scene.add.graphics();
-    this.demolishButtonText = this.scene.add.text(0, 0, '', {
-      fontFamily: FONT_FAMILY,
-      fontSize: '9px',
-      color: PALETTE.dangerRedHex,
-      align: 'center',
-    }).setOrigin(0.5);
-
-    this.demolishButtonHitArea = this.scene.add
-      .rectangle(0, 0, 348, 28, 0x000000, 0)
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => this.handleDemolishClick());
-
-    // Tüm öğeleri konteynere ekle
-    this.container.add([
-      this.backdrop,
-      this.panelBlocker,
-      this.panelGraphics,
-      this.bufferGraphics,
-      this.titleText,
-      this.levelBadgeText,
-      this.closeButtonText,
-      this.machineIcon,
-      this.statusBadgeText,
-      this.speedText,
-      this.recipeSectionTitle,
-      this.recipeDetailsText,
-      this.recipeChipsContainer,
-      this.bufferSectionTitle,
-      this.inputBufferText,
-      this.outputBufferText,
-      this.upgradeButtonBg,
-      this.upgradeButtonText,
-      this.upgradeButtonHitArea,
-      this.demolishButtonBg,
-      this.demolishButtonText,
-      this.demolishButtonHitArea,
-    ]);
-
-    this.bindKeyboard();
   }
 
-  get isOpen(): boolean {
-    return this._isOpen;
-  }
-
-  // -------------------------------------------------------------
-  // KLAVYE KISAYOLLARI
-  // -------------------------------------------------------------
-
-  private bindKeyboard(): void {
-    if (this.scene.input.keyboard) {
-      const escKey = this.scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
-      escKey.on('down', () => {
-        if (this._isOpen) {
-          this.close();
-        }
-      });
-    }
-  }
-
-  // -------------------------------------------------------------
-  // MODAL YAŞAM DÖNGÜSÜ (OPEN / CLOSE / REFRESH)
-  // -------------------------------------------------------------
-
-  /**
-   * Belirtilen makineyi incelemek üzere modalı açar.
-   */
-  open(machine: MachineEntity): void {
+  /** Verilen makineyi incelemek üzere pencereyi açar */
+  openFor(machine: MachineEntity): void {
     this.targetMachine = machine;
-    this._isOpen = true;
-    this.container.setVisible(true);
-    this.refresh();
+    this.setTitle(machine.def.name);
+    this.open();
   }
 
-  /**
-   * Modalı kapatır.
-   */
-  close(): void {
-    if (!this._isOpen) return;
-    this._isOpen = false;
+  protected onClosedInternal(): void {
     this.targetMachine = null;
-    this.container.setVisible(false);
-    this.recipeChipsContainer.removeAll(true);
-    this.recipeChipsSignature = '';
-
-    if (this.onClose) {
-      this.onClose();
-    }
+    this.structureSignature = '';
+    this.statusChip = null;
+    this.cycleBar = null;
+    this.bufferRows = [];
+    this.upgradeButton = null;
+    this.callbacks.onClose?.();
   }
 
-  ignoreCamera(camera: Phaser.Cameras.Scene2D.Camera): void {
-    camera.ignore([this.container]);
-  }
-
-  layout(_width?: number, _height?: number): void {
-    if (this._isOpen) {
-      this.refresh();
-    }
-  }
-
-  /**
-   * Modal içeriğini anlık simülasyon ve ekonomi verilerine göre yeniden çizer.
-   */
-  refresh(): void {
-    if (!this._isOpen || !this.targetMachine) return;
-
-    const data = MachineInspectorHelper.inspect(
+  private inspect(): MachineInspectorData | null {
+    if (!this.targetMachine) return null;
+    // Makine başka bir yolla söküldüyse pencere de kapanır
+    if (!this.engine.getMachine(this.targetMachine.instanceId)) return null;
+    return MachineInspectorHelper.inspect(
       this.targetMachine,
       this.engine,
       this.economy,
       this.recipeRegistry,
       this.itemRegistry,
     );
+  }
 
-    const screen = this.scene.scale;
-    this.modalWidth = Math.min(MachineInspectorModal.MAX_MODAL_WIDTH, screen.width - 16);
+  private signatureOf(data: MachineInspectorData): string {
+    return [
+      data.instanceId,
+      data.level,
+      data.activeRecipeId ?? '-',
+      data.inputBuffers.map((b) => b.itemId).join(','),
+      data.outputBuffers.map((b) => b.itemId).join(','),
+    ].join('|');
+  }
 
-    // Önce içerik ölçülür: tarif düğmesi satırları ve tarif metni uzadıkça alttaki
-    // bölümler aşağı kayar ve pencere uzar (5 tarifli montaj istasyonu sığsın diye).
-    const recipeRows = this.getRecipeRowCount(data.availableRecipes.length);
-    this.recipeDetailsText
-      .setWordWrapWidth(this.modalWidth - 32)
-      .setText(this.formatRecipeDetails(data));
-    const recipeBlockH =
-      recipeRows * (MachineInspectorModal.CHIP_HEIGHT + MachineInspectorModal.CHIP_GAP) +
-      4 +
-      this.recipeDetailsText.height;
+  // -------------------------------------------------------------
+  // CANLI YENİLEME
+  // -------------------------------------------------------------
 
-    const recipeOffset = 104;
-    const bufferOffset = Math.max(230, recipeOffset + 18 + recipeBlockH + 12);
-    const upgradeOffset = Math.max(368, bufferOffset + 86 + 12);
-    const demolishOffset = upgradeOffset + 48;
-    const modalHeight = demolishOffset + 28 + 16;
+  /** Açıkken her karede çağrılır; canlı değerleri belirli aralıkla yeniler */
+  refresh(): void {
+    if (!this.isOpen) return;
+    const now = this.scene.time.now;
+    if (now - this.lastLiveRefresh < LIVE_REFRESH_INTERVAL_MS) return;
+    this.lastLiveRefresh = now;
 
-    // Kısa ekranda (yatay telefon) pencere sığmaz: içerik aynı düzenle küçültülür ki
-    // başlık, kapat düğmesi ve alttaki düğmeler ekranda kalsın.
-    const fit = Phaser.Math.Clamp(
-      (screen.height - 8) / modalHeight,
-      MachineInspectorModal.MIN_FIT_SCALE,
-      1,
-    );
-    const width = screen.width / fit;
-    const height = screen.height / fit;
-    this.container.setScale(fit);
-    this.backdrop.setSize(width, height);
+    const data = this.inspect();
+    if (!data) {
+      this.close();
+      return;
+    }
+    if (this.signatureOf(data) !== this.structureSignature) {
+      this.rebuild();
+      return;
+    }
+    this.applyLiveValues(data);
+  }
 
-    const panelX = Math.round((width - this.modalWidth) / 2);
-    const panelY = Math.max(4, Math.round((height - modalHeight) / 2));
+  private applyLiveValues(data: MachineInspectorData): void {
+    if (this.statusChip) {
+      this.statusChip.setChip(data.statusLabel, data.statusColorInt);
+      this.statusChip.setX(this.statusChipRight - this.statusChip.chipWidth);
+    }
+    this.cycleBar?.setProgress(data.status === 'PROCESSING' ? data.progressRatio : 0);
 
-    this.panelBlocker.setPosition(panelX, panelY);
-    this.panelBlocker.setSize(this.modalWidth, modalHeight);
-
-    // 1. Ana Panel Arka Planı
-    this.panelGraphics.clear();
-    PixelUIHelper.drawPanel(
-      this.panelGraphics,
-      panelX,
-      panelY,
-      this.modalWidth,
-      modalHeight,
-      PALETTE.panelBg,
-      0.98,
-    );
-
-    // Üst Başlık Şeridi
-    this.titleText.setPosition(panelX + 16, panelY + 14).setText(data.name);
-    this.levelBadgeText
-      .setPosition(panelX + 16 + this.titleText.width + 8, panelY + 16)
-      .setText(`Lv.${data.level}`);
-    this.closeButtonText.setPosition(panelX + this.modalWidth - 36, panelY + 14);
-
-    // 2. Makine Durum Kartı (Panel)
-    const cardY = panelY + 38;
-    PixelUIHelper.drawPanel(
-      this.panelGraphics,
-      panelX + 16,
-      cardY,
-      this.modalWidth - 32,
-      56,
-      PALETTE.cardBg,
-      1,
-    );
-
-    // İkon
-    this.machineIcon.setTexture(this.targetMachine.def.spriteBaseKey);
-    this.machineIcon.setPosition(panelX + 44, cardY + 28);
-
-    // Durum Rozeti ve Hız Metni
-    this.statusBadgeText
-      .setPosition(panelX + 74, cardY + 12)
-      .setText(`[${data.statusLabel}]`)
-      .setColor(data.statusColorHex);
-
-    this.speedText
-      .setPosition(panelX + 74, cardY + 32)
-      .setText(`Üretim Hızı: ${MachineInspectorHelper.formatSpeed(data.speedMultiplier)} (+%20/Lv)`);
-
-    // 3. Reçete Alanı
-    const recipeY = panelY + recipeOffset;
-    this.recipeSectionTitle.setPosition(panelX + 16, recipeY);
-
-    this.renderRecipeSelector(panelX + 16, recipeY + 18, data);
-
-    // 4. Dahili Tamponlar Alanı
-    const bufferY = panelY + bufferOffset;
-    this.bufferSectionTitle.setPosition(panelX + 16, bufferY);
-
-    this.bufferGraphics.clear();
-
-    // Girdi Tamponu
-    const inBuffer = data.inputBuffers[0];
-    const inCount = inBuffer ? inBuffer.count : 0;
-    const inCap = inBuffer ? inBuffer.capacity : this.targetMachine.def.inputBufferCapacity;
-    const inName = inBuffer ? inBuffer.name : 'Girdi Beklenmiyor';
-    const inRatio = inCap > 0 ? inCount / inCap : 0;
-
-    this.inputBufferText
-      .setPosition(panelX + 16, bufferY + 18)
-      .setText(`Girdi: ${inName} (${inCount}/${inCap})`);
-
-    PixelUIHelper.drawProgressBar(
-      this.bufferGraphics,
-      panelX + 16,
-      bufferY + 34,
-      this.modalWidth - 32,
-      14,
-      inRatio,
-      PALETTE.rocketCyan,
-    );
-
-    // Çıktı Tamponu
-    const outBuffer = data.outputBuffers[0];
-    const outCount = outBuffer ? outBuffer.count : 0;
-    const outCap = outBuffer ? outBuffer.capacity : this.targetMachine.def.outputBufferCapacity;
-    const outName = outBuffer ? outBuffer.name : 'Çıktı';
-    const outRatio = outCap > 0 ? outCount / outCap : 0;
-
-    this.outputBufferText
-      .setPosition(panelX + 16, bufferY + 56)
-      .setText(`Çıktı: ${outName} (${outCount}/${outCap})`);
-
-    PixelUIHelper.drawProgressBar(
-      this.bufferGraphics,
-      panelX + 16,
-      bufferY + 72,
-      this.modalWidth - 32,
-      14,
-      outRatio,
-      PALETTE.successGreen,
-    );
-
-    // 5. Yükseltme Butonu
-    const upgradeY = panelY + upgradeOffset;
-    this.upgradeButtonBg.clear();
-    const upgradeBtnW = this.modalWidth - 32;
-    const upgradeBtnH = 38;
-
-    if (data.canAffordUpgrade) {
-      PixelUIHelper.drawButton(
-        this.upgradeButtonBg,
-        panelX + 16,
-        upgradeY,
-        upgradeBtnW,
-        upgradeBtnH,
-        PALETTE.btnAffordable,
-        PALETTE.borderDark,
-        0xffffff,
-        0.3,
-      );
-      this.upgradeButtonText
-        .setPosition(panelX + 16 + upgradeBtnW / 2, upgradeY + upgradeBtnH / 2)
-        .setText(`SEVİYE YÜKSELT: ${MachineInspectorHelper.formatMoney(data.upgradeCost)}\n(${MachineInspectorHelper.formatSpeed(data.speedMultiplier)} -> ${MachineInspectorHelper.formatSpeed(data.nextSpeedMultiplier)})`)
-        .setColor(PALETTE.btnAffordableText);
-      this.upgradeButtonHitArea
-        .setPosition(panelX + 16 + upgradeBtnW / 2, upgradeY + upgradeBtnH / 2)
-        .setSize(upgradeBtnW, upgradeBtnH);
-    } else {
-      PixelUIHelper.drawButton(
-        this.upgradeButtonBg,
-        panelX + 16,
-        upgradeY,
-        upgradeBtnW,
-        upgradeBtnH,
-        PALETTE.btnDisabled,
-        PALETTE.btnDisabledBorder,
-        0xffffff,
-        0.1,
-      );
-      this.upgradeButtonText
-        .setPosition(panelX + 16 + upgradeBtnW / 2, upgradeY + upgradeBtnH / 2)
-        .setText(`SEVİYE YÜKSELT: ${MachineInspectorHelper.formatMoney(data.upgradeCost)}\n(Yetersiz Bakiye)`)
-        .setColor(PALETTE.btnDisabledText);
-      this.upgradeButtonHitArea
-        .setPosition(panelX + 16 + upgradeBtnW / 2, upgradeY + upgradeBtnH / 2)
-        .setSize(upgradeBtnW, upgradeBtnH);
+    for (const row of this.bufferRows) {
+      const source = row.kind === 'input' ? data.inputBuffers : data.outputBuffers;
+      const buffer = source.find((b) => b.itemId === row.itemId);
+      if (!buffer) continue;
+      row.countText.setText(`${buffer.count}/${buffer.capacity}`);
+      row.bar.setProgress(buffer.percentage);
+      row.bar.setColor(this.bufferColor(row.kind, buffer, data));
     }
 
-    // 6. Yıkım / İade Butonu (DEC-007: %100 Sermaye İadesi)
-    const demolishY = panelY + demolishOffset;
-    this.demolishButtonBg.clear();
-    const demolishBtnW = this.modalWidth - 32;
-    const demolishBtnH = 28;
+    this.upgradeButton?.setEnabled(data.canAffordUpgrade);
+  }
 
-    PixelUIHelper.drawButton(
-      this.demolishButtonBg,
-      panelX + 16,
-      demolishY,
-      demolishBtnW,
-      demolishBtnH,
-      PALETTE.cardBg,
-      PALETTE.dangerRed,
-      0xffffff,
-      0.15,
+  /** Dolu çıktı deposu (hat tıkalı) kırmızı gösterilir */
+  private bufferColor(kind: 'input' | 'output', buffer: InspectorBufferItem, data: MachineInspectorData): UiBarColor {
+    if (kind === 'input') return 'cyan';
+    return data.status === 'BLOCKED_OUTPUT' && buffer.percentage >= 1 ? 'red' : 'green';
+  }
+
+  // -------------------------------------------------------------
+  // İÇERİK
+  // -------------------------------------------------------------
+
+  protected buildBody(body: Phaser.GameObjects.Container, width: number): number {
+    const data = this.inspect();
+    this.bufferRows = [];
+    this.statusChip = null;
+    this.cycleBar = null;
+    if (!data || !this.targetMachine) return 0;
+    this.structureSignature = this.signatureOf(data);
+
+    const scene = this.scene;
+    const layer = this.layer;
+    const machine = this.targetMachine;
+    let y = 0;
+
+    const section = (title: string): void => {
+      const text = layer.text(0, y, title, 'captionBold', { color: SEMANTIC.moneyHex });
+      body.add(text);
+      body.add(createDivider(scene, text.width + SPACE.sm, y + 8, width - text.width - SPACE.sm));
+      y += 22;
+    };
+
+    // --- Durum ve seviye ---------------------------------------------------
+    const statusH = 72;
+    body.add(createInset(scene, 0, y, width, statusH));
+    const sprite = scene.add.image(SPACE.sm + 28, y + 32, machine.def.spriteBaseKey ?? 'machine_bench').setOrigin(0.5);
+    sprite.setScale(Math.min(1, 48 / Math.max(sprite.width, sprite.height)));
+    body.add(sprite);
+
+    const infoX = SPACE.sm + 64;
+    body.add(layer.text(infoX, y + 12, `Seviye ${data.level}`, 'heading'));
+    body.add(
+      layer.text(infoX, y + 34, `Hız ${MachineInspectorHelper.formatSpeed(data.speedMultiplier)}`, 'caption', {
+        color: SEMANTIC.textMuted,
+      }),
     );
 
-    this.demolishButtonText
-      .setPosition(panelX + 16 + demolishBtnW / 2, demolishY + demolishBtnH / 2)
-      .setText(`MAKİNEYİ SÖK: +${MachineInspectorHelper.formatMoney(data.demolishRefund)} (%100 İade)`)
-      .setColor(PALETTE.dangerRedHex);
+    this.statusChipRight = width - SPACE.sm;
+    this.statusChip = new UiChip(layer, 0, y + 10, data.statusLabel, data.statusColorInt, {
+      icon: STATUS_ICONS[data.status] ?? uiIcon('info'),
+    });
+    this.statusChip.setX(this.statusChipRight - this.statusChip.chipWidth);
+    body.add(this.statusChip);
 
-    this.demolishButtonHitArea
-      .setPosition(panelX + 16 + demolishBtnW / 2, demolishY + demolishBtnH / 2)
-      .setSize(demolishBtnW, demolishBtnH);
-  }
+    // Üretim çevriminin ilerlemesi
+    this.cycleBar = new UiProgressBar(scene, SPACE.sm, y + statusH - 16, width - SPACE.sm * 2, 8, 'gold');
+    body.add(this.cycleBar);
+    y += statusH + SPACE.md;
 
-  private static readonly CHIP_HEIGHT = 22;
-  private static readonly CHIP_GAP = 6;
-  private static readonly CHIPS_PER_ROW = 2;
+    // --- Üretim: ne üretiyor, ne hızla --------------------------------------
+    const activeRecipe = data.availableRecipes.find((r) => r.isActive) ?? null;
+    section('ÜRETİM');
+    if (activeRecipe && activeRecipe.outputs.length > 0) {
+      const output = activeRecipe.outputs[0];
+      const cycleSec = activeRecipe.processingTimeSec / data.speedMultiplier;
+      const perSec = output.count / cycleSec;
 
-  private getRecipeRowCount(recipeCount: number): number {
-    return Math.max(1, Math.ceil(recipeCount / MachineInspectorModal.CHIPS_PER_ROW));
-  }
-
-  private formatRecipeDetails(data: MachineInspectorData): string {
-    const activeRec = data.availableRecipes.find((r) => r.isActive);
-    if (!activeRec) return 'Aktif reçete seçilmedi.';
-
-    const inputsStr = activeRec.inputs.map((i) => `${i.count}x ${i.name}`).join(', ');
-    const outputsStr = activeRec.outputs.map((o) => `${o.count}x ${o.name}`).join(', ');
-
-    return (
-      `${activeRec.name}\n` +
-      `• Girdi: ${inputsStr || 'Yok'}\n` +
-      `• Çıktı: ${outputsStr}\n` +
-      `• Çevrim Süresi: ${activeRec.processingTimeSec.toFixed(1)} sn`
-    );
-  }
-
-  /** Metni verilen genişliğe sığana kadar sondan kısaltır */
-  private fitLabel(label: Phaser.GameObjects.Text, fullText: string, maxWidth: number): void {
-    label.setText(fullText);
-    let text = fullText;
-    while (label.width > maxWidth && text.length > 1) {
-      text = text.slice(0, -1);
-      label.setText(`${text.trimEnd()}…`);
-    }
-  }
-
-  /**
-   * Reçete seçim düğmelerini çizer ve tarif metnini konumlandırır.
-   * Düğmeler ne ürettiklerinin adıyla etiketlenir (ör. "Demir Tozu").
-   */
-  private renderRecipeSelector(
-    startX: number,
-    startY: number,
-    data: MachineInspectorData,
-  ): void {
-    const availableRecipes = data.availableRecipes;
-    const perRow = Math.min(MachineInspectorModal.CHIPS_PER_ROW, Math.max(1, availableRecipes.length));
-    const chipGap = MachineInspectorModal.CHIP_GAP;
-    const chipHeight = MachineInspectorModal.CHIP_HEIGHT;
-    const chipWidth = Math.floor((this.modalWidth - 32 - (perRow - 1) * chipGap) / perRow);
-    const rows = this.getRecipeRowCount(availableRecipes.length);
-
-    // Düğmeler yalnızca içerik veya konum değiştiğinde yeniden kurulur. Her karede
-    // yeniden yaratılırlarsa Phaser girdi listesine hiç giremez ve tıklanamazlar.
-    const signature =
-      `${startX},${startY},${chipWidth}|` +
-      availableRecipes.map((r) => `${r.recipeId}:${r.isActive ? 1 : 0}`).join(',');
-
-    if (signature !== this.recipeChipsSignature) {
-      this.recipeChipsSignature = signature;
-      this.recipeChipsContainer.removeAll(true);
-
-      availableRecipes.forEach((recipe, idx) => {
-        const chipX = startX + (idx % perRow) * (chipWidth + chipGap);
-        const chipY = startY + Math.floor(idx / perRow) * (chipHeight + chipGap);
-        const isSelected = recipe.isActive;
-
-        const g = this.scene.add.graphics();
-        PixelUIHelper.drawButton(
-          g,
-          chipX,
-          chipY,
-          chipWidth,
-          chipHeight,
-          isSelected ? PALETTE.factoryAmber : PALETTE.cardBg,
-          isSelected ? PALETTE.resourceGold : PALETTE.borderDark,
-          0xffffff,
-          isSelected ? 0.3 : 0.1,
-        );
-
-        const label = this.scene.add
-          .text(chipX + chipWidth / 2, chipY + chipHeight / 2, '', {
-            fontFamily: FONT_FAMILY,
-            fontSize: '9px',
-            color: isSelected ? '#0b0e17' : PALETTE.textPrimary,
+      const rate = layer.text(0, y, `${perSec.toFixed(2)} / sn`, 'display', { color: SEMANTIC.moneyHex, stroke: true });
+      body.add(rate);
+      const outIcon = this.itemIcon(output.itemId).setPosition(rate.width + SPACE.md + 8, y + rate.height / 2);
+      body.add(outIcon);
+      body.add(
+        layer
+          .text(rate.width + SPACE.md + 22, y + rate.height / 2, output.name, 'bodyBold', {
+            wrapWidth: width - rate.width - SPACE.md - 22,
           })
-          .setOrigin(0.5);
-        this.fitLabel(label, recipe.outputs[0]?.name ?? recipe.name, chipWidth - 12);
+          .setOrigin(0, 0.5),
+      );
+      y += rate.height + SPACE.sm;
 
-        const hit = this.scene.add
-          .rectangle(chipX + chipWidth / 2, chipY + chipHeight / 2, chipWidth, chipHeight, 0, 0)
-          .setOrigin(0.5)
-          .setInteractive({ useHandCursor: true })
-          .on('pointerdown', () => this.handleRecipeSelect(recipe.recipeId));
-
-        this.recipeChipsContainer.add([g, label, hit]);
-      });
-    }
-
-    this.recipeDetailsText.setPosition(startX, startY + rows * (chipHeight + chipGap) + 4);
-  }
-
-  // -------------------------------------------------------------
-  // EYLEM İŞLEYİCİLERİ (UPGRADE / RECIPE / DEMOLISH)
-  // -------------------------------------------------------------
-
-  private handleUpgradeClick(): void {
-    if (!this.targetMachine) return;
-
-    const res = MachineInspectorHelper.performUpgrade(
-      this.targetMachine,
-      this.engine,
-      this.economy,
-    );
-
-    if (res.success) {
-      this.playUpgradeEffect();
-      this.refresh();
-      if (this.onUpgrade) {
-        this.onUpgrade(this.targetMachine, res.newLevel);
-      }
+      // Reçete akışı: girdiler → çıktılar
+      y = this.addRecipeFlow(body, width, y, activeRecipe.inputs, activeRecipe.outputs);
+      body.add(
+        layer.text(0, y, `Bir çevrim ${cycleSec.toFixed(1)} sn sürer.`, 'caption', { color: SEMANTIC.textMuted }),
+      );
+      y += 18 + SPACE.sm;
     } else {
-      this.playErrorShake();
+      const empty = layer.text(0, y, 'Reçete seçilmedi; makine üretmiyor.', 'body', {
+        color: SEMANTIC.warningHex,
+        wrapWidth: width,
+      });
+      body.add(empty);
+      y += empty.height + SPACE.md;
     }
+
+    // --- Reçete seçimi --------------------------------------------------------
+    if (data.availableRecipes.length > 1) {
+      section('REÇETE SEÇ');
+      const columns = width >= 360 ? 2 : 1;
+      const gap = SPACE.sm;
+      const chipWidth = (width - gap * (columns - 1)) / columns;
+      const chipHeight = 44;
+
+      data.availableRecipes.forEach((recipe, index) => {
+        const column = index % columns;
+        const row = Math.floor(index / columns);
+        const outputId = recipe.outputs[0]?.itemId;
+        const item = outputId ? this.itemRegistry.get(outputId) : undefined;
+        const button = new UiButton(layer, column * (chipWidth + gap) + chipWidth / 2, y + row * (chipHeight + gap) + chipHeight / 2, {
+          width: chipWidth,
+          height: chipHeight,
+          variant: recipe.isActive ? 'primary' : 'secondary',
+          label: recipe.outputs[0]?.name ?? recipe.name,
+          textVariant: 'buttonSmall',
+          icon: recipe.isActive ? 'icon_check' : item?.spriteKey,
+          iconTint: recipe.isActive ? undefined : item?.colorTint,
+          onClick: () => this.selectRecipe(recipe.recipeId),
+        });
+        button.setSelected(recipe.isActive);
+        body.add(button);
+      });
+      y += Math.ceil(data.availableRecipes.length / columns) * (chipHeight + gap) + SPACE.xs;
+    }
+
+    // --- Depolar ------------------------------------------------------------------
+    section('DEPO');
+    const bufferRow = (kind: 'input' | 'output', buffer: InspectorBufferItem): void => {
+      const label = `${kind === 'input' ? 'Girdi' : 'Çıktı'} · ${buffer.name}`;
+      const countText = layer
+        .text(width, y, `${buffer.count}/${buffer.capacity}`, 'captionBold')
+        .setOrigin(1, 0);
+      const labelText = layer.text(0, y, label, 'caption', { color: SEMANTIC.textMuted });
+      const bar = new UiProgressBar(scene, 0, y + 17, width, 10, this.bufferColor(kind, buffer, data));
+      bar.setProgress(buffer.percentage);
+      body.add([labelText, countText, bar]);
+      this.bufferRows.push({ itemId: buffer.itemId, kind, countText, bar });
+      y += 34;
+    };
+    data.inputBuffers.forEach((buffer) => bufferRow('input', buffer));
+    data.outputBuffers.forEach((buffer) => bufferRow('output', buffer));
+    y += SPACE.xs;
+
+    // --- Yükseltme özeti ------------------------------------------------------------
+    section('YÜKSELTME');
+    const upgradeH = 44;
+    body.add(createInset(scene, 0, y, width, upgradeH));
+    body.add(scene.add.image(SPACE.md + 4, y + upgradeH / 2, uiIcon('up')).setOrigin(0.5).setTint(SEMANTIC.primary));
+    body.add(
+      layer
+        .text(SPACE.md + 20, y + upgradeH / 2, `Seviye ${data.level} → ${data.level + 1}`, 'bodyBold')
+        .setOrigin(0, 0.5),
+    );
+    body.add(
+      layer
+        .text(
+          width - SPACE.md,
+          y + upgradeH / 2,
+          `Hız ${MachineInspectorHelper.formatSpeed(data.speedMultiplier)} → ${MachineInspectorHelper.formatSpeed(data.nextSpeedMultiplier)}`,
+          'bodyBold',
+          { color: SEMANTIC.primaryHex },
+        )
+        .setOrigin(1, 0.5),
+    );
+    y += upgradeH;
+
+    this.applyLiveValues(data);
+    return y;
   }
 
-  private handleRecipeSelect(recipeId: string): void {
-    if (!this.targetMachine) return;
+  /** "1× Demir Tozu → 1× Demir Külçe" akışını ikonlarla dizer; satıra sığmayanı alta alır */
+  private addRecipeFlow(
+    body: Phaser.GameObjects.Container,
+    width: number,
+    startY: number,
+    inputs: { itemId: string; name: string; count: number }[],
+    outputs: { itemId: string; name: string; count: number }[],
+  ): number {
+    const lineHeight = 24;
+    let x = 0;
+    let y = startY;
 
-    const res = MachineInspectorHelper.selectRecipe(this.targetMachine, recipeId);
-    if (res.success) {
-      this.refresh();
-      if (this.onRecipeChanged) {
-        this.onRecipeChanged(this.targetMachine, recipeId);
+    const place = (tokenWidth: number): { x: number; y: number } => {
+      if (x > 0 && x + tokenWidth > width) {
+        x = 0;
+        y += lineHeight;
       }
-    }
+      const position = { x, y };
+      x += tokenWidth + SPACE.sm;
+      return position;
+    };
+
+    const addItem = (entry: { itemId: string; name: string; count: number }): void => {
+      const text = this.layer.text(0, 0, `${entry.count}× ${entry.name}`, 'body').setOrigin(0, 0.5);
+      const at = place(20 + text.width);
+      const icon = this.itemIcon(entry.itemId).setPosition(at.x + 8, at.y + lineHeight / 2);
+      text.setPosition(at.x + 20, at.y + lineHeight / 2);
+      body.add([icon, text]);
+    };
+
+    inputs.forEach(addItem);
+    const arrowAt = place(16);
+    body.add(
+      this.scene.add
+        .image(arrowAt.x + 8, arrowAt.y + lineHeight / 2, uiIcon('arrow_right'))
+        .setOrigin(0.5)
+        .setTint(SEMANTIC.money),
+    );
+    outputs.forEach(addItem);
+
+    return y + lineHeight + SPACE.xs;
   }
 
-  private handleDemolishClick(): void {
+  /** Eşyanın bantta görünen sprite'ı (renk tonuyla) */
+  private itemIcon(itemId: string): Phaser.GameObjects.Image {
+    const item = this.itemRegistry.get(itemId);
+    const icon = this.scene.add.image(0, 0, item?.spriteKey ?? 'pickup_gear').setOrigin(0.5);
+    if (item?.colorTint !== undefined) icon.setTint(item.colorTint);
+    icon.setScale(Math.min(1, 16 / Math.max(icon.width, icon.height)));
+    return icon;
+  }
+
+  protected buildFooter(footer: Phaser.GameObjects.Container, width: number): number {
+    const data = this.inspect();
+    if (!data) return 0;
+
+    const height = 48;
+    const gap = SPACE.sm;
+    const demolishWidth = Math.max(96, Math.round(width * 0.34));
+    const upgradeWidth = width - demolishWidth - gap;
+
+    const demolishButton = new UiButton(this.layer, demolishWidth / 2, height / 2, {
+      width: demolishWidth,
+      height,
+      variant: 'danger',
+      label: 'SÖK',
+      sublabel: `+$${formatNumber(data.demolishRefund)} iade`,
+      silent: true,
+      onClick: () => this.demolish(),
+    });
+
+    this.upgradeButton = new UiButton(this.layer, demolishWidth + gap + upgradeWidth / 2, height / 2, {
+      width: upgradeWidth,
+      height,
+      variant: 'primary',
+      label: 'YÜKSELT',
+      sublabel: `$${formatNumber(data.upgradeCost)}`,
+      silent: true,
+      onClick: () => this.upgrade(),
+      onDisabledClick: () => this.callbacks.onUpgradeDenied?.(),
+    });
+    this.upgradeButton.setEnabled(data.canAffordUpgrade);
+
+    footer.add([demolishButton, this.upgradeButton]);
+    return height;
+  }
+
+  protected primaryButton(): UiButton | null {
+    return this.upgradeButton;
+  }
+
+  // -------------------------------------------------------------
+  // EYLEMLER
+  // -------------------------------------------------------------
+
+  private upgrade(): void {
     if (!this.targetMachine) return;
-
-    const machineToDemolish = this.targetMachine;
-    this.close();
-
-    if (this.onDemolishRequested) {
-      this.onDemolishRequested(machineToDemolish);
+    const result = MachineInspectorHelper.performUpgrade(this.targetMachine, this.engine, this.economy);
+    if (result.success) {
+      const machine = this.targetMachine;
+      this.rebuild();
+      this.callbacks.onUpgrade?.(machine, result.newLevel);
+    } else {
+      this.callbacks.onUpgradeDenied?.();
     }
   }
 
-  // -------------------------------------------------------------
-  // GÖRSEL EFEKTLER (DOKUNSAL GERİ BİLDİRİM)
-  // -------------------------------------------------------------
-
-  private playUpgradeEffect(): void {
-    const { width, height } = this.scene.scale;
-    const centerX = width / 2;
-    const centerY = height / 2;
-
-    // Yükseltme yüzen metni
-    const floating = this.scene.add
-      .text(centerX, centerY - 80, `+SEVİYE YÜKSELTİLDİ!`, {
-        fontFamily: FONT_FAMILY,
-        fontSize: '14px',
-        color: PALETTE.resourceGoldHex,
-        stroke: '#000000',
-        strokeThickness: 4,
-      })
-      .setOrigin(0.5)
-      .setDepth(210)
-      .setScrollFactor(0);
-
-    this.scene.tweens.add({
-      targets: floating,
-      y: centerY - 130,
-      alpha: 0,
-      duration: 750,
-      ease: 'Quad.easeOut',
-      onComplete: () => floating.destroy(),
-    });
-  }
-
-  private playErrorShake(): void {
-    this.scene.tweens.add({
-      targets: this.upgradeButtonText,
-      x: this.upgradeButtonText.x - 4,
-      duration: 40,
-      yoyo: true,
-      repeat: 3,
-    });
-  }
-
-  // -------------------------------------------------------------
-  // CANLI SİMÜLASYON ADIMI (UPDATE)
-  // -------------------------------------------------------------
-
-  /**
-   * Sahne döngüsünde çağrılır; modal açıkken tampon çubuklarını canlı günceller.
-   */
-  update(time: number, delta: number): void {
-    if (!this._isOpen || !this.targetMachine) return;
-
-    this.timeSinceLastRefresh += delta / 1000;
-    if (this.timeSinceLastRefresh >= this.REFRESH_INTERVAL_SEC) {
-      this.timeSinceLastRefresh = 0;
-      this.refresh();
+  private selectRecipe(recipeId: string): void {
+    if (!this.targetMachine || this.targetMachine.activeRecipeId === recipeId) return;
+    const result = MachineInspectorHelper.selectRecipe(this.targetMachine, recipeId);
+    if (result.success) {
+      const machine = this.targetMachine;
+      this.rebuild();
+      this.callbacks.onRecipeChanged?.(machine, recipeId);
     }
   }
 
-  /**
-   * Modalı ve tüm kaynaklarını yok eder.
-   */
-  destroy(): void {
+  private demolish(): void {
+    const machine = this.targetMachine;
+    if (!machine) return;
     this.close();
-    this.container.destroy(true);
+    this.callbacks.onDemolishRequested?.(machine);
   }
 }

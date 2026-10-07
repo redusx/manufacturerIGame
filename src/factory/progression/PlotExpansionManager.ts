@@ -18,7 +18,7 @@ import {
 } from '../simulation/FactoryEconomy.ts';
 import { GridMap } from '../simulation/GridMap.ts';
 import { GridCoordinates } from '../view/GridCoordinates.ts';
-import { PALETTE, FONT_FAMILY } from '../../ui/theme.ts';
+import { PALETTE } from '../../ui/theme.ts';
 
 export type PlotState = 'UNLOCKED' | 'AVAILABLE' | 'LOCKED';
 
@@ -287,7 +287,7 @@ export class PlotExpansionManager {
   // -------------------------------------------------------------
 
   /**
-   * Parsel açıldığında yeni karolar üzerinde dalga animasyonu ve kutlama metni oynatır.
+   * Parsel açıldığında yeni karolar üzerinde altın dalga ışıltısı oynatır.
    */
   static playUnlockCelebration(
     scene: Phaser.Scene,
@@ -325,38 +325,7 @@ export class PlotExpansionManager {
       }
     }
 
-    // 2. Ekran merkezinde altın zafer metni
-    const screenW = scene.scale.width;
-    const screenH = scene.scale.height;
-    const centerX = screenW / 2;
-    const centerY = screenH / 2 - 40;
-
-    const banner = scene.add
-      .text(
-        centerX,
-        centerY,
-        `★ ${result.plotName.toUpperCase()} AÇILDI! ★\n[${result.newBounds.width}x${result.newBounds.height} Fabrika Alanı]`,
-        {
-          fontFamily: FONT_FAMILY,
-          fontSize: '13px',
-          color: PALETTE.resourceGoldHex,
-          stroke: '#000000',
-          strokeThickness: 4,
-          align: 'center',
-          lineSpacing: 6,
-        },
-      )
-      .setOrigin(0.5)
-      .setDepth(170)
-      .setScrollFactor(0);
-
-    scene.tweens.add({
-      targets: banner,
-      y: centerY - 35,
-      alpha: 0,
-      duration: 2200,
-      ease: 'Quad.easeOut',
-      onComplete: () => banner.destroy(),
-    });
+    // Kutlama metni sahnenin bildirim (toast) katmanından gösterilir; burada yalnızca
+    // dünya üzerindeki ışıltı oynatılır.
   }
 }

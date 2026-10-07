@@ -1,749 +1,402 @@
 /* ======================================================================
- * src/ui/BuildMenuModal.ts — İnşa ve Makine Kataloğu Modalı
+ * src/ui/BuildMenuModal.ts — İnşa kataloğu
  *
- * Oyuncunun fabrikaya yeni konveyör bantları, akış ayırıcı/birleştiricileri
- * ve imalat makinelerini (Kırıcı, Fırın, Pres, Kesici, Montajcı, Rafineri)
- * seçip yerleştirmesini sağlayan piksel sanat 9-slice pop-up kataloğu.
- *
- * Özellikler:
- * - Kayar pencere (Scrollable viewport, GeometryMask, MouseWheel & Drag desteği)
- * - Kartların üzerinde gerçek piksel sanat makine görselleri ve boyut rozetleri
- * - Geniş ekranda iki, dar (mobil) ekranda tek sütunlu düzen; piksel kaydırma çubuğu
- * - Tıklama yalıtımı: Sadece dışarı veya [X] butonuna tıklandığında kapanır.
- *
- * docs/ART_DIRECTION.md ve src/ui/theme.ts standartlarına tam uyumludur.
+ * Fabrikaya eklenebilecek her şey tek listede, bölümlere ayrılmış kartlarla:
+ * lojistik, makineler, hammadde girişleri, genişleme ve taşıma. Her kart ne
+ * olduğunu (ikon + ad), ne işe yaradığını (ne ürettiği), kapladığı alanı ve
+ * bedelini gösterir; tek bir büyük düğmeyle seçilir. Kilitli kart hangi aşamada
+ * açılacağını, parası yetmeyen kart ne kadar eksik olduğunu söyler.
  * ====================================================================== */
 
 import Phaser from 'phaser';
-import type { MachineDefinition } from '../factory/types.ts';
 import { defaultMachineRegistry } from '../factory/simulation/MachineRegistry.ts';
+import { defaultRecipeRegistry } from '../factory/simulation/RecipeRegistry.ts';
+import { defaultItemRegistry } from '../factory/simulation/ItemRegistry.ts';
 import {
   CONVEYOR_BUILD_COST,
   SPLITTER_BUILD_COST,
   MERGER_BUILD_COST,
   INTAKE_BUILD_COSTS,
 } from '../factory/input/PlacementMath.ts';
-import { defaultItemRegistry } from '../factory/simulation/ItemRegistry.ts';
 import type { PlacementItem } from '../factory/input/PlacementController.ts';
 import type { FactoryEconomy } from '../factory/simulation/FactoryEconomy.ts';
-import { PALETTE, FONT_FAMILY, PixelUIHelper } from './theme.ts';
+import { formatNumber } from '../utils/format.ts';
+import { SEMANTIC, SPACE, uiIcon } from './theme.ts';
+import { UiButton } from './system/UiButton.ts';
+import { UiLayer } from './system/UiLayer.ts';
+import { UiModal } from './system/UiModal.ts';
+import { createCard, createDivider, createInset } from './system/UiWidgets.ts';
+
+export interface CatalogPlotInfo {
+  index: number;
+  name: string;
+  cost: number;
+  width: number;
+  height: number;
+}
 
 export interface BuildMenuModalConfig {
   onSelectItem: (item: PlacementItem) => void;
-  onDemolishRequested?: () => void;
-  onRelocateRequested?: () => void;
   /**
    * Kart henüz kilitliyse onu açacak aşamanın numarasını döner; açıksa null.
-   * Kart kimlikleri: 'conveyor', 'splitter', 'merger' veya makine tanım kimliği.
+   * Kart kimlikleri: 'conveyor', 'splitter', 'merger', makine tanım kimliği veya
+   * `intake_new_<hammadde>`.
    */
   getLockStage?: (cardId: string) => number | null;
+  /** Satın alınabilecek sıradaki parsel (hepsi açıksa null) */
+  getNextPlot?: () => CatalogPlotInfo | null;
+  onExpandPlot?: (plotIndex: number) => void;
+  /** Kilitli veya parası yetmeyen karta basılınca gösterilecek açıklama */
+  onDenied?: (message: string) => void;
 }
 
 /** Yeni hammadde girişi kartlarının kimlik öneki (`intake_new_<hammadde>`) */
 export const INTAKE_CARD_PREFIX = 'intake_new_';
 
-interface BuildCardItem {
+interface CatalogEntry {
   id: string;
   name: string;
-  desc: string;
+  /** Ne işe yaradığı: tek satırlık, somut */
+  detail: string;
   cost: number;
-  sizeStr: string;
-  iconKey: string;
-  item: PlacementItem;
-  isRelocate?: boolean;
+  /** Kapladığı alan ("2x1"); alan kaplamıyorsa boş */
+  size: string;
+  icon: string;
+  iconScale: number;
+  action: 'build' | 'move' | 'expand';
+  item?: PlacementItem;
+  plotIndex?: number;
 }
 
-export class BuildMenuModal {
-  readonly scene: Phaser.Scene;
-  readonly economy: FactoryEconomy;
-  readonly onSelectItem: (item: PlacementItem) => void;
-  readonly onDemolishRequested?: () => void;
-  readonly onRelocateRequested?: () => void;
-  private readonly getLockStage?: (cardId: string) => number | null;
+interface CatalogSection {
+  title: string;
+  entries: CatalogEntry[];
+}
 
-  public container: Phaser.GameObjects.Container;
-  private backdrop: Phaser.GameObjects.Rectangle;
-  private panelBlocker: Phaser.GameObjects.Rectangle;
-  private modalBg: Phaser.GameObjects.NineSlice;
-  private titleText: Phaser.GameObjects.Text;
-  private relocateBtnBg: Phaser.GameObjects.NineSlice;
-  private relocateBtnText: Phaser.GameObjects.Text;
-  private relocateZone: Phaser.GameObjects.Zone;
-  private demolishBtnBg: Phaser.GameObjects.NineSlice;
-  private demolishBtnText: Phaser.GameObjects.Text;
-  private demolishZone: Phaser.GameObjects.Zone;
-  private closeBtnBg: Phaser.GameObjects.NineSlice;
-  private closeBtnIcon: Phaser.GameObjects.Image;
-  private closeZone: Phaser.GameObjects.Zone;
+interface CardRef {
+  entry: CatalogEntry;
+  button: UiButton;
+}
 
-  /** Kayar Pencere (Scrollable Viewport) ve Maske */
-  private cardsContainer: Phaser.GameObjects.Container;
-  private maskShape: Phaser.GameObjects.Graphics;
-  private cardsMask: Phaser.Display.Masks.GeometryMask;
+const CARD_HEIGHT = 84;
+const CARD_HEIGHT_STACKED = 116;
+const CARD_GAP = SPACE.sm;
+const ICON_BOX = 56;
+const SIDE_CTA_WIDTH = 108;
 
-  /** Kaydırma Çubuğu (Scrollbar) */
-  private scrollTrack: Phaser.GameObjects.Graphics;
-  private scrollThumb: Phaser.GameObjects.Graphics;
-  private scrollTrackZone: Phaser.GameObjects.Zone;
+export class BuildMenuModal extends UiModal {
+  private readonly economy: FactoryEconomy;
+  private readonly callbacks: BuildMenuModalConfig;
+  private cards: CardRef[] = [];
+  /** Kartların yapısını belirleyen durum (kilitler, sıradaki parsel); değişince liste yeniden kurulur */
+  private structureSignature = '';
 
-  /** Kaydırma Durumu */
-  private scrollY = 0;
-  private maxScrollY = 0;
-  private isDraggingCards = false;
-  private isDraggingScrollbar = false;
-  private dragStartY = 0;
-  private dragStartScrollY = 0;
-
-  /** Kart Butonları */
-  private cardButtons: Array<{
-    item: BuildCardItem;
-    btnBg: Phaser.GameObjects.NineSlice;
-    btnText: Phaser.GameObjects.Text;
-    costText: Phaser.GameObjects.Text;
-    zone: Phaser.GameObjects.Zone;
-    btnLocalY: number;
-  }> = [];
-
-  private _isOpen = false;
-
-  /** Tasarım boyutları; ekran daha darsa/kısaysa pencere küçülür ve kartlar tek sütuna iner */
-  private static readonly MAX_MODAL_W = 540;
-  private static readonly MAX_MODAL_H = 460;
-  private static readonly CARD_H = 82;
-  private static readonly CARD_GAP_X = 14;
-  private static readonly CARD_GAP_Y = 10;
-
-  private modalW = BuildMenuModal.MAX_MODAL_W;
-  private modalH = BuildMenuModal.MAX_MODAL_H;
-  private readonly viewportY = 56;
-  private viewportH = 384;
-  private cols = 2;
-  private cardW = 240;
-
-  constructor(
-    scene: Phaser.Scene,
-    economy: FactoryEconomy,
-    config: BuildMenuModalConfig,
-  ) {
-    this.scene = scene;
+  constructor(layer: UiLayer, economy: FactoryEconomy, config: BuildMenuModalConfig) {
+    super(layer, { title: 'İnşa Kataloğu', maxWidth: 920, accent: SEMANTIC.primary });
     this.economy = economy;
-    this.onSelectItem = config.onSelectItem;
-    this.onDemolishRequested = config.onDemolishRequested;
-    this.onRelocateRequested = config.onRelocateRequested;
-    this.getLockStage = config.getLockStage;
+    this.callbacks = config;
+  }
 
-    this.container = scene.add.container(0, 0).setDepth(200).setVisible(false);
+  // -------------------------------------------------------------
+  // İÇERİK
+  // -------------------------------------------------------------
 
-    // 1. Ekran Karartma Katmanı (Yalnızca modal dışına tıklanınca kapatır)
-    this.backdrop = scene.add.rectangle(0, 0, 100, 100, 0x05070e, 0.75)
-      .setOrigin(0, 0)
-      .setInteractive()
-      .on('pointerdown', () => this.hide());
-    this.container.add(this.backdrop);
+  private getSections(): CatalogSection[] {
+    const sections: CatalogSection[] = [];
 
-    // 2. Modal Gövdesi Tıklama Engelleyici (Pencere içine tıklanınca kapanmasını önler)
-    this.panelBlocker = scene.add.rectangle(0, 0, this.modalW, this.modalH, 0x000000, 0.001)
-      .setOrigin(0, 0)
-      .setInteractive()
-      .on('pointerdown', (_pointer: any, _lx: number, _ly: number, event?: Phaser.Types.Input.EventData) => {
-        event?.stopPropagation();
+    sections.push({
+      title: 'LOJİSTİK',
+      entries: [
+        {
+          id: 'conveyor',
+          name: 'Konveyör Bandı',
+          detail: 'Ürünleri taşır. Sürükleyerek çizilir.',
+          cost: CONVEYOR_BUILD_COST,
+          size: '1x1',
+          icon: uiIcon('belt'),
+          iconScale: 2.5,
+          action: 'build',
+          item: { type: 'CONVEYOR' },
+        },
+        {
+          id: 'splitter',
+          name: 'Akış Ayırıcı',
+          detail: 'Bir hattı iki hatta eşit böler.',
+          cost: SPLITTER_BUILD_COST,
+          size: '1x1',
+          icon: uiIcon('belt'),
+          iconScale: 2.5,
+          action: 'build',
+          item: { type: 'SPLITTER' },
+        },
+        {
+          id: 'merger',
+          name: 'Akış Birleştirici',
+          detail: 'İki hattı tek hatta toplar.',
+          cost: MERGER_BUILD_COST,
+          size: '1x1',
+          icon: uiIcon('belt'),
+          iconScale: 2.5,
+          action: 'build',
+          item: { type: 'MERGER' },
+        },
+      ],
+    });
+
+    sections.push({
+      title: 'MAKİNELER',
+      entries: defaultMachineRegistry.getAll().map((machine) => ({
+        id: machine.id,
+        name: machine.name,
+        detail: `Üretir: ${this.describeOutputs(machine.supportedRecipeIds)}`,
+        cost: machine.baseCost,
+        size: `${machine.width}x${machine.height}`,
+        icon: machine.spriteBaseKey ?? 'machine_bench',
+        iconScale: 1,
+        action: 'build' as const,
+        item: { type: 'MACHINE' as const, machineDef: machine },
+      })),
+    });
+
+    sections.push({
+      title: 'HAMMADDE GİRİŞLERİ',
+      entries: Object.entries(INTAKE_BUILD_COSTS).map(([itemId, cost]) => {
+        const itemName = defaultItemRegistry.get(itemId)?.name ?? itemId;
+        return {
+          id: `${INTAKE_CARD_PREFIX}${itemId}`,
+          name: `${itemName} Girişi`,
+          detail: `Saniyede 1 ${itemName} verir.`,
+          cost,
+          size: '1x1',
+          icon: uiIcon('intake'),
+          iconScale: 2.5,
+          action: 'build' as const,
+          item: { type: 'INTAKE_NEW' as const, intakeItemId: itemId },
+        };
+      }),
+    });
+
+    const plot = this.callbacks.getNextPlot?.() ?? null;
+    if (plot) {
+      sections.push({
+        title: 'GENİŞLEME',
+        entries: [
+          {
+            id: `plot_${plot.index}`,
+            name: plot.name,
+            detail: `Fabrika alanını ${plot.width}x${plot.height} hücreye büyütür.`,
+            cost: plot.cost,
+            size: '',
+            icon: uiIcon('expand'),
+            iconScale: 2.5,
+            action: 'expand',
+            plotIndex: plot.index,
+          },
+        ],
       });
-    this.container.add(this.panelBlocker);
+    }
 
-    // 3. Modal Gövdesi (Piksel 9-Slice Çerçeve)
-    this.modalBg = PixelUIHelper.createModal(scene, 0, 0, this.modalW, this.modalH).setOrigin(0, 0);
-    this.container.add(this.modalBg);
+    sections.push({
+      title: 'TAŞIMA',
+      entries: [
+        {
+          id: 'intake_move',
+          name: 'Hammadde Girişini Taşı',
+          detail: 'İlk girişin yerini değiştirir. Diğerleri için girişe dokun.',
+          cost: 0,
+          size: '',
+          icon: uiIcon('intake'),
+          iconScale: 2.5,
+          action: 'move',
+          item: { type: 'INTAKE_MOVE' },
+        },
+        {
+          id: 'export_move',
+          name: 'Sevkiyat Sandığını Taşı',
+          detail: 'Ürünlerin satıldığı sandığın yerini değiştirir.',
+          cost: 0,
+          size: '',
+          icon: uiIcon('crate'),
+          iconScale: 2.5,
+          action: 'move',
+          item: { type: 'EXPORT_MOVE' },
+        },
+      ],
+    });
 
-    const font = { fontFamily: FONT_FAMILY };
+    return sections;
+  }
 
-    // 4. Başlık
-    this.titleText = scene.add.text(24, 20, 'İNŞA VE MAKİNE KATALOĞU', {
-      ...font,
-      fontSize: '15px',
-      color: PALETTE.textPrimary,
-      fontStyle: 'bold',
-      stroke: '#080c18',
-      strokeThickness: 2,
-    }).setOrigin(0, 0);
-    this.container.add(this.titleText);
+  /** Makinenin reçetelerinin ana çıktıları: "Demir Tozu, Bakır Tozu" */
+  private describeOutputs(recipeIds: readonly string[]): string {
+    const names: string[] = [];
+    for (const recipeId of recipeIds) {
+      const outputId = defaultRecipeRegistry.get(recipeId)?.outputs[0]?.itemId;
+      const name = outputId ? defaultItemRegistry.get(outputId)?.name : undefined;
+      if (name && !names.includes(name)) names.push(name);
+    }
+    return names.length > 3 ? `${names.slice(0, 3).join(', ')} +${names.length - 3}` : names.join(', ');
+  }
 
-    // 4.5. Taşı Butonu (Hammadde Girişi & Sevkiyat Sandığı)
-    const moveX = this.modalW - 164;
-    this.relocateBtnBg = PixelUIHelper.createButton(scene, moveX, 26, 64, 26, 'launch');
-    this.container.add(this.relocateBtnBg);
+  private lockStageOf(entry: CatalogEntry): number | null {
+    if (entry.action !== 'build') return null;
+    return this.callbacks.getLockStage?.(entry.id) ?? null;
+  }
 
-    this.relocateBtnText = scene.add.text(moveX, 25, 'TAŞI', {
-      ...font,
-      fontSize: '10px',
-      color: '#ffffff',
-      fontStyle: 'bold',
-    }).setOrigin(0.5);
-    this.container.add(this.relocateBtnText);
+  /** Yapıyı belirleyen durum: kartların kilitleri ve sıradaki parsel (her karede ucuzca hesaplanır) */
+  private computeStructureSignature(): string {
+    const locks = this.cards.map(({ entry }) => `${entry.id}:${this.lockStageOf(entry) ?? '-'}`).join('|');
+    return `${this.callbacks.getNextPlot?.()?.index ?? '-'}#${locks}`;
+  }
 
-    this.relocateZone = scene.add.zone(moveX, 26, 64, 26)
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => {
-        this.hide();
-        if (this.onRelocateRequested) this.onRelocateRequested();
-      })
-      .on('pointerover', () => this.relocateBtnBg.setTexture('btn_launch_pressed'))
-      .on('pointerout', () => this.relocateBtnBg.setTexture('btn_launch_normal'));
-    this.container.add(this.relocateZone);
+  // -------------------------------------------------------------
+  // YERLEŞİM
+  // -------------------------------------------------------------
 
-    // 5. Sök / Yıkım Butonu
-    const demoX = this.modalW - 90;
-    this.demolishBtnBg = PixelUIHelper.createButton(scene, demoX, 26, 76, 26, 'danger');
-    this.container.add(this.demolishBtnBg);
+  protected buildBody(body: Phaser.GameObjects.Container, width: number): number {
+    this.cards = [];
 
-    this.demolishBtnText = scene.add.text(demoX, 25, 'SÖK (X)', {
-      ...font,
-      fontSize: '10px',
-      color: '#ffffff',
-      fontStyle: 'bold',
-    }).setOrigin(0.5);
-    this.container.add(this.demolishBtnText);
+    const columns = width >= 900 ? 3 : width >= 560 ? 2 : 1;
+    const cardWidth = Math.floor((width - CARD_GAP * (columns - 1)) / columns);
+    // Dar kartta düğme yazının yanına gelince ad kesilir; düğme alta iner
+    const stacked = cardWidth < 400;
+    const cardHeight = stacked ? CARD_HEIGHT_STACKED : CARD_HEIGHT;
 
-    this.demolishZone = scene.add.zone(demoX, 26, 76, 26)
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => {
-        this.hide();
-        if (this.onDemolishRequested) this.onDemolishRequested();
-      })
-      .on('pointerover', () => this.demolishBtnBg.setTexture('btn_danger_pressed'))
-      .on('pointerout', () => this.demolishBtnBg.setTexture('btn_danger_normal'));
-    this.container.add(this.demolishZone);
+    let y = 0;
+    for (const section of this.getSections()) {
+      const title = this.layer.text(0, y, section.title, 'captionBold', { color: SEMANTIC.moneyHex });
+      body.add(title);
+      body.add(createDivider(this.scene, title.width + SPACE.sm, y + 8, width - title.width - SPACE.sm));
+      y += 22;
 
-    // 6. Kapatma Butonu [X]
-    this.closeBtnBg = PixelUIHelper.createButton(scene, this.modalW - 28, 26, 26, 26, 'danger');
-    this.container.add(this.closeBtnBg);
-
-    this.closeBtnIcon = scene.add.image(this.modalW - 28, 26, 'icon_close').setOrigin(0.5).setScale(0.9);
-    this.container.add(this.closeBtnIcon);
-
-    this.closeZone = scene.add.zone(this.modalW - 28, 26, 30, 30)
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => this.hide())
-      .on('pointerover', () => this.closeBtnBg.setTexture('btn_danger_pressed'))
-      .on('pointerout', () => this.closeBtnBg.setTexture('btn_danger_normal'));
-    this.container.add(this.closeZone);
-
-    // 7. Kayar Kartlar Konteyneri ve Kırpma Maskesi
-    this.cardsContainer = scene.add.container(0, 0);
-    this.container.add(this.cardsContainer);
-
-    this.maskShape = scene.make.graphics();
-    this.cardsMask = this.maskShape.createGeometryMask();
-    this.cardsContainer.setMask(this.cardsMask);
-
-    // 8. Kaydırma Çubuğu (Scrollbar)
-    this.scrollTrack = scene.add.graphics();
-    this.scrollThumb = scene.add.graphics();
-    this.container.add([this.scrollTrack, this.scrollThumb]);
-
-    this.scrollTrackZone = scene.add.zone(0, 0, 16, this.viewportH)
-      .setOrigin(0, 0)
-      .setInteractive({ useHandCursor: true })
-      .on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-        const modalY = Math.round((this.scene.scale.height - this.modalH) / 2);
-        const clickRelY = pointer.y - (modalY + this.viewportY);
-        const ratio = Phaser.Math.Clamp(clickRelY / this.viewportH, 0, 1);
-        this.scrollTo(ratio * this.maxScrollY);
-        this.isDraggingScrollbar = true;
-        this.dragStartY = pointer.y;
-        this.dragStartScrollY = this.scrollY;
+      section.entries.forEach((entry, index) => {
+        const column = index % columns;
+        const row = Math.floor(index / columns);
+        const card = this.buildCard(entry, cardWidth, cardHeight, stacked);
+        card.setPosition(column * (cardWidth + CARD_GAP), y + row * (cardHeight + CARD_GAP));
+        body.add(card);
       });
-    this.container.add(this.scrollTrackZone);
 
-    // 9. Giriş Dinleyicileri (Fare Tekerleği ve Sürükleme)
-    this.bindScrollInputs();
+      const rows = Math.ceil(section.entries.length / columns);
+      y += rows * (cardHeight + CARD_GAP) + SPACE.xs;
+    }
 
-    // 10. Kartları İnşa Et
-    this.buildCards();
+    this.structureSignature = this.computeStructureSignature();
+    this.refresh();
+    return y - CARD_GAP;
   }
 
-  private bindScrollInputs(): void {
-    // Fare Tekerleği (Mouse Wheel) ile kaydırma
-    this.scene.input.on('wheel', (pointer: Phaser.Input.Pointer, _over: any, _dx: number, dy: number) => {
-      if (!this._isOpen) return;
-      const modalX = Math.round((this.scene.scale.width - this.modalW) / 2);
-      const modalY = Math.round((this.scene.scale.height - this.modalH) / 2);
-      if (
-        pointer.x >= modalX &&
-        pointer.x <= modalX + this.modalW &&
-        pointer.y >= modalY &&
-        pointer.y <= modalY + this.modalH
-      ) {
-        this.scrollBy(dy * 0.45);
-      }
-    });
+  private buildCard(
+    entry: CatalogEntry,
+    cardWidth: number,
+    cardHeight: number,
+    stacked: boolean,
+  ): Phaser.GameObjects.Container {
+    const scene = this.scene;
+    const layer = this.layer;
+    const card = scene.add.container(0, 0);
+    const lockStage = this.lockStageOf(entry);
 
-    // Kartlar üzerinde basılı tutup yukarı/aşağı sürükleme (Drag to scroll)
-    this.scene.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      if (!this._isOpen) return;
-      const modalX = Math.round((this.scene.scale.width - this.modalW) / 2);
-      const modalY = Math.round((this.scene.scale.height - this.modalH) / 2);
-      if (
-        pointer.x >= modalX + 16 &&
-        pointer.x <= modalX + this.modalW - 24 &&
-        pointer.y >= modalY + this.viewportY &&
-        pointer.y <= modalY + this.viewportY + this.viewportH
-      ) {
-        this.isDraggingCards = true;
-        this.dragStartY = pointer.y;
-        this.dragStartScrollY = this.scrollY;
-      }
-    });
+    card.add(createCard(scene, 0, 0, cardWidth, cardHeight));
 
-    this.scene.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
-      if (!this._isOpen) return;
-      if (this.isDraggingScrollbar) {
-        const delta = pointer.y - this.dragStartY;
-        const scrollDelta = (delta / this.viewportH) * this.maxScrollY;
-        this.scrollTo(this.dragStartScrollY + scrollDelta);
-      } else if (this.isDraggingCards) {
-        const delta = pointer.y - this.dragStartY;
-        this.scrollTo(this.dragStartScrollY - delta);
-      }
-    });
+    // İkon kutusu ve kapladığı alan
+    const boxX = SPACE.sm;
+    const boxY = SPACE.sm + 4;
+    card.add(createInset(scene, boxX, boxY, ICON_BOX, ICON_BOX));
+    const icon = scene.add
+      .image(boxX + ICON_BOX / 2, boxY + ICON_BOX / 2, entry.icon)
+      .setOrigin(0.5)
+      .setScale(entry.iconScale);
+    if (lockStage !== null) icon.setAlpha(0.45);
+    card.add(icon);
+    if (entry.size) {
+      card.add(
+        layer
+          .text(boxX + ICON_BOX - 3, boxY + ICON_BOX - 2, entry.size, 'captionBold', {
+            color: SEMANTIC.moneyHex,
+            stroke: true,
+          })
+          .setOrigin(1, 1),
+      );
+    }
 
-    this.scene.input.on('pointerup', () => {
-      this.isDraggingCards = false;
-      this.isDraggingScrollbar = false;
-    });
+    // Ad ve açıklama
+    const textX = boxX + ICON_BOX + SPACE.sm;
+    const textWidth = cardWidth - textX - SPACE.sm - (stacked ? 0 : SIDE_CTA_WIDTH + SPACE.sm);
+    const name = layer.text(textX, SPACE.sm + 2, '', 'heading');
+    UiLayer.fit(name, entry.name, textWidth);
+    card.add(name);
+    card.add(
+      layer.text(textX, SPACE.sm + 24, entry.detail, 'caption', {
+        color: SEMANTIC.textMuted,
+        wrapWidth: textWidth,
+      }),
+    );
+
+    // Eylem düğmesi
+    const buttonWidth = stacked ? cardWidth - textX - SPACE.sm : SIDE_CTA_WIDTH;
+    const buttonHeight = stacked ? 40 : 48;
+    const buttonX = stacked ? textX + buttonWidth / 2 : cardWidth - SPACE.sm - buttonWidth / 2;
+    const buttonY = stacked ? cardHeight - SPACE.sm - buttonHeight / 2 : cardHeight / 2;
+
+    let button: UiButton;
+    if (lockStage !== null) {
+      button = new UiButton(layer, buttonX, buttonY, {
+        width: buttonWidth,
+        height: buttonHeight,
+        label: `Aşama ${lockStage}`,
+        icon: uiIcon('lock'),
+        iconTint: SEMANTIC.warning,
+        textVariant: 'buttonSmall',
+        onClick: () => undefined,
+        onDisabledClick: () =>
+          this.callbacks.onDenied?.(`${entry.name}, ${lockStage}. aşama tamamlanınca açılır.`),
+      });
+      button.setEnabled(false);
+    } else {
+      const verb = entry.action === 'move' ? 'TAŞI' : entry.action === 'expand' ? 'AÇ' : 'KUR';
+      button = new UiButton(layer, buttonX, buttonY, {
+        width: buttonWidth,
+        height: buttonHeight,
+        variant: entry.action === 'move' ? 'secondary' : 'primary',
+        label: verb,
+        sublabel: entry.cost > 0 ? `$${formatNumber(entry.cost)}` : 'Ücretsiz',
+        onClick: () => this.select(entry),
+        onDisabledClick: () => {
+          const missing = Math.max(0, entry.cost - this.economy.money);
+          this.callbacks.onDenied?.(`Yetersiz bakiye: $${formatNumber(Math.ceil(missing))} daha gerekli.`);
+        },
+      });
+    }
+    card.add(button);
+    this.cards.push({ entry, button });
+
+    return card;
   }
 
-  public scrollTo(targetY: number): void {
-    this.scrollY = Phaser.Math.Clamp(targetY, 0, this.maxScrollY);
-    this.updateScrollPosition();
+  private select(entry: CatalogEntry): void {
+    if (entry.action === 'expand' && entry.plotIndex !== undefined) {
+      this.callbacks.onExpandPlot?.(entry.plotIndex);
+      return;
+    }
+    if (entry.item) {
+      this.callbacks.onSelectItem(entry.item);
+    }
   }
 
-  public scrollBy(deltaY: number): void {
-    this.scrollTo(this.scrollY + deltaY);
-  }
+  /** Açıkken her karede çağrılır: paranın yetip yetmediğine göre düğmeleri günceller */
+  refresh(): void {
+    if (!this.isOpen) return;
 
-  private updateScrollPosition(): void {
-    const modalX = Math.round((this.scene.scale.width - this.modalW) / 2);
-    const modalY = Math.round((this.scene.scale.height - this.modalH) / 2);
-
-    this.cardsContainer.setPosition(modalX, modalY + this.viewportY - this.scrollY);
-    this.drawScrollbar();
-  }
-
-  private drawScrollbar(): void {
-    if (!this.scrollTrack || !this.scrollThumb) return;
-    this.scrollTrack.clear();
-    this.scrollThumb.clear();
-
-    if (this.maxScrollY <= 0) {
-      this.scrollTrack.setVisible(false);
-      this.scrollThumb.setVisible(false);
-      this.scrollTrackZone.setActive(false);
+    // Bir aşama tamamlanıp kilit açıldıysa veya parsel alındıysa liste yeniden kurulur
+    if (this.computeStructureSignature() !== this.structureSignature) {
+      this.rebuild();
       return;
     }
 
-    this.scrollTrack.setVisible(true);
-    this.scrollThumb.setVisible(true);
-    this.scrollTrackZone.setActive(true);
-
-    const modalX = Math.round((this.scene.scale.width - this.modalW) / 2);
-    const modalY = Math.round((this.scene.scale.height - this.modalH) / 2);
-
-    const trackX = modalX + this.modalW - 14;
-    const trackY = modalY + this.viewportY;
-    const trackW = 6;
-    const trackH = this.viewportH;
-
-    this.scrollTrackZone.setPosition(trackX - 5, trackY);
-    this.scrollTrackZone.setSize(16, trackH);
-
-    // Kaydırma Çubuğu Arka Plan Kanalı (Track)
-    this.scrollTrack.fillStyle(0x080c18, 0.9);
-    this.scrollTrack.fillRoundedRect(trackX, trackY, trackW, trackH, 3);
-    this.scrollTrack.lineStyle(1, 0x151d30, 0.8);
-    this.scrollTrack.strokeRoundedRect(trackX, trackY, trackW, trackH, 3);
-
-    // Kaydırma Göstergesi / Tutamacı (Thumb)
-    const totalH = this.viewportH + this.maxScrollY;
-    const thumbH = Math.max(28, Math.round((this.viewportH / totalH) * trackH));
-    const thumbProgress = this.maxScrollY > 0 ? this.scrollY / this.maxScrollY : 0;
-    const thumbY = trackY + thumbProgress * (trackH - thumbH);
-
-    this.scrollThumb.fillStyle(0xf39c12, 0.85); // Endüstriyel Altın
-    this.scrollThumb.fillRoundedRect(trackX, thumbY, trackW, thumbH, 3);
-    this.scrollThumb.lineStyle(1, 0xffffff, 0.4);
-    this.scrollThumb.strokeRoundedRect(trackX, thumbY, trackW, thumbH, 3);
-  }
-
-  isOpen(): boolean {
-    return this._isOpen;
-  }
-
-  show(): void {
-    this._isOpen = true;
-    this.container.setVisible(true);
-    this.scrollTo(0);
-    this.refresh();
-  }
-
-  hide(): void {
-    this._isOpen = false;
-    this.container.setVisible(false);
-    this.isDraggingCards = false;
-    this.isDraggingScrollbar = false;
-  }
-
-  ignoreCamera(camera: Phaser.Cameras.Scene2D.Camera): void {
-    camera.ignore([this.container]);
-  }
-
-  private getAllBuildItems(): BuildCardItem[] {
-    const items: BuildCardItem[] = [];
-
-    // Lojistik
-    items.push({
-      id: 'conveyor',
-      name: 'Konveyör Bandı',
-      desc: 'Hammadde ve ürünleri hatlar boyunca taşır.',
-      cost: CONVEYOR_BUILD_COST,
-      sizeStr: '1x1',
-      iconKey: 'conveyor_belt',
-      item: { type: 'CONVEYOR' },
-    });
-
-    items.push({
-      id: 'splitter',
-      name: 'Akış Ayırıcı (Splitter)',
-      desc: 'Eşyaları iki hatta dengeli (50/50) paylaştırır.',
-      cost: SPLITTER_BUILD_COST,
-      sizeStr: '1x1',
-      iconKey: 'conveyor_belt',
-      item: { type: 'SPLITTER' },
-    });
-
-    items.push({
-      id: 'merger',
-      name: 'Akış Birleştirici (Merger)',
-      desc: 'Gelen iki lojistik hattını tek hatta birleştirir.',
-      cost: MERGER_BUILD_COST,
-      sizeStr: '1x1',
-      iconKey: 'conveyor_belt',
-      item: { type: 'MERGER' },
-    });
-
-    // Makineler
-    const machines = defaultMachineRegistry.getAll();
-    for (const m of machines) {
-      items.push({
-        id: m.id,
-        name: m.name,
-        desc: m.description,
-        cost: m.baseCost,
-        sizeStr: `${m.width}x${m.height}`,
-        iconKey: m.spriteBaseKey ?? 'machine_bench',
-        item: { type: 'MACHINE', machineDef: m },
-      });
+    for (const { entry, button } of this.cards) {
+      if (this.lockStageOf(entry) !== null) continue;
+      button.setEnabled(entry.cost <= 0 || this.economy.canAfford(entry.cost));
     }
-
-    // Hammadde girişleri: her biri saniyede 1 hammadde verir
-    for (const [itemId, cost] of Object.entries(INTAKE_BUILD_COSTS)) {
-      const itemName = defaultItemRegistry.get(itemId)?.name ?? itemId;
-      items.push({
-        id: `${INTAKE_CARD_PREFIX}${itemId}`,
-        name: `${itemName} Girişi`,
-        desc: `Saniyede 1 ${itemName} verir.`,
-        cost,
-        sizeStr: '1x1',
-        iconKey: 'factory_intake',
-        item: { type: 'INTAKE_NEW', intakeItemId: itemId },
-      });
-    }
-
-    // Terminaller (Taşıma Seçenekleri)
-    items.push({
-      id: 'intake_move',
-      name: 'Hammadde Giriş Silosu',
-      desc: 'Ham cevher tedarik noktası. Konumunu fabrikada taşı.',
-      cost: 0,
-      sizeStr: '1x1',
-      iconKey: 'factory_intake',
-      item: { type: 'INTAKE_MOVE' },
-      isRelocate: true,
-    });
-
-    items.push({
-      id: 'export_move',
-      name: 'Sevkiyat Sandığı',
-      desc: 'Mamul ihracat ve nakit satış terminali. Konumunu taşı.',
-      cost: 0,
-      sizeStr: '1x1',
-      iconKey: 'shipping_crate',
-      item: { type: 'EXPORT_MOVE' },
-      isRelocate: true,
-    });
-
-    return items;
-  }
-
-  private buildCards(): void {
-    this.cardsContainer.removeAll(true);
-    this.cardButtons = [];
-
-    const items = this.getAllBuildItems();
-    const font = { fontFamily: FONT_FAMILY };
-
-    const startX = 18;
-    const cardW = this.cardW;
-    const cardH = BuildMenuModal.CARD_H;
-    const gapX = BuildMenuModal.CARD_GAP_X;
-    const gapY = BuildMenuModal.CARD_GAP_Y;
-    const cols = this.cols;
-
-    for (let i = 0; i < items.length; i++) {
-      const it = items[i];
-      const col = i % cols;
-      const row = Math.floor(i / cols);
-
-      const cx = startX + col * (cardW + gapX);
-      const cy = row * (cardH + gapY);
-
-      // 1. Kart Arka Planı
-      const cardBg = PixelUIHelper.createCard(this.scene, cx, cy, cardW, cardH).setOrigin(0, 0);
-      this.cardsContainer.add(cardBg);
-
-      // 2. Makine Görsel Kutusu (Sol Önizleme Paneli)
-      const iconBoxX = cx + 8;
-      const iconBoxY = cy + 8;
-      const iconBoxW = 50;
-      const iconBoxH = 66;
-
-      const iconBoxBg = PixelUIHelper.createPanel(this.scene, iconBoxX, iconBoxY, iconBoxW, iconBoxH);
-      this.cardsContainer.add(iconBoxBg);
-
-      // Makine veya Konveyör Resmi
-      const iconCenterX = iconBoxX + iconBoxW / 2;
-      const iconCenterY = iconBoxY + 24;
-
-      if (it.iconKey === 'conveyor_belt') {
-        const sprite = this.scene.add.image(iconCenterX, iconCenterY, 'conveyor_belt')
-          .setDisplaySize(34, 22)
-          .setOrigin(0.5);
-        this.cardsContainer.add(sprite);
-
-        // Splitter / Merger rozeti
-        if (it.id === 'splitter') {
-          const splitBadge = this.scene.add.text(iconCenterX, iconCenterY - 1, '⑂', {
-            ...font, fontSize: '12px', color: PALETTE.rocketCyanHex, fontStyle: 'bold',
-          }).setOrigin(0.5);
-          this.cardsContainer.add(splitBadge);
-        } else if (it.id === 'merger') {
-          const mergeBadge = this.scene.add.text(iconCenterX, iconCenterY - 1, '⑃', {
-            ...font, fontSize: '12px', color: PALETTE.successGreenHex, fontStyle: 'bold',
-          }).setOrigin(0.5);
-          this.cardsContainer.add(mergeBadge);
-        }
-      } else {
-        const sprite = this.scene.add.image(iconCenterX, iconCenterY, it.iconKey)
-          .setDisplaySize(38, 38)
-          .setOrigin(0.5);
-        this.cardsContainer.add(sprite);
-      }
-
-      // Boyut Rozeti (Görsel kutusunun altında, örn. 1x1, 2x1, 2x2)
-      const badge = this.scene.add.text(iconCenterX, iconBoxY + 53, it.sizeStr, {
-        ...font,
-        fontSize: '9px',
-        color: PALETTE.resourceGoldHex,
-        fontStyle: 'bold',
-      }).setOrigin(0.5);
-      this.cardsContainer.add(badge);
-
-      // 3. Sağ Taraf: İsim, Açıklama, Fiyat ve Buton
-      const contentX = cx + 64;
-
-      // Başlık
-      const title = this.scene.add.text(contentX, cy + 8, it.name, {
-        ...font,
-        fontSize: '11px',
-        color: PALETTE.textPrimary,
-        fontStyle: 'bold',
-      });
-      this.cardsContainer.add(title);
-
-      // Açıklama
-      const desc = this.scene.add.text(contentX, cy + 24, it.desc, {
-        ...font,
-        fontSize: '9px',
-        color: PALETTE.textMuted,
-        wordWrap: { width: cardW - 72 },
-        lineSpacing: 2,
-      });
-      this.cardsContainer.add(desc);
-
-      // Fiyat Etiketi
-      const costLabel = it.isRelocate ? 'ÜCRETSİZ' : `$${it.cost}`;
-      const costColor = it.isRelocate ? PALETTE.successGreenHex : PALETTE.resourceGoldHex;
-      const costText = this.scene.add.text(contentX, cy + cardH - 10, costLabel, {
-        ...font,
-        fontSize: '11px',
-        color: costColor,
-        fontStyle: 'bold',
-      }).setOrigin(0, 1);
-      this.cardsContainer.add(costText);
-
-      // İnşa / Taşı Butonu
-      const btnW = 72;
-      const btnH = 22;
-      const btnX = cx + cardW - btnW / 2 - 8;
-      const btnY = cy + cardH - btnH / 2 - 8;
-
-      const btnStyle = it.isRelocate ? 'launch' : 'green';
-      const btnLabel = it.isRelocate ? 'TAŞI' : 'İNŞA ET';
-
-      const btnBg = PixelUIHelper.createButton(this.scene, btnX, btnY, btnW, btnH, btnStyle);
-      this.cardsContainer.add(btnBg);
-
-      const btnText = this.scene.add.text(btnX, btnY - 1, btnLabel, {
-        ...font,
-        fontSize: '9.5px',
-        color: '#ffffff',
-        fontStyle: 'bold',
-      }).setOrigin(0.5);
-      this.cardsContainer.add(btnText);
-
-      const zone = this.scene.add.zone(btnX, btnY, btnW, btnH)
-        .setOrigin(0.5)
-        .setInteractive({ useHandCursor: true })
-        .on('pointerdown', () => {
-          // Yalnızca görünür kayar pencere alanı içindeyse tıklamayı işle
-          const modalY = Math.round((this.scene.scale.height - this.modalH) / 2);
-          const btnScreenY = this.cardsContainer.y + btnY;
-          if (
-            btnScreenY < modalY + this.viewportY - 4 ||
-            btnScreenY > modalY + this.viewportY + this.viewportH + 4
-          ) {
-            return;
-          }
-
-          if (this.getLockStage?.(it.id) != null) return;
-
-          if (it.isRelocate || this.economy.canAfford(it.cost)) {
-            this.hide();
-            this.onSelectItem(it.item);
-          }
-        });
-      this.cardsContainer.add(zone);
-
-      this.cardButtons.push({
-        item: it,
-        btnBg,
-        btnText,
-        costText,
-        zone,
-        btnLocalY: btnY,
-      });
-    }
-
-    this.updateScrollRange();
-  }
-
-  /** Toplam içerik yüksekliğine göre maksimum kaydırma mesafesini günceller */
-  private updateScrollRange(): void {
-    const totalRows = Math.ceil(this.cardButtons.length / this.cols);
-    const totalContentHeight =
-      totalRows * (BuildMenuModal.CARD_H + BuildMenuModal.CARD_GAP_Y) + 12;
-    this.maxScrollY = Math.max(0, totalContentHeight - this.viewportH);
-    this.scrollY = Math.min(this.scrollY, this.maxScrollY);
-  }
-
-  refresh(): void {
-    for (const b of this.cardButtons) {
-      if (b.item.isRelocate) {
-        b.btnBg.setTexture('btn_launch_normal');
-        b.btnText.setColor('#ffffff');
-        b.costText.setColor(PALETTE.successGreenHex);
-        b.zone.input?.enabled && (b.zone.input.enabled = true);
-        continue;
-      }
-
-      // Kilitli kart: fiyat yerine hangi aşamada açılacağını söyler
-      const lockStage = this.getLockStage?.(b.item.id) ?? null;
-      if (lockStage !== null) {
-        b.btnBg.setTexture('btn_disabled');
-        b.btnText.setText('KİLİTLİ').setColor('#7f8c8d');
-        b.costText.setText(`Aşama ${lockStage}`).setColor(PALETTE.warningOrangeHex);
-        continue;
-      }
-      b.btnText.setText('İNŞA ET');
-      b.costText.setText(`$${b.item.cost}`);
-
-      const affordable = this.economy.canAfford(b.item.cost);
-      if (affordable) {
-        b.btnBg.setTexture('btn_green_normal');
-        b.btnText.setColor('#ffffff');
-        b.costText.setColor(PALETTE.resourceGoldHex);
-        b.zone.input?.enabled && (b.zone.input.enabled = true);
-      } else {
-        b.btnBg.setTexture('btn_disabled');
-        b.btnText.setColor('#7f8c8d');
-        b.costText.setColor(PALETTE.dangerRedHex);
-      }
-    }
-  }
-
-  layout(screenWidth: number, screenHeight: number): void {
-    this.backdrop.setSize(screenWidth, screenHeight);
-
-    // Pencereyi ekrana sığdır; iki sütun sığmıyorsa kartları tek sütuna indir
-    this.modalW = Math.min(BuildMenuModal.MAX_MODAL_W, screenWidth - 16);
-    this.modalH = Math.min(BuildMenuModal.MAX_MODAL_H, screenHeight - 16);
-    this.viewportH = this.modalH - 76;
-
-    const cols = this.modalW >= BuildMenuModal.MAX_MODAL_W ? 2 : 1;
-    const cardW = cols === 2 ? 240 : this.modalW - 48;
-    if (cols !== this.cols || cardW !== this.cardW) {
-      this.cols = cols;
-      this.cardW = cardW;
-      this.buildCards();
-      this.refresh();
-    } else {
-      this.updateScrollRange();
-    }
-    this.titleText.setText(cols === 2 ? 'İNŞA VE MAKİNE KATALOĞU' : 'KATALOG');
-
-    const x = Math.round((screenWidth - this.modalW) / 2);
-    const y = Math.round((screenHeight - this.modalH) / 2);
-
-    this.panelBlocker.setPosition(x, y);
-    this.panelBlocker.setSize(this.modalW, this.modalH);
-
-    this.modalBg.setPosition(x, y);
-    this.modalBg.setSize(this.modalW, this.modalH);
-    this.titleText.setPosition(x + 24, y + 20);
-
-    const moveX = x + this.modalW - 164;
-    this.relocateBtnBg.setPosition(moveX, y + 26);
-    this.relocateBtnText.setPosition(moveX, y + 25);
-    this.relocateZone.setPosition(moveX, y + 26);
-
-    const demoX = x + this.modalW - 90;
-    this.demolishBtnBg.setPosition(demoX, y + 26);
-    this.demolishBtnText.setPosition(demoX, y + 25);
-    this.demolishZone.setPosition(demoX, y + 26);
-
-    const closeX = x + this.modalW - 28;
-    const closeY = y + 26;
-    this.closeBtnBg.setPosition(closeX, closeY);
-    this.closeBtnIcon.setPosition(closeX, closeY);
-    this.closeZone.setPosition(closeX, closeY);
-
-    // Kırpma maskesini pencere konumuna göre güncelle
-    this.maskShape.clear();
-    this.maskShape.fillStyle(0xffffff);
-    this.maskShape.fillRect(x + 10, y + this.viewportY, this.modalW - 20, this.viewportH);
-
-    this.updateScrollPosition();
   }
 }

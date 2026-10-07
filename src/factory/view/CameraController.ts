@@ -33,11 +33,18 @@ export class CameraController {
   readonly scene: Phaser.Scene;
   readonly camera: Phaser.Cameras.Scene2D.Camera;
 
-  readonly minZoom: number;
-  readonly maxZoom: number;
-  readonly zoomStep: number;
+  /** Mantıksal (CSS pikseli başına) zoom sınırları; gerçek kamera zoom'u `pixelScale` ile çarpılır */
+  private readonly baseMinZoom: number;
+  private readonly baseMaxZoom: number;
+  private readonly baseZoomStep: number;
   readonly padding: number;
-  readonly keyboardPanSpeed: number;
+  private readonly baseKeyboardPanSpeed: number;
+
+  /**
+   * Tuval pikseli / CSS pikseli. Tuval cihaz çözünürlüğünde çizildiği için dünya
+   * aynı fiziksel boyutta görünsün diye bütün zoom değerleri bununla ölçeklenir.
+   */
+  private pixelScale = 1;
 
   private enableKeyboard: boolean;
   private enableWheelZoom: boolean;
@@ -54,12 +61,23 @@ export class CameraController {
   /** Boyutların otomatik okunduğu ızgara görünümü */
   private gridView?: GridView;
 
+  /**
+   * Görüş alanının altında, sığdırma ve ortalamada boş bırakılacak şerit (tuval pikseli).
+   * Orada yüzen bir arayüz çubuğu (etkin araç çubuğu) fabrikanın alt sırasını örtmesin diye.
+   */
+  private fitInsetBottom = 0;
+
   /** Sürükleme durumu */
   private isDragging = false;
   private dragStartPointerX = 0;
   private dragStartPointerY = 0;
   private dragStartCameraX = 0;
   private dragStartCameraY = 0;
+
+  /** İki parmak hareketi (yakınlaştırma + kaydırma) sürerken tutulan durum */
+  private pinch: { startDistance: number; startZoom: number; lastMidX: number; lastMidY: number } | null = null;
+  /** Son basışta iki parmak hareketi yapıldı mı? (bırakış tıklama sayılmasın diye) */
+  private gestureConsumed = false;
 
   /** Klavye tuşları */
   private cursors?: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -93,11 +111,11 @@ export class CameraController {
     this.scene = scene;
     this.camera = camera;
 
-    this.minZoom = config.minZoom ?? CameraMath.DEFAULT_MIN_ZOOM;
-    this.maxZoom = config.maxZoom ?? CameraMath.DEFAULT_MAX_ZOOM;
-    this.zoomStep = config.zoomStep ?? CameraMath.DEFAULT_ZOOM_STEP;
+    this.baseMinZoom = config.minZoom ?? CameraMath.DEFAULT_MIN_ZOOM;
+    this.baseMaxZoom = config.maxZoom ?? CameraMath.DEFAULT_MAX_ZOOM;
+    this.baseZoomStep = config.zoomStep ?? CameraMath.DEFAULT_ZOOM_STEP;
     this.padding = config.padding ?? 64;
-    this.keyboardPanSpeed = config.keyboardPanSpeed ?? 400; // px/s
+    this.baseKeyboardPanSpeed = config.keyboardPanSpeed ?? 400; // CSS px/s
 
     this.enableKeyboard = config.enableKeyboard ?? true;
     this.enableWheelZoom = config.enableWheelZoom ?? true;
@@ -116,6 +134,59 @@ export class CameraController {
   }
 
   // -------------------------------------------------------------
+  // CİHAZ ÇÖZÜNÜRLÜĞÜ (PIXEL SCALE)
+  // -------------------------------------------------------------
+
+  get minZoom(): number {
+    return this.snapZoom(this.baseMinZoom * this.pixelScale);
+  }
+
+  get maxZoom(): number {
+    return this.snapZoom(this.baseMaxZoom * this.pixelScale);
+  }
+
+  /** Tekerlek / kısayol ile bir adımda değişen zoom miktarı (tuval pikseli cinsinden) */
+  get zoomStep(): number {
+    if (this.pixelScale < 1.5) return this.baseZoomStep;
+    return 0.5 * Math.max(1, Math.round(this.pixelScale / 2));
+  }
+
+  private get keyboardPanSpeed(): number {
+    return this.baseKeyboardPanSpeed * this.pixelScale;
+  }
+
+  /** Piksel sanat bozulmasın diye zoom, adımın tam katına oturtulur */
+  private snapZoom(zoom: number): number {
+    const step = this.pixelScale < 1.5 ? this.baseZoomStep : 0.5;
+    return Math.max(step, Math.round(zoom / step) * step);
+  }
+
+  /** Fabrikayı sığdırırken denenen zoom kademeleri (büyükten küçüğe) */
+  private getFitLevels(): number[] {
+    if (this.pixelScale < 1.5) {
+      return CameraMath.FIT_ZOOM_LEVELS.map((level) => level * this.pixelScale);
+    }
+    const levels: number[] = [];
+    for (let zoom = this.maxZoom; zoom >= this.minZoom - 1e-6; zoom -= 0.5) {
+      levels.push(Number(zoom.toFixed(2)));
+    }
+    return levels;
+  }
+
+  /**
+   * Tuvalin çizim ölçeğini bildirir (UiMetrics.renderScale). Mevcut zoom aynı
+   * fiziksel büyüklükte kalacak şekilde yeniden ölçeklenir.
+   */
+  setPixelScale(scale: number): void {
+    const next = Math.max(1, scale);
+    if (next === this.pixelScale) return;
+    const logicalZoom = this.camera.zoom / this.pixelScale;
+    this.pixelScale = next;
+    this.camera.setZoom(CameraMath.clampZoom(this.snapZoom(logicalZoom * next), this.minZoom, this.maxZoom));
+    this.clampCurrentPosition();
+  }
+
+  // -------------------------------------------------------------
   // GİRDİ BAĞLANTILARI (INPUT HOOKS)
   // -------------------------------------------------------------
 
@@ -125,6 +196,11 @@ export class CameraController {
     // Fare tekerleği zoom
     if (this.enableWheelZoom) {
       this.scene.input.on('wheel', this.onWheelBound);
+    }
+
+    // İki parmakla yakınlaştırma için ikinci dokunma imleci
+    if (this.scene.input.manager.pointersTotal < 2) {
+      this.scene.input.addPointer(1);
     }
 
     // Sürükleme (Drag-pan)
@@ -175,7 +251,21 @@ export class CameraController {
   /** Dışarıdan sol tık pan izni denetleyicisi (örn. inşa modunda sol tık yerleşim içindir) */
   public canPan?: () => boolean;
 
+  /** İki parmak aynı anda ekranda mı? Araçlar bu sırada tek parmak girdisini yoksayar. */
+  get isMultiTouch(): boolean {
+    const input = this.scene.input;
+    return Boolean(input.pointer1?.isDown && input.pointer2?.isDown);
+  }
+
+  /** Bu basış sırasında iki parmak hareketi yapıldıysa bırakış tıklama sayılmamalıdır */
+  get wasGesture(): boolean {
+    return this.gestureConsumed;
+  }
+
   private handlePointerDown(pointer: Phaser.Input.Pointer): void {
+    if (!this.isMultiTouch) {
+      this.gestureConsumed = false;
+    }
     if (!this.enabled || !this.isPointerInViewport(pointer)) return;
 
     // Eğer sol tık pan devre dışı bırakılmışsa (örn. yerleşim aktif), sadece orta tuşa (button 1) izin ver
@@ -195,7 +285,7 @@ export class CameraController {
   }
 
   private handlePointerMove(pointer: Phaser.Input.Pointer): void {
-    if (!this.enabled || !this.isDragging) return;
+    if (!this.enabled || !this.isDragging || this.pinch) return;
 
     // Fare hareket farkını zoom faktörüne bölerek kameraya uygula
     const dx = (this.dragStartPointerX - pointer.x) / this.camera.zoom;
@@ -333,6 +423,11 @@ export class CameraController {
     this.clampCurrentPosition();
   }
 
+  /** Sığdırmada görüş alanının altında boş bırakılacak şeridi ayarlar (tuval pikseli) */
+  setFitInsetBottom(pixels: number): void {
+    this.fitInsetBottom = Math.max(0, pixels);
+  }
+
   /**
    * Bir GridView nesnesine bağlanarak parsel genişliğini otomatik alır.
    */
@@ -362,14 +457,17 @@ export class CameraController {
       width: this.camera.width,
       height: this.camera.height,
     };
+    const usableHeight = Math.max(1, viewport.height - this.fitInsetBottom);
     const visibleW = viewport.width / this.camera.zoom;
-    const visibleH = viewport.height / this.camera.zoom;
+    const visibleH = usableHeight / this.camera.zoom;
 
     const focusWidth = this.contentWidth <= visibleW ? this.contentWidth : this.worldWidth;
     const focusHeight = this.contentHeight <= visibleH ? this.contentHeight : this.worldHeight;
 
     const centerPos = CameraMath.computeCenterPosition(focusWidth, focusHeight, viewport);
-    this.setScroll(centerPos.x, centerPos.y);
+    // Alttaki boş şerit kadar yukarı ortala (şeridin yarısı kadar dünya kayması)
+    const insetShift = this.fitInsetBottom / 2 / this.camera.zoom;
+    this.setScroll(centerPos.x, centerPos.y + insetShift);
   }
 
   /**
@@ -382,9 +480,11 @@ export class CameraController {
     const fitZoom = CameraMath.computeFitZoom(
       this.worldWidth,
       this.worldHeight,
-      { width: this.camera.width, height: this.camera.height },
-      CameraController.FIT_MARGIN_PX,
+      { width: this.camera.width, height: Math.max(1, this.camera.height - this.fitInsetBottom) },
+      CameraController.FIT_MARGIN_PX * this.pixelScale,
       this.gridView?.tileSize ?? GridCoordinates.DEFAULT_TILE_SIZE,
+      this.getFitLevels(),
+      this.pixelScale,
     );
     this.camera.setZoom(CameraMath.clampZoom(fitZoom, this.minZoom, this.maxZoom));
     this.centerOnFactory();
@@ -431,6 +531,7 @@ export class CameraController {
    * Sahnenin update() döngüsünde çağrılır; WASD ve yön tuşlarıyla kaydırma sağlar.
    */
   update(deltaSec: number): void {
+    this.updatePinch();
     if (!this.enabled || !this.enableKeyboard) return;
 
     let moveX = 0;
@@ -455,6 +556,94 @@ export class CameraController {
   }
 
   // -------------------------------------------------------------
+  // İKİ PARMAK HAREKETİ (PINCH ZOOM + PAN)
+  // -------------------------------------------------------------
+
+  /**
+   * İki parmak ekrandayken aradaki mesafe zoom'u, orta noktanın hareketi kaydırmayı
+   * belirler. Yerleştirme ve söküm modunda da çalışır; böylece dokunmatikte araç
+   * bırakılmadan fabrikada gezilebilir. Parmaklar kalkınca zoom en yakın kademeye oturur.
+   */
+  private updatePinch(): void {
+    const input = this.scene.input;
+    const a = input.pointer1;
+    const b = input.pointer2;
+    const active = this.enabled && Boolean(a?.isDown && b?.isDown);
+
+    if (!active || !a || !b) {
+      if (this.pinch) {
+        const snapped = CameraMath.clampZoom(this.snapZoom(this.camera.zoom), this.minZoom, this.maxZoom);
+        this.zoomAround(snapped, this.pinch.lastMidX, this.pinch.lastMidY);
+        this.pinch = null;
+      }
+      // Bütün parmaklar kalktıysa hareket bitmiştir. Bayrak burada (bırakış olayları
+      // işlendikten sonra) temizlenir; bir sonraki basışa bırakılırsa nesnelerin kendi
+      // 'pointerdown' dinleyicileri kameranınkinden önce çalıştığı için ilk dokunuş yutulur.
+      if (!a?.isDown && !b?.isDown) {
+        this.gestureConsumed = false;
+      }
+      return;
+    }
+
+    const midX = (a.x + b.x) / 2;
+    const midY = (a.y + b.y) / 2;
+    const distance = Math.max(1, Phaser.Math.Distance.Between(a.x, a.y, b.x, b.y));
+
+    if (!this.pinch) {
+      if (!this.isPointerInViewport(a) && !this.isPointerInViewport(b)) return;
+      this.pinch = { startDistance: distance, startZoom: this.camera.zoom, lastMidX: midX, lastMidY: midY };
+      this.isDragging = false;
+      this.gestureConsumed = true;
+      return;
+    }
+
+    const targetZoom = CameraMath.clampZoom(
+      this.pinch.startZoom * (distance / this.pinch.startDistance),
+      this.minZoom,
+      this.maxZoom,
+    );
+    this.zoomAround(targetZoom, midX, midY);
+
+    // Orta nokta kaydıkça fabrika parmakların altında birlikte kayar
+    const dx = (this.pinch.lastMidX - midX) / this.camera.zoom;
+    const dy = (this.pinch.lastMidY - midY) / this.camera.zoom;
+    this.camera.setScroll(this.camera.scrollX + dx, this.camera.scrollY + dy);
+    this.clampCurrentPositionUnrounded();
+
+    this.pinch.lastMidX = midX;
+    this.pinch.lastMidY = midY;
+  }
+
+  /** Ekrandaki bir noktayı sabit tutarak zoom'u değiştirir */
+  private zoomAround(zoom: number, screenX: number, screenY: number): void {
+    if (zoom === this.camera.zoom) return;
+    const anchored = CameraMath.computeAnchoredScroll(
+      this.camera.scrollX,
+      this.camera.scrollY,
+      { x: screenX - this.camera.x, y: screenY - this.camera.y },
+      { width: this.camera.width, height: this.camera.height },
+      this.camera.zoom,
+      zoom,
+    );
+    this.camera.setZoom(zoom);
+    this.camera.setScroll(anchored.x, anchored.y);
+    this.clampCurrentPositionUnrounded();
+  }
+
+  /** Sürekli harekette titremesin diye yuvarlamadan sınırlar */
+  private clampCurrentPositionUnrounded(): void {
+    const bounds = this.getPanBounds();
+    const minX = Math.min(bounds.minX, bounds.maxX);
+    const maxX = Math.max(bounds.minX, bounds.maxX);
+    const minY = Math.min(bounds.minY, bounds.maxY);
+    const maxY = Math.max(bounds.minY, bounds.maxY);
+    this.camera.setScroll(
+      Phaser.Math.Clamp(this.camera.scrollX, minX, maxX),
+      Phaser.Math.Clamp(this.camera.scrollY, minY, maxY),
+    );
+  }
+
+  // -------------------------------------------------------------
   // DURUM YÖNETİMİ VE TEMİZLİK (LIFECYCLE)
   // -------------------------------------------------------------
 
@@ -462,6 +651,7 @@ export class CameraController {
     this.enabled = enabled;
     if (!enabled) {
       this.isDragging = false;
+      this.pinch = null;
     }
   }
 

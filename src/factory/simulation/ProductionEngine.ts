@@ -302,7 +302,10 @@ export class ProductionEngine {
         if (targetCell.type === 'CONVEYOR') {
           // Düz Bant
           const belt = this.logistics.getConveyor(targetX, targetY);
-          if (belt && belt.canAcceptItem()) {
+          // Makineye geri akan banda ürün verilmez: ürün aynı makineye döner, makine
+          // onu girdi olarak almaz ve bandın ucunda kalıp besleme hattını kilitler.
+          const flowsBackIn = belt?.direction === OPPOSITE_DIRECTIONS[port.direction];
+          if (belt && !flowsBackIn && belt.canAcceptItem()) {
             const popped = machine.popAnyOutput();
             if (popped) {
               belt.acceptItem(popped.itemId, 0.0);

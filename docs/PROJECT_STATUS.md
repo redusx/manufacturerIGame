@@ -24,9 +24,11 @@
 | M7 | Denge geçişi (eşya değerleri, reçete süreleri, aşama eşik ve ödülleri) | **TAMAMLANDI** (2026-10-06; 1–3. aşamalar tarayıcıda, 1–9. aşamalar başsız simülasyonla ölçüldü, commit `7cc8aec`) |
 | M8 | Sürükleyerek bant çizimi | **TAMAMLANDI** (2026-10-06, tarayıcıda fare ve dokunmatikle doğrulandı, commit `c58ef62`) |
 | M9 | Uzun vade (kontratlar, roket sonrası kademeler) | **ERTELENDİ** (kullanıcı kararı, 2026-10-06). 10. aşamadan sonra oyunda yeni hedef yok; `ContractManager` depoda ama oyuna bağlı değil. |
-| M10 | Temizlik ve yayın (ölü kod, doküman eşitleme, mobil düzen) | **TAMAMLANDI** (2026-10-06, tarayıcıda doğrulandı) |
+| M10 | Temizlik ve yayın (ölü kod, doküman eşitleme, mobil düzen) | **TAMAMLANDI** (2026-10-06, tarayıcıda doğrulandı, commit `7f4f9ca`) |
+| UI 2.0 | Arayüzün baştan kurulması (tek tasarım sistemi, arayüz ölçeği, duyarlı düzen, dokunma/fare/klavye) | **TAMAMLANDI** (2026-10-06, 10 ekran boyutunda tarayıcıda doğrulandı; henüz commit edilmedi). Kurallar: `UI_UX_SYSTEM.md`, DEC-020 … DEC-022. Oynanış, ekonomi ve ilerleme değişmedi. |
 
-* **Son doğrulama:** 2026-10-06 (M10) — `npm test` 262/262, `npx tsc --noEmit` 0 hata, `npm run build` başarılı; ayrıntı `IMPLEMENTATION_LOG.md` son girdi. (Test sayısı 285'ten 262'ye düştü: silinen ölü kodun 23 testi de silindi.)
+* **Son doğrulama:** 2026-10-06 (UI 2.0) — `npm test` 262/262, `npx tsc --noEmit` 0 hata, `npm run build` başarılı; ayrıntı `IMPLEMENTATION_LOG.md` son girdi. (Test sayısı M10'da 285'ten 262'ye düştü: silinen ölü kodun 23 testi de silindi. UI 2.0'da test eklenmedi/silinmedi.)
+* **Arayüz (UI 2.0):** Tuval cihaz çözünürlüğünde çizilir; arayüz birim tabanlıdır ve Ayarlar'dan dört kademede ölçeklenir. Üç düzen modu vardır (dikey, yatay, kısa yatay). Pencereler dikeyde alttan açılır ve kaydırılır. Dokunmatikte iki parmakla yakınlaştırma, onaylı yerleştirme/söküm; klavyede kısayollar ve odak gezinme vardır. Ayrıntı: `UI_UX_SYSTEM.md`.
 * **Ekonominin şu anki kuralları** (sayılar: `ECONOMY.md`):
   - Tek kasa: `EconomyManager` (para + toplam kazanç). `FactoryEconomy` ona yazar.
   - Gelir = ihraç edilen eşyanın baz değeri × gelir çarpanı (uçuş kilometre taşları ve son aşama ödülü); kuruşa yuvarlanır.
@@ -43,15 +45,18 @@
   - **M5 sonrası hammadde kuralları:** Katalogdan yeni giriş kurulur (demir $500 / 3. aşama, bakır $1000 / 6. aşama, kum ve polimer $2500 / 9. aşama); her giriş 1 hammadde/sn verir, girişler sökülemez (yalnız taşınır). Giriş hızı yükseltmesi yoktur; hammadde artışı ek giriş kurarak sağlanır (DEC-017). Montaj tezgahının 3. giriş portu (batı) vardır.
   - **Reçete tuzağı:** Yeni kurulan makine ilk reçetesiyle başlar (kırıcı=demir, fırın=demir, kesici=bakır tel); yanlış reçetede hat sessizce tıkanır, oyuncu reçeteyi inceleme penceresinden seçmelidir.
   - **3 girdili reçeteler (yönlendirme bilgisayarı, itici blok) ekranda oynanmadı;** 2 girdili motor hattı, plastik ve optik cam ihracı doğrulandı.
-  - **Uzak yakınlaştırmada (0.75x ve altı) giriş/makine etiketleri okunmuyor.**
+  - **Uzak yakınlaştırmada (0.75x ve altı) giriş/makine etiketleri okunmuyor.** (Kilitli parsel rozeti UI 2.0'dan beri zoom'dan bağımsız boyuttadır.)
   - **M7 sonrası denge (DEC-019):** Hedef, ilgili bir oyuncunun 10 aşamayı ~40–50 dakikada bitirmesidir (varsayım; kullanıcı onayı bekliyor). Hiç beklemeden kuran bot 9. aşamayı 15,6 dakikada bitiriyor (aşama başına 0,9–2,8 dk). "Toplam ciro" yalnız ihracat ve tıklamadan oluşur; aşama ödülü, uçuş primi ve iade sayılmaz.
   - 10. aşama (itici blok hattı, $30.000 parsel, $40.000 ciro) simüle edilmedi ve oynanmadı; süresi yalnız tahmindir (~10–15 dk ek).
   - Makine seviye yükseltmesi (maliyet ×1,15, hız +%20/seviye), uçuş mesafe çarpanları (+%75) ve roket yükseltme bedelleri M7'de değiştirilmedi.
   - **Giriş tuzağı:** Giriş, yanındaki her banda hammadde basar; girişin yanından geçen başka bir hattın bandı ham cevherle dolup tıkanır.
   - Sekme arka plandayken fabrika durur ve geri dönünce telafi edilmez; çevrimdışı gelir yalnız sayfa yeniden açılınca hesaplanır.
-  - Dokunmatik: iki parmakla yakınlaştırma (pinch) yok; yerleştirme/söküm modunda kamera kaydırılamıyor. Büyük fabrikalarda (20x16 ve üzeri) telefonda hücreler çok küçülüyor.
-  - Yatay telefon ekranı (812x375): pencereler sığıyor. Hangar iki sütuna geçer ve roket görselini gizler; makine inceleme penceresi küçültülerek sığdırılır (en fazla %70'e), bu ekranda yazıları 9px'in altına iner.
-  - `factory_bg` arka plan dokusu iki kamera tarafından da yoksayıldığı için hiç çizilmiyor.
+  - Büyük fabrikalarda (20x16 ve üzeri) telefonda hücreler küçülüyor; iki parmakla yakınlaştırmak gerekiyor. Yerleştirme/söküm modunda tek parmak araca aittir, kamera iki parmakla kaydırılır.
+  - Telefonda dikey ekranda 12x8 fabrika rahat dokunulan zoom'da yatayda bir hücreden az taşar (kaydırılarak görülür).
+  - Yerleştirme hayaleti ve söküm vurgusu Phaser Graphics ile çiziliyor (piksel doku değil).
+  - `public/assets` altında artık yüklenmeyen eski arayüz dokuları duruyor (silinmedi).
+  - Güvenli alan (çentik) boşlukları kodda var ama gerçek cihazda sınanmadı; ekran okuyucu desteği yok.
+  - UI 2.0 testleri gerçek tarayıcıda, dokunma akışları sentetik dokunma olaylarıyla yapıldı; fiziksel telefon/tablette oynanmadı.
 
 ---
 
