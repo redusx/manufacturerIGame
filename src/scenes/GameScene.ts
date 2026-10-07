@@ -1243,7 +1243,7 @@ export class GameScene extends Phaser.Scene {
     this.demolishTool.activate();
   }
 
-  /** Yön önizlemesi olan öğeler: makineler ve hammadde girişleri */
+  /** Yön önizlemesi olan öğeler: makineler, hammadde girişleri, bant ve akış birimleri */
   private rotationSubjectOf(item: PlacementItem): RotationPreviewSubject | null {
     if ((item.type === 'MACHINE' || item.type === 'MACHINE_MOVE') && item.machineDef) {
       return { kind: 'machine', def: item.machineDef };
@@ -1251,6 +1251,9 @@ export class GameScene extends Phaser.Scene {
     if (item.type === 'INTAKE_NEW' || item.type === 'INTAKE_MOVE') {
       return { kind: 'intake' };
     }
+    if (item.type === 'CONVEYOR') return { kind: 'belt' };
+    if (item.type === 'SPLITTER') return { kind: 'splitter' };
+    if (item.type === 'MERGER') return { kind: 'merger' };
     return null;
   }
 

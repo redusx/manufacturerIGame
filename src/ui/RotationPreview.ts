@@ -36,7 +36,9 @@ const DIRECTION_NAMES: Readonly<Record<Direction, string>> = {
 /** Önizlenen şey: makine tanımı veya hammadde girişi */
 export type RotationPreviewSubject =
   | { kind: 'machine'; def: MachineDefinition }
-  | { kind: 'intake' };
+  | { kind: 'intake' }
+  /** Bant ve akış birimleri: yeşil ok ürünün girdiği, turuncu ok çıktığı kenar */
+  | { kind: 'belt' | 'splitter' | 'merger' };
 
 export class RotationPreview {
   private readonly layer: UiLayer;
@@ -137,11 +139,26 @@ export class RotationPreview {
         x: port.localCoord.x,
         y: port.localCoord.y,
       }));
-    } else {
+    } else if (subject.kind === 'intake') {
       this.sprite.setTexture('factory_intake');
       ports = [{ type: 'OUTPUT', direction, x: 0, y: 0 }];
+    } else {
+      // Bant ileri (direction) akar; ayırıcı ikinci çıkışı, birleştirici ikinci girişi sağ yandan kullanır
+      const back = OPPOSITE_DIRECTIONS[direction];
+      const side = PlacementMath.rotateDirection(direction, true);
+      this.sprite.setTexture('conveyor_belt');
+      ports = [
+        { type: 'INPUT', direction: back, x: 0, y: 0 },
+        { type: 'OUTPUT', direction, x: 0, y: 0 },
+      ];
+      if (subject.kind === 'splitter') ports.push({ type: 'OUTPUT', direction: side, x: 0, y: 0 });
+      if (subject.kind === 'merger') {
+        ports.push({ type: 'INPUT', direction: OPPOSITE_DIRECTIONS[side], x: 0, y: 0 });
+      }
     }
     this.sprite.setDisplaySize(pixelW, pixelH);
+    const isFlowUnit = subject.kind === 'belt' || subject.kind === 'splitter' || subject.kind === 'merger';
+    this.sprite.setRotation(isFlowUnit ? ConveyorGeometry.directionToAngleRad(direction) : 0);
 
     while (this.arrows.length < ports.length) {
       const arrow = this.layer.scene.add.image(0, 0, PORT_ARROW_IN).setOrigin(0.5);
@@ -188,7 +205,13 @@ export class RotationPreview {
     const text =
       subject.kind === 'machine'
         ? `Turuncu ok: ürün ${outputs.join(' ve ')} yönünde çıkar\nYeşil ok: önerilen giriş`
-        : `Hammadde ${outputs[0]} yönündeki banda verilir`;
+        : subject.kind === 'intake'
+          ? `Hammadde ${outputs[0]} yönündeki banda verilir`
+          : subject.kind === 'belt'
+            ? `Bant ürünü ${outputs[0]} yönüne taşır`
+            : subject.kind === 'splitter'
+              ? `Tek giriş (yeşil), iki çıkış: ${outputs.join(' ve ')}`
+              : `İki giriş (yeşil), tek çıkış: ${outputs[0]}`;
     this.caption
       .setWordWrapWidth(m.width - SPACE.lg * 2, true)
       .setText(text)
