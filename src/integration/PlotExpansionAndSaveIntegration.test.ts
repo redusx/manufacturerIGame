@@ -103,7 +103,9 @@ describe('TASK-INT-06: Plot Expansion & Save/Load Integration Tests', () => {
     const unlock4 = plotManager.unlockPlot(4);
     assert.strictEqual(unlock4.success, true);
     assert.deepStrictEqual(unlock4.newBounds, { width: 24, height: 24 });
-    assert.strictEqual(plotManager.isAllPlotsUnlocked, true);
+    // Sıradaki parseller (M9-D) menzil izniyle açılır
+    assert.strictEqual(plotManager.isAllPlotsUnlocked, false);
+    assert.strictEqual(plotManager.getNextAvailablePlot()?.index, 5);
   });
 
   it('2. Dynamic Placement Bounds: Expands permitted build area as plots are unlocked', () => {

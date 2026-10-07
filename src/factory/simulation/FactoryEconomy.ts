@@ -27,7 +27,16 @@ export const FACTORY_PLOTS: PlotDefinition[] = [
   { index: 2, name: 'Mekanik İmalathane Parseli', cost: 2500, targetWidth: 16, targetHeight: 12 },
   { index: 3, name: 'Montaj Tesisi Parseli', cost: 10000, targetWidth: 20, targetHeight: 16 },
   { index: 4, name: 'Havacılık Mega Kompleksi', cost: 30000, targetWidth: 24, targetHeight: 24 },
+  // M9-D: bu parseller ayrıca bir menzil izni ister (RangeLadder.unlocksPlotIndex)
+  { index: 5, name: 'Yörünge Lojistik Parseli', cost: 250000, targetWidth: 28, targetHeight: 24 },
+  { index: 6, name: 'Ay Tedarik Kompleksi', cost: 1500000, targetWidth: 28, targetHeight: 28 },
+  { index: 7, name: 'Mars Sanayi Bölgesi', cost: 8000000, targetWidth: 32, targetHeight: 28 },
+  { index: 8, name: 'Derin Uzay Giga Fabrikası', cost: 40000000, targetWidth: 32, targetHeight: 32 },
 ];
+
+/** Tanımlı en büyük fabrika alanı; ızgara bu boyutta kurulur */
+export const MAX_FACTORY_WIDTH = Math.max(...FACTORY_PLOTS.map((plot) => plot.targetWidth));
+export const MAX_FACTORY_HEIGHT = Math.max(...FACTORY_PLOTS.map((plot) => plot.targetHeight));
 
 export interface BackingEconomyProvider {
   canAffordAmount(amount: number): boolean;

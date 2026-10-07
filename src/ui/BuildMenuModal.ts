@@ -19,6 +19,7 @@ import {
   SPLITTER_BUILD_COST,
   MERGER_BUILD_COST,
   INTAKE_BUILD_COSTS,
+  INTAKE_COST_GROWTH,
 } from '../factory/input/PlacementMath.ts';
 import type { PlacementItem } from '../factory/input/PlacementController.ts';
 import type { FactoryEconomy } from '../factory/simulation/FactoryEconomy.ts';
@@ -35,6 +36,10 @@ export interface CatalogPlotInfo {
   cost: number;
   width: number;
   height: number;
+  /** Parsel bir menzil izni bekliyorsa: "7.00 km" (izin alındıysa veya gerekmiyorsa boş) */
+  permitDistance?: string;
+  /** İzni veren menzil basamağının adı: "Ay Geçişi" */
+  permitName?: string;
 }
 
 export interface BuildMenuModalConfig {
@@ -54,6 +59,8 @@ export interface BuildMenuModalConfig {
   onMachineInfo?: (def: MachineDefinition) => void;
   /** Alttaki "Birim Fiyat Listesi" düğmesi */
   onPriceList?: () => void;
+  /** Hammadde girişinin güncel bedeli (aynı hammaddenin her girişi pahalılaşır) */
+  getIntakeCost?: (itemId: string) => number;
 }
 
 /** Yeni hammadde girişi kartlarının kimlik öneki (`intake_new_<hammadde>`) */
@@ -72,6 +79,9 @@ interface CatalogEntry {
   action: 'build' | 'move' | 'expand';
   item?: PlacementItem;
   plotIndex?: number;
+  /** Parsel kartı: beklenen menzil izni (varsa kart satın alınamaz) */
+  permitDistance?: string;
+  permitName?: string;
 }
 
 interface CatalogSection {
@@ -172,13 +182,13 @@ export class BuildMenuModal extends UiModal {
 
     sections.push({
       title: 'HAMMADDE GİRİŞLERİ',
-      entries: Object.entries(INTAKE_BUILD_COSTS).map(([itemId, cost]) => {
+      entries: Object.entries(INTAKE_BUILD_COSTS).map(([itemId, baseCost]) => {
         const itemName = defaultItemRegistry.get(itemId)?.name ?? itemId;
         return {
           id: `${INTAKE_CARD_PREFIX}${itemId}`,
           name: `${itemName} Girişi`,
-          detail: `Saniyede 1 ${itemName} verir.`,
-          cost,
+          detail: `Saniyede 1 ${itemName} verir. Her yeni giriş %${Math.round((INTAKE_COST_GROWTH - 1) * 100)} daha pahalıdır.`,
+          cost: this.callbacks.getIntakeCost?.(itemId) ?? baseCost,
           size: '1x1',
           icon: uiIcon('intake'),
           iconScale: 3,
@@ -196,13 +206,17 @@ export class BuildMenuModal extends UiModal {
           {
             id: `plot_${plot.index}`,
             name: plot.name,
-            detail: `Fabrika alanını ${plot.width}x${plot.height} hücreye büyütür.`,
+            detail: plot.permitDistance
+              ? `Fabrika alanını ${plot.width}x${plot.height} hücreye büyütür. Önce ${plot.permitDistance} menziline ulaşmalısın.`
+              : `Fabrika alanını ${plot.width}x${plot.height} hücreye büyütür.`,
             cost: plot.cost,
             size: '',
             icon: uiIcon('expand'),
             iconScale: 3,
             action: 'expand',
             plotIndex: plot.index,
+            permitDistance: plot.permitDistance,
+            permitName: plot.permitName,
           },
         ],
       });
@@ -258,7 +272,11 @@ export class BuildMenuModal extends UiModal {
   /** Yapıyı belirleyen durum: kartların kilitleri ve sıradaki parsel (her karede ucuzca hesaplanır) */
   private computeStructureSignature(): string {
     const locks = this.cards.map(({ entry }) => `${entry.id}:${this.lockStageOf(entry) ?? '-'}`).join('|');
-    return `${this.callbacks.getNextPlot?.()?.index ?? '-'}#${locks}`;
+    const plot = this.callbacks.getNextPlot?.();
+    const intakeCosts = Object.keys(INTAKE_BUILD_COSTS)
+      .map((itemId) => this.callbacks.getIntakeCost?.(itemId) ?? 0)
+      .join(',');
+    return `${plot?.index ?? '-'}:${plot?.permitDistance ?? ''}#${intakeCosts}#${locks}`;
   }
 
   // -------------------------------------------------------------
@@ -382,6 +400,23 @@ export class BuildMenuModal extends UiModal {
           this.callbacks.onDenied?.(`${entry.name}, ${lockStage}. aşama tamamlanınca açılır.`),
       });
       button.setEnabled(false);
+    } else if (entry.permitDistance) {
+      // Parsel bir menzil izni bekliyor: para yetse de satın alınamaz
+      button = new UiButton(layer, buttonX, buttonY, {
+        width: buttonWidth,
+        height: buttonHeight,
+        label: 'İZİN GEREKLİ',
+        sublabel: `${entry.permitDistance} menzil · $${formatNumber(entry.cost)}`,
+        icon: uiIcon('lock'),
+        iconTint: SEMANTIC.warning,
+        textVariant: 'buttonSmall',
+        onClick: () => undefined,
+        onDisabledClick: () =>
+          this.callbacks.onDenied?.(
+            `${entry.name} için önce ${entry.permitDistance} menziline (${entry.permitName ?? 'sefer'}) ulaşmalısın.`,
+          ),
+      });
+      button.setEnabled(false);
     } else {
       const verb = entry.action === 'move' ? 'TAŞI' : entry.action === 'expand' ? 'AÇ' : 'KUR';
       button = new UiButton(layer, buttonX, buttonY, {
@@ -441,7 +476,7 @@ export class BuildMenuModal extends UiModal {
     }
 
     for (const { entry, button } of this.cards) {
-      if (this.lockStageOf(entry) !== null) continue;
+      if (this.lockStageOf(entry) !== null || entry.permitDistance) continue;
       button.setEnabled(entry.cost <= 0 || this.economy.canAfford(entry.cost));
     }
   }

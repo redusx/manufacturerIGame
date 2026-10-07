@@ -17,7 +17,7 @@ describe('PlotExpansionManager Progression & Bounds Tests', () => {
     const grid = new GridMap(24, 24);
     const manager = new PlotExpansionManager(economy, grid);
 
-    assert.strictEqual(manager.totalPlotCount, 5);
+    assert.strictEqual(manager.totalPlotCount, 9);
     assert.strictEqual(manager.unlockedPlotCount, 1);
     assert.strictEqual(manager.isAllPlotsUnlocked, false);
 
@@ -89,7 +89,7 @@ describe('PlotExpansionManager Progression & Bounds Tests', () => {
     assert.strictEqual(manager.canAffordPlot(99), false);
 
     const statuses = manager.getAllPlotStatuses();
-    assert.strictEqual(statuses.length, 5);
+    assert.strictEqual(statuses.length, 9);
 
     // Plot 0: UNLOCKED
     assert.strictEqual(statuses[0].status, 'UNLOCKED');
@@ -181,10 +181,10 @@ describe('PlotExpansionManager Progression & Bounds Tests', () => {
     assert.strictEqual(res4.newlyUnlockedCoords.length, 256);
     assert.strictEqual(economy.money, 57000);
 
-    // Full expansion reached
+    // 24x24'e ulaşıldı; sıradaki parseller (M9-D) menzil izni ve çok daha yüksek bedel ister
     assert.strictEqual(manager.unlockedPlotCount, 5);
-    assert.strictEqual(manager.isAllPlotsUnlocked, true);
-    assert.strictEqual(manager.getNextAvailablePlot(), null);
+    assert.strictEqual(manager.isAllPlotsUnlocked, false);
+    assert.strictEqual(manager.getNextAvailablePlot()?.index, 5);
     assert.deepStrictEqual(manager.getCurrentBounds(), { width: 24, height: 24 });
 
     // Trying to unlock plot 4 again now yields ALREADY_UNLOCKED

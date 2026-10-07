@@ -71,14 +71,27 @@ export class GridView {
   /** Basış zeminde başladı mı? Başka yerde başlayıp zeminde biten bırakışlar tıklama sayılmaz. */
   private floorPressArmed = false;
 
-  /** Sıradaki parsel rozeti en son hangi "alınabilir" durumuyla çizildi (kilitli parsel yoksa null) */
-  private lockedPlotAffordable: boolean | null = null;
+  /**
+   * Sıradaki parsel bir menzil izni bekliyorsa rozette gösterilecek metni döner
+   * ("7.00 km menzil izni"); izin gerekmiyorsa veya alındıysa null. (M9-D)
+   */
+  getPlotPermitLabel?: (plotIndex: number) => string | null;
+
+  /** Sıradaki parsel rozeti en son hangi durumla çizildi: "alınabilir|izin metni" (kilitli parsel yoksa null) */
+  private lockedPlotState: string | null = null;
 
   /** Kilitli parsel rozeti; kamera uzaklaşınca okunaklı kalsın diye ölçeklenir */
   private lockedBadge: Phaser.GameObjects.Container | null = null;
   private labelScale = 1;
-  private lockedBadgeCenterX = 0;
-  private lockedBadgeAnchorX = 0;
+  /**
+   * Rozetin durduğu şerit: parsel genişliyorsa fabrikanın sağında ('x'),
+   * yalnız yükseliyorsa altında ('y'). Merkez ve çapa o eksendeki değerlerdir.
+   */
+  private lockedBadgeAxis: 'x' | 'y' = 'x';
+  private lockedBadgeCenter = 0;
+  private lockedBadgeAnchor = 0;
+  /** Rozetin o eksendeki yarı boyu (ölçeksiz) */
+  private lockedBadgeHalfExtent = LOCKED_BADGE_WIDTH / 2;
 
   constructor(
     scene: Phaser.Scene,
@@ -130,16 +143,21 @@ export class GridView {
   }
 
   /**
-   * Rozet büyüdükçe etkin fabrikanın üstüne taşmasın: sol kenarı her zaman
-   * fabrikanın sağ kenarının dışında kalır, rozet dışarı doğru büyür.
+   * Rozet büyüdükçe etkin fabrikanın üstüne taşmasın: fabrikaya bakan kenarı her
+   * zaman fabrikanın sağ (veya alt) kenarının dışında kalır, rozet dışarı doğru büyür.
    */
   private applyBadgeLayout(): void {
     const badge = this.lockedBadge;
     if (!badge) return;
     badge.setScale(this.labelScale);
-    const halfWidth = (LOCKED_BADGE_WIDTH * this.labelScale) / 2;
+    const halfExtent = this.lockedBadgeHalfExtent * this.labelScale;
     const gap = 6 * this.labelScale;
-    badge.setX(Math.round(Math.max(this.lockedBadgeCenterX, this.lockedBadgeAnchorX + gap + halfWidth)));
+    const position = Math.round(Math.max(this.lockedBadgeCenter, this.lockedBadgeAnchor + gap + halfExtent));
+    if (this.lockedBadgeAxis === 'x') {
+      badge.setX(position);
+    } else {
+      badge.setY(position);
+    }
   }
 
   // -------------------------------------------------------------
@@ -434,7 +452,7 @@ export class GridView {
    */
   private renderLockedPlots(activeW: number, activeH: number): void {
     this.lockedPlotsContainer.removeAll(true);
-    this.lockedPlotAffordable = null;
+    this.lockedPlotState = null;
     this.lockedBadge = null;
 
     for (const plot of FACTORY_PLOTS) {
@@ -463,17 +481,21 @@ export class GridView {
       plotContainer.add(overlayGraphics);
 
       // Kilit Rozeti (Genişleyen bölgenin merkezinde)
-      // Merkez koordinatı: aktif alanın dışındaki yeni bölgenin ortası
-      const centerX = Math.round((activeW * this.tileSize + plotPixelW) / 2);
-      const centerY = Math.round(plotPixelH / 2);
+      // Parsel genişliyorsa rozet sağdaki yeni şeridin, yalnız yükseliyorsa alttaki şeridin ortasındadır
+      const growsWide = plotPixelW > activePixelW;
+      const centerX = growsWide ? Math.round((activePixelW + plotPixelW) / 2) : Math.round(plotPixelW / 2);
+      const centerY = growsWide ? Math.round(plotPixelH / 2) : Math.round((activePixelH + plotPixelH) / 2);
 
       const badgeContainer = this.scene.add.container(centerX, centerY);
-      this.lockedBadgeAnchorX = activePixelW;
+      this.lockedBadgeAxis = growsWide ? 'x' : 'y';
+      this.lockedBadgeAnchor = growsWide ? activePixelW : activePixelH;
 
       // Rozet: uzun parsel adı kutudan taşmasın diye satıra bölünür, yükseklik metne göre ayarlanır
       const badgeW = LOCKED_BADGE_WIDTH;
-      const canAfford = this.economy.canAfford(plot.cost);
-      this.lockedPlotAffordable = canAfford;
+      const permitLabel = this.getPlotPermitLabel?.(plot.index) ?? null;
+      // Menzil izni bekleyen parsel, para yetse de satın alınamaz
+      const canAfford = !permitLabel && this.economy.canAfford(plot.cost);
+      this.lockedPlotState = this.computeLockedPlotState(plot);
 
       // Parsel Adı
       const titleText = this.scene.add.text(0, 0, plot.name, {
@@ -500,9 +522,24 @@ export class GridView {
       );
       costText.setOrigin(0.5, 0);
 
-      const badgeH = Math.round(titleText.height + costText.height + 20);
+      // Menzil izni satırı (yalnız izin bekleniyorsa)
+      const permitText = permitLabel
+        ? this.scene.add
+            .text(0, 0, permitLabel, {
+              fontFamily: FONT_FAMILY,
+              fontSize: '11px',
+              fontStyle: 'bold',
+              color: PALETTE.warningOrangeHex,
+              align: 'center',
+              wordWrap: { width: badgeW - 12 },
+            })
+            .setOrigin(0.5, 0)
+        : null;
+
+      const badgeH = Math.round(titleText.height + costText.height + 20 + (permitText ? permitText.height + 4 : 0));
       titleText.setY(-badgeH / 2 + 8);
       costText.setY(titleText.y + titleText.height + 4);
+      permitText?.setY(costText.y + costText.height + 4);
 
       const badgeBg = this.scene.add.rectangle(
         0,
@@ -527,9 +564,11 @@ export class GridView {
       );
 
       badgeContainer.add([badgeBg, titleText, costText, hitZone]);
+      if (permitText) badgeContainer.add(permitText);
       badgeContainer.setName(SCREEN_LABEL_NAME);
       this.lockedBadge = badgeContainer;
-      this.lockedBadgeCenterX = centerX;
+      this.lockedBadgeCenter = growsWide ? centerX : centerY;
+      this.lockedBadgeHalfExtent = growsWide ? badgeW / 2 : badgeH / 2;
       this.applyBadgeLayout();
       plotContainer.add(badgeContainer);
 
@@ -545,15 +584,20 @@ export class GridView {
    * yeniden çizer (yeterli para birikince rozet yeşile dönsün).
    */
   syncLockedPlotAffordability(): void {
-    if (this.lockedPlotAffordable === null) return;
+    if (this.lockedPlotState === null) return;
 
     const nextPlot = FACTORY_PLOTS.find((plot) => !this.economy.isPlotUnlocked(plot.index));
     if (!nextPlot) return;
 
-    if (this.economy.canAfford(nextPlot.cost) !== this.lockedPlotAffordable) {
+    if (this.computeLockedPlotState(nextPlot) !== this.lockedPlotState) {
       const { width, height } = this.economy.getCurrentFactoryDimensions();
       this.renderLockedPlots(width, height);
     }
+  }
+
+  /** Rozetin görünümünü belirleyen durum: para yetiyor mu ve beklenen menzil izni */
+  private computeLockedPlotState(plot: PlotDefinition): string {
+    return `${this.economy.canAfford(plot.cost)}|${this.getPlotPermitLabel?.(plot.index) ?? ''}`;
   }
 
   // -------------------------------------------------------------

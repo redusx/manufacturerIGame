@@ -2,7 +2,7 @@
  * src/factory/progression/PlotExpansionManager.ts — Fabrika Parsel Genişleme Yöneticisi
  *
  * Kalıcı fabrika ızgarasının kademeli olarak yeni parsellerle
- * ($8x8 -> 12x8 -> 16x12 -> 20x16 -> 24x24) genişletilmesini, maliyet
+ * (8x8 -> 12x8 -> 16x12 -> 20x16 -> 24x24 -> ... -> 32x32) genişletilmesini, maliyet
  * denetimlerini, ardışık kilit açılımlarını, yeni açılan alan koordinatlarının
  * (delta region) hesaplanmasını ve kilit açılma görsel geri bildirimlerini yönetir.
  *
@@ -17,6 +17,7 @@ import {
   type PlotDefinition,
 } from '../simulation/FactoryEconomy.ts';
 import { GridMap } from '../simulation/GridMap.ts';
+import { RangeLadder, type RangeRung } from '../../flight/RangeLadder.ts';
 import { GridCoordinates } from '../view/GridCoordinates.ts';
 import { PALETTE } from '../../ui/theme.ts';
 
@@ -39,7 +40,14 @@ export interface PlotUnlockResult {
   oldBounds: { width: number; height: number };
   newBounds: { width: number; height: number };
   newlyUnlockedCoords: GridCoord[];
-  error?: 'ALREADY_UNLOCKED' | 'PREVIOUS_PLOT_REQUIRED' | 'INSUFFICIENT_FUNDS' | 'INVALID_PLOT';
+  error?:
+    | 'ALREADY_UNLOCKED'
+    | 'PREVIOUS_PLOT_REQUIRED'
+    | 'RANGE_PERMIT_REQUIRED'
+    | 'INSUFFICIENT_FUNDS'
+    | 'INVALID_PLOT';
+  /** RANGE_PERMIT_REQUIRED için: izni veren menzil basamağı */
+  permitRung?: RangeRung;
 }
 
 export class PlotExpansionManager {
@@ -47,14 +55,19 @@ export class PlotExpansionManager {
   readonly grid: GridMap;
   readonly plots: readonly PlotDefinition[];
 
+  /** Uçuş rekoru (metre); üst parsellerin menzil izni buna göre denetlenir */
+  private readonly getBestDistance: () => number;
+
   constructor(
     economy: FactoryEconomy,
     grid: GridMap,
     plots: readonly PlotDefinition[] = FACTORY_PLOTS,
+    getBestDistance: () => number = () => Infinity,
   ) {
     this.economy = economy;
     this.grid = grid;
     this.plots = plots;
+    this.getBestDistance = getBestDistance;
   }
 
   // -------------------------------------------------------------
@@ -100,6 +113,16 @@ export class PlotExpansionManager {
     if (this.isPlotUnlocked(plotIndex)) return false;
     if (plotIndex === 0) return true;
     return this.isPlotUnlocked(plotIndex - 1);
+  }
+
+  /**
+   * Parselin beklediği menzil izni: izin henüz alınmadıysa onu veren basamak,
+   * izin gerekmiyorsa veya alındıysa null. (M9-D: 24x24'ten büyük parseller)
+   */
+  getMissingPermit(plotIndex: number): RangeRung | null {
+    const rung = RangeLadder.rungForPlot(plotIndex);
+    if (!rung) return null;
+    return this.getBestDistance() >= rung.targetMeters ? null : rung;
   }
 
   /**
@@ -235,6 +258,21 @@ export class PlotExpansionManager {
         newBounds: this.getCurrentBounds(),
         newlyUnlockedCoords: [],
         error: 'PREVIOUS_PLOT_REQUIRED',
+      };
+    }
+
+    const permitRung = this.getMissingPermit(plotIndex);
+    if (permitRung) {
+      return {
+        success: false,
+        plotIndex,
+        plotName: plot.name,
+        cost: plot.cost,
+        oldBounds: this.getCurrentBounds(),
+        newBounds: this.getCurrentBounds(),
+        newlyUnlockedCoords: [],
+        error: 'RANGE_PERMIT_REQUIRED',
+        permitRung,
       };
     }
 

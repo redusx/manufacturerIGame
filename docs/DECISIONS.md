@@ -227,3 +227,13 @@
   4. Uçuş raporu yeni ulaşılan basamakların ödüllerini ve sıradaki hedefe kalan mesafeyi gösterir.
 * **Gerekçe:** `M9_PLAN.md` §4.1 ve §4.6: aşamalar oyunu öğretir; sonrası için "roketi geliştir, daha ileri git" tek ve sürdürülebilir hedeftir.
 * **Not:** Parsel izinleri (7, 14, 28, 40 km) M9-D'de parsellere bağlanır.
+
+### [DEC-031] Ekonomi Ölçeği: Artan Giriş Fiyatı, İzinli Parseller, 32x32 Izgara (M9-D)
+* **Tarih:** 2026-10-08
+* **Karar:**
+  1. **Hammadde girişi:** aynı hammaddenin her yeni girişi öncekinden %50 pahalıdır (`PlacementMath.getIntakeCost`): demir 500 · 750 · 1.130 · 1.690 … (üç anlamlı basamağa yuvarlanır). Oyunun başında verilen bedelsiz demir girişi sayılmaz. Girişler sökülemediği için al-sat açığı yoktur.
+  2. **Yeni parseller** (`FACTORY_PLOTS`): 28x24 $250.000 · 28x28 $1.500.000 · 32x28 $8.000.000 · 32x32 $40.000.000. Her biri ayrıca bir **menzil izni** ister (7 · 14 · 28 · 40 km; `RangeLadder.unlocksPlotIndex`). İzin yokken parsel para yetse de alınamaz; rozet ve katalog kartı gereken menzili gösterir.
+  3. Izgara tanımlı en büyük parsel boyutunda (32x32) kurulur. Eski kayıtlar olduğu gibi yüklenir.
+  4. **Bant çizimi artımlıdır:** bant döşenince/sökülünce/dönünce yalnız o hücre ve dört komşusu, kare başına bir kez yeniden çizilir (`ConveyorRenderer.refreshAround`).
+* **Gerekçe:** `M9_PLAN.md` §4.4. Ölçüm: 759 bantlı 32x32 fabrikada bütün ağı yeniden kurmak döşenen her bant için 79 ms sürüyordu; artımlı çizimle 0,2 ms. Ayrıca aynı karede kurulup yıkılan tıklanabilir nesneler Phaser girdi listesinde kalıyordu (sürükleyerek döşemede birikir); kare başına tek çizim bunu önler.
+* **Not:** Fiyatlar başlangıç değeridir; M9-F'de ölçülerek ayarlanır.

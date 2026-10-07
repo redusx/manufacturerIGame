@@ -45,6 +45,25 @@ export const INTAKE_BUILD_COSTS: Readonly<Record<string, number>> = {
   crude_polymer: 2500,
 };
 
+/**
+ * Aynı hammaddenin her yeni girişi bir öncekinden bu kat pahalıdır (M9-D):
+ * demir 500 · 750 · 1.125 … Üretimi büyütmek gittikçe pahalılaşır; mevcut hattı
+ * verimli kurmak ve makineleri yükseltmek değer kazanır.
+ */
+export const INTAKE_COST_GROWTH = 1.5;
+
+/** Oyunun başında bedelsiz verilen girişler; fiyat artışında sayılmaz */
+const FREE_INTAKE_COUNTS: Readonly<Record<string, number>> = {
+  iron_ore: 1,
+};
+
+/** Tutarı üç anlamlı basamağa yuvarlar (19.221 → 19.200) */
+function roundCost(value: number): number {
+  if (value < 1000) return Math.round(value);
+  const magnitude = Math.pow(10, Math.floor(Math.log10(value)) - 2);
+  return Math.round(value / magnitude) * magnitude;
+}
+
 /** Girişlerin ızgara üstünde ve katalogda görünen kısa hammadde adları */
 export const INTAKE_SHORT_NAMES: Readonly<Record<string, string>> = {
   iron_ore: 'DEMİR',
@@ -266,18 +285,33 @@ export class PlacementMath {
   }
 
   /**
+   * Yeni hammadde girişinin bedeli: aynı hammaddenin kurulu (bedelli) her girişi
+   * fiyatı `INTAKE_COST_GROWTH` katına çıkarır. Izgara verilmezse taban fiyat döner.
+   */
+  static getIntakeCost(intakeItemId: string, grid?: GridMap): number {
+    const base = INTAKE_BUILD_COSTS[intakeItemId];
+    if (base === undefined) return Infinity;
+    if (!grid) return base;
+
+    const owned = grid.getIntakeCells().filter((cell) => cell.intakeData?.itemId === intakeItemId).length;
+    const paid = Math.max(0, owned - (FREE_INTAKE_COUNTS[intakeItemId] ?? 0));
+    return roundCost(base * Math.pow(INTAKE_COST_GROWTH, paid));
+  }
+
+  /**
    * Öğe türüne göre inşaat maliyetini hesaplar.
    */
   static getItemCost(
     itemType: PlacementItemType,
     machineDef?: MachineDefinition,
     intakeItemId?: string,
+    grid?: GridMap,
   ): number {
     if (itemType === 'MACHINE' && machineDef) {
       return machineDef.baseCost;
     }
     if (itemType === 'INTAKE_NEW') {
-      return INTAKE_BUILD_COSTS[intakeItemId ?? ''] ?? Infinity;
+      return this.getIntakeCost(intakeItemId ?? '', grid);
     }
     if (itemType === 'CONVEYOR') {
       return CONVEYOR_BUILD_COST;
@@ -322,7 +356,7 @@ export class PlacementMath {
         : [];
 
     // 3. Maliyet ve bakiye denetimi
-    const cost = this.getItemCost(itemType, machineDef, params.intakeItemId);
+    const cost = this.getItemCost(itemType, machineDef, params.intakeItemId, grid);
     const canAfford = economy.canAfford(cost);
 
     // 4. Izgara sınırları denetimi

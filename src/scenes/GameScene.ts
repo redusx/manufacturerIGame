@@ -54,7 +54,7 @@ import { FactorySerializer } from '../factory/simulation/FactorySerializer.ts';
 import { GridCoordinates } from '../factory/view/GridCoordinates.ts';
 import { RocketHangarView } from '../ui/RocketHangarView';
 import { RocketHangarBridge } from '../factory/simulation/RocketHangarBridge';
-import { FactoryEconomy } from '../factory/simulation/FactoryEconomy';
+import { FactoryEconomy, MAX_FACTORY_HEIGHT, MAX_FACTORY_WIDTH } from '../factory/simulation/FactoryEconomy';
 import { PlotExpansionManager } from '../factory/progression/PlotExpansionManager.ts';
 import { MilestoneManager } from '../factory/progression/MilestoneManager.ts';
 import { PlacementController, type PlacementItem } from '../factory/input/PlacementController.ts';
@@ -304,14 +304,25 @@ export class GameScene extends Phaser.Scene {
     this.hangarBridge.syncModuleLevels(this.economy.getAllRocketUpgrades());
 
     /* 2D Fabrika Mekânsal Izgarası ve Simülasyon Motorları */
-    this.gridMap = new GridMap(24, 24);
-    this.plotManager = new PlotExpansionManager(this.factoryEconomy, this.gridMap);
+    // Izgara tanımlı en büyük parsel boyutunda kurulur; açık alan parsellerle büyür
+    this.gridMap = new GridMap(MAX_FACTORY_WIDTH, MAX_FACTORY_HEIGHT);
+    // 24x24'ten büyük parseller uçuş rekoruna bağlı menzil izni ister (M9-D)
+    this.plotManager = new PlotExpansionManager(
+      this.factoryEconomy,
+      this.gridMap,
+      undefined,
+      () => this.hangarBridge.getFlightStats().bestDistance,
+    );
     this.milestones = new MilestoneManager();
     this.logistics = new LogisticsNetwork(this.gridMap);
     this.productionEngine = new ProductionEngine(this.gridMap, this.logistics);
 
     /* 2D Fabrika Zemin ve Render Katmanları */
     this.gridView = new GridView(this, this.gridMap, this.factoryEconomy);
+    this.gridView.getPlotPermitLabel = (plotIndex) => {
+      const rung = this.plotManager.getMissingPermit(plotIndex);
+      return rung ? `${formatDistance(rung.targetMeters)} menzil izni gerekli` : null;
+    };
     this.conveyorRenderer = new ConveyorRenderer(this, this.logistics, this.gridMap);
     this.machineRenderer = new MachineRenderer(this, this.productionEngine);
 
@@ -479,8 +490,9 @@ export class GameScene extends Phaser.Scene {
             const name = machineDef?.name ?? 'Makine';
             this.notify(`${name} kuruldu (-$${result.spentMoney})`, 'success');
           } else {
-            // Bant sürükleyerek döşenir; her bant için bildirim göstermek ekranı doldurur
-            this.conveyorRenderer.rebuild();
+            // Bant sürükleyerek döşenir; her bant için bildirim göstermek ekranı doldurur.
+            // Yalnız döşenen hücre ve komşuları yeniden çizilir (büyük fabrikada takılmasın).
+            this.conveyorRenderer.refreshAround([result.coord]);
             this.rememberBeltStep(result.coord);
           }
           sound.playUpgrade();
@@ -556,7 +568,7 @@ export class GameScene extends Phaser.Scene {
             this.machineStatusIndicator.rebuild();
             this.notify(`${result.name} söküldü (+$${result.refundAmount} iade)`, 'info');
           } else {
-            this.conveyorRenderer.rebuild();
+            this.conveyorRenderer.refreshAround(result.freedCoords);
           }
           sound.playDemolish();
           const firstCoord = result.freedCoords[0];
@@ -610,10 +622,19 @@ export class GameScene extends Phaser.Scene {
       getLockStage: (cardId) => this.getCatalogLockStage(cardId),
       getNextPlot: () => {
         const plot = this.plotManager.getNextAvailablePlot();
-        return plot
-          ? { index: plot.index, name: plot.name, cost: plot.cost, width: plot.targetWidth, height: plot.targetHeight }
-          : null;
+        if (!plot) return null;
+        const permit = this.plotManager.getMissingPermit(plot.index);
+        return {
+          index: plot.index,
+          name: plot.name,
+          cost: plot.cost,
+          width: plot.targetWidth,
+          height: plot.targetHeight,
+          permitDistance: permit ? formatDistance(permit.targetMeters) : undefined,
+          permitName: permit?.name,
+        };
       },
+      getIntakeCost: (itemId) => PlacementMath.getIntakeCost(itemId, this.gridMap),
       onExpandPlot: (plotIndex) => {
         if (this.requestPlotUnlock(plotIndex)) {
           this.buildMenuModal.close();
@@ -1014,7 +1035,12 @@ export class GameScene extends Phaser.Scene {
    */
   private confirmPlotUnlock(plotIndex: number): void {
     const plot = this.plotManager.getPlot(plotIndex);
-    if (!plot || !this.plotManager.isPlotAvailable(plotIndex) || !this.plotManager.canAffordPlot(plotIndex)) {
+    if (
+      !plot ||
+      !this.plotManager.isPlotAvailable(plotIndex) ||
+      this.plotManager.getMissingPermit(plotIndex) ||
+      !this.plotManager.canAffordPlot(plotIndex)
+    ) {
       // Açılamıyorsa nedeni requestPlotUnlock bildirir
       this.requestPlotUnlock(plotIndex);
       return;
@@ -1045,6 +1071,11 @@ export class GameScene extends Phaser.Scene {
 
     if (res.error === 'PREVIOUS_PLOT_REQUIRED') {
       this.notify('Önce önceki parseli açmalısın.', 'warning');
+    } else if (res.error === 'RANGE_PERMIT_REQUIRED' && res.permitRung) {
+      this.notify(
+        `${res.plotName} için önce ${formatDistance(res.permitRung.targetMeters)} menziline (${res.permitRung.name}) ulaşmalısın.`,
+        'warning',
+      );
     } else if (res.error === 'INSUFFICIENT_FUNDS') {
       this.notify(`Parsel için $${formatNumber(res.cost)} gerekiyor.`, 'warning');
     } else if (res.error === 'ALREADY_UNLOCKED') {
@@ -1351,7 +1382,7 @@ export class GameScene extends Phaser.Scene {
     if (!step || !belt) return;
     belt.direction = direction;
     step.direction = direction;
-    this.conveyorRenderer.rebuild();
+    this.conveyorRenderer.refreshAround([step.coord]);
     this.placementController.previewAt(this.nextCellOf(step), direction);
     sound.playClick();
     this.saveGame();
@@ -1484,7 +1515,7 @@ export class GameScene extends Phaser.Scene {
         return { ...base, icon: uiIcon('crate'), title: 'Sevkiyat Sandığı taşınıyor', hint: stepHint, canRotate: false };
       case 'INTAKE_NEW': {
         const name = defaultItemRegistry.get(item.intakeItemId ?? '')?.name ?? 'Hammadde';
-        const cost = PlacementMath.getItemCost('INTAKE_NEW', undefined, item.intakeItemId);
+        const cost = PlacementMath.getItemCost('INTAKE_NEW', undefined, item.intakeItemId, this.gridMap);
         return { ...base, icon: uiIcon('intake'), title: `${name} Girişi · $${formatNumber(cost)}`, hint: isTouch ? `${stepHint} · ok çıkış yönü` : 'Bir hücreye tıkla · ok çıkış yönü · R: döndür', canRotate: true };
       }
       case 'MACHINE_MOVE':

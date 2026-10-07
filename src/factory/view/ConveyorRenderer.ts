@@ -37,6 +37,25 @@ interface ConveyorVisualItem {
   speed: number;
 }
 
+/** Bir bant hücresinin çizimi için gereken bilgi (bant, ayırıcı veya birleştirici) */
+interface BeltCellEntry {
+  coord: GridCoord;
+  direction: Direction;
+  speed: number;
+  isSplitter?: boolean;
+  isMerger?: boolean;
+  splitterOutputDirs?: [Direction, Direction];
+}
+
+/** Bir hücre değişince yeniden çizilenler: kendisi ve dört komşusu */
+const REFRESH_OFFSETS: ReadonlyArray<readonly [number, number]> = [
+  [0, 0],
+  [1, 0],
+  [-1, 0],
+  [0, 1],
+  [0, -1],
+];
+
 export class ConveyorRenderer {
   readonly scene: Phaser.Scene;
   readonly network: LogisticsNetwork;
@@ -51,6 +70,9 @@ export class ConveyorRenderer {
 
   /** Hücre anahtarına (x,y) göre aktif görsel öğeler */
   private visualItems = new Map<string, ConveyorVisualItem>();
+
+  /** Yeniden çizilmeyi bekleyen hücreler; `update` içinde kare başına bir kez işlenir */
+  private dirtyCells = new Map<string, GridCoord>();
 
   /** Konveyör hücresine tıklandığında tetiklenen callback */
   onConveyorClicked?: (coord: GridCoord) => void;
@@ -109,14 +131,7 @@ export class ConveyorRenderer {
     const allMergers = this.network.getAllMergers();
 
     // Tüm konveyör hücrelerini topla
-    const beltList: {
-      coord: GridCoord;
-      direction: Direction;
-      speed: number;
-      isSplitter?: boolean;
-      isMerger?: boolean;
-      splitterOutputDirs?: [Direction, Direction];
-    }[] = [];
+    const beltList: BeltCellEntry[] = [];
 
     for (const b of allBelts) {
       beltList.push({
@@ -152,17 +167,78 @@ export class ConveyorRenderer {
   }
 
   /**
+   * Bir bant döşenince, sökülünce veya dönünce çağrılır: yalnızca o hücreyi ve
+   * dört komşusunu (şekli değişebilecek hücreler) yeniden çizilmek üzere işaretler.
+   * Büyük fabrikada her döşemede bütün ağı yeniden kurmak takılmaya yol açar.
+   *
+   * Çizim bir sonraki `update` çağrısına ertelenir: aynı karede kurulup yıkılan
+   * tıklanabilir nesneler Phaser'ın girdi listesinde kalır (sürükleyerek döşemede
+   * bir karede birkaç bant döşenir), kare başına tek çizim bunu önler.
+   */
+  refreshAround(coords: readonly GridCoord[]): void {
+    for (const coord of coords) {
+      for (const [dx, dy] of REFRESH_OFFSETS) {
+        const x = coord.x + dx;
+        const y = coord.y + dy;
+        this.dirtyCells.set(this.coordKey(x, y), { x, y });
+      }
+    }
+  }
+
+  /** İşaretlenen hücrelerin görsellerini ağın güncel durumuna göre yeniden kurar */
+  private flushDirtyCells(): void {
+    if (this.dirtyCells.size === 0) return;
+    const cells = Array.from(this.dirtyCells.values());
+    this.dirtyCells.clear();
+
+    for (const cell of cells) {
+      const key = this.coordKey(cell.x, cell.y);
+      const existing = this.visualItems.get(key);
+      if (existing) {
+        existing.container.destroy();
+        this.visualItems.delete(key);
+      }
+
+      const entry = this.describeCell(cell.x, cell.y);
+      if (!entry) continue;
+      // Şekli belirleyen yalnız dört komşudan gelen akıştır
+      const neighbors: BeltCellEntry[] = [];
+      for (const [dx, dy] of REFRESH_OFFSETS) {
+        if (dx === 0 && dy === 0) continue;
+        const neighbor = this.describeCell(cell.x + dx, cell.y + dy);
+        if (neighbor) neighbors.push(neighbor);
+      }
+      this.createBeltVisual(entry, neighbors);
+    }
+  }
+
+  /** Hücredeki bant, ayırıcı veya birleştiricinin çizim bilgisi; boşsa null */
+  private describeCell(x: number, y: number): BeltCellEntry | null {
+    const belt = this.network.getConveyor(x, y);
+    if (belt) return { coord: belt.coord, direction: belt.direction, speed: belt.speed };
+
+    const splitter = this.network.getSplitter(x, y);
+    if (splitter) {
+      return {
+        coord: splitter.coord,
+        direction: splitter.outputDirections[0],
+        speed: 1.0,
+        isSplitter: true,
+        splitterOutputDirs: splitter.outputDirections,
+      };
+    }
+
+    const merger = this.network.getMerger(x, y);
+    if (merger) return { coord: merger.coord, direction: merger.outputDirection, speed: 1.0, isMerger: true };
+
+    return null;
+  }
+
+  /**
    * Tekil bir konveyör hücresinin görselini inşa eder.
    */
   private createBeltVisual(
-    item: {
-      coord: GridCoord;
-      direction: Direction;
-      speed: number;
-      isSplitter?: boolean;
-      isMerger?: boolean;
-      splitterOutputDirs?: [Direction, Direction];
-    },
+    item: BeltCellEntry,
     allBelts: { coord: GridCoord; direction: Direction }[],
   ): void {
     const { x, y } = item.coord;
@@ -324,6 +400,7 @@ export class ConveyorRenderer {
    * @param dt Geçen süre (saniye cinsinden, örn. 0.016s)
    */
   update(dt: number): void {
+    this.flushDirtyCells();
     if (dt <= 0) return;
 
     for (const item of this.visualItems.values()) {
@@ -348,6 +425,7 @@ export class ConveyorRenderer {
    * Tüm görsel öğeleri temizler.
    */
   clear(): void {
+    this.dirtyCells.clear();
     for (const item of this.visualItems.values()) {
       item.container.destroy();
     }
