@@ -1245,3 +1245,7 @@
 Yerleştirme sırasında döndür düğmesine basınca (`RotationPreview`) fabrika alanı opak karartılır ve seçili makine ya da hammadde girişi ortada büyük, giriş/çıkış oklarıyla gösterilir; her basış bir çeyrek tur döndürür. Bu sırada araç çubuğundaki iptal düğmesi yeşil "tamam" düğmesine dönüşür; basınca önizleme kapanır ve seçilen yönle yerleştirmeye dönülür. Bant, ayırıcı ve birleştirici eskisi gibi doğrudan döner; R tuşu da çalışır ve önizleme açıksa ona yansır.
 
 **Doğrulama:** `npm test` 262/262, `npx tsc --noEmit` temiz, `npm run build` başarılı. Tarayıcıda (masaüstü, fare): pres seçilip döndür düğmesine iki kez basıldı, önizleme doğu ve güney yönlerini oklarla gösterdi, tik ile kapanıp yerleştirmeye güney yönüyle dönüldü. Telefonda ve hammadde girişiyle ekranda denenmedi.
+
+### [2026-10-08] — Hata: Yakınlaştırma Kendiliğinden Geri Alınıyordu
+
+Yatay ekranda HUD'daki para/gelir yazısı genişleyip hedef şeridinin yeri 6 birimden fazla kayınca `syncObjectiveSlot` bütün yerleşimi yeniden çalıştırıyor, yerleşim de her seferinde `fitToFactory` çağırıyordu. Geç oyunda para sık basamak değiştirdiği için oyuncunun yakınlaştırması sürekli "fabrikayı sığdır" zoom'una (24x24'te en uzak) dönüyordu. `GameScene.layoutAll` artık kamerayı yalnızca görüş alanı gerçekten değişince (pencere boyutu, ekran yönü, arayüz ölçeği) yeniden sığdırır.

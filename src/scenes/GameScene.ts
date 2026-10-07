@@ -99,6 +99,8 @@ export class GameScene extends Phaser.Scene {
   private toast!: UiToast;
   private confirmDialog!: UiConfirmDialog;
   private rotationPreview!: RotationPreview;
+  /** Son uygulanan kamera görüş alanı; değişmedikçe kamera yeniden sığdırılmaz */
+  private lastViewportKey = '';
   private machineInfoModal!: MachineInfoModal;
   private itemPriceModal!: ItemPriceModal;
 
@@ -259,6 +261,8 @@ export class GameScene extends Phaser.Scene {
    * ================================================================ */
 
   create(): void {
+    // Sahne yeniden başlarken (uçuş dönüşü, kayıt sıfırlama) kamera yeniden kurulur
+    this.lastViewportKey = '';
     this.economy = new EconomyManager();
 
     /* Arayüz katmanı: bundan sonra sahneye eklenen her nesne varsayılan olarak
@@ -1519,13 +1523,21 @@ export class GameScene extends Phaser.Scene {
 
     /* Kamera görüş alanı tuval pikseli cinsindendir */
     const zoom = m.zoom;
-    this.cameraController.setPixelScale(m.renderScale);
-    this.cameraController.setViewport(
+    const viewport = [
       viewLeft * zoom,
       contentTop * zoom,
       viewWidth * zoom,
       Math.max(32, viewHeight * zoom),
-    );
+    ] as const;
+    // Kamera yalnızca görüş alanı gerçekten değiştiğinde (pencere boyutu, ekran yönü,
+    // arayüz ölçeği) yeniden sığdırılır. Bu yerleşim HUD'daki para yazısı genişleyince de
+    // çalışır; her seferinde sığdırmak oyuncunun yaptığı yakınlaştırmayı geri alıyordu.
+    const viewportKey = `${m.renderScale}|${viewport.map((v) => Math.round(v)).join(',')}`;
+    if (viewportKey === this.lastViewportKey) return;
+    this.lastViewportKey = viewportKey;
+
+    this.cameraController.setPixelScale(m.renderScale);
+    this.cameraController.setViewport(...viewport);
     // Etkin araç çubuğunun yüzdüğü şerit sığdırmada boş bırakılır: çubuk fabrikayı örtmez
     this.cameraController.setFitInsetBottom((ToolContextBar.height + SPACE.md) * zoom);
     this.cameraController.fitToFactory();
