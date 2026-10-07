@@ -24,6 +24,8 @@ export interface ToolContextState {
   /** Dokunmatikte seçilen hücreyi onaylama düğmesi */
   showConfirm: boolean;
   confirmEnabled: boolean;
+  /** Yön önizlemesi açık: iptal düğmesi yeşil "tamam" düğmesine dönüşür */
+  rotating?: boolean;
 }
 
 export interface ToolContextCallbacks {
@@ -134,6 +136,11 @@ export class ToolContextBar {
     // Eylemler sağdan sola: İptal, Onayla, Döndür
     let right = w - SPACE.sm - ACTION_SIZE / 2;
     this.cancelButton.setPosition(right, centerY);
+    if (state.rotating) {
+      this.cancelButton.setVariant('primary').setIcon('icon_check');
+    } else {
+      this.cancelButton.setVariant('danger').setIcon('icon_close');
+    }
     right -= ACTION_SIZE + SPACE.xs + 2;
 
     this.confirmButton.setVisible(state.showConfirm).setEnabled(state.confirmEnabled);

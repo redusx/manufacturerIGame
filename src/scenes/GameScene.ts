@@ -29,6 +29,7 @@ import { calculateOfflineReport } from '../ui/OfflineEarningsHelper.ts';
 import { UiLayer } from '../ui/system/UiLayer.ts';
 import { UiToast, type UiToastKind } from '../ui/system/UiWidgets.ts';
 import { UiConfirmDialog } from '../ui/system/UiConfirmDialog.ts';
+import { RotationPreview, type RotationPreviewSubject } from '../ui/RotationPreview.ts';
 import { ItemPriceModal, MachineInfoModal } from '../ui/CatalogInfoModals.ts';
 import { MACHINE_SPRITE_SHEETS, PORT_ARROW_IMAGES } from '../factory/view/MachineSprites.ts';
 import { GridView } from '../factory/view/GridView.ts';
@@ -97,6 +98,7 @@ export class GameScene extends Phaser.Scene {
   private contextBar!: ToolContextBar;
   private toast!: UiToast;
   private confirmDialog!: UiConfirmDialog;
+  private rotationPreview!: RotationPreview;
   private machineInfoModal!: MachineInfoModal;
   private itemPriceModal!: ItemPriceModal;
 
@@ -438,7 +440,8 @@ export class GameScene extends Phaser.Scene {
     }
 
     /* Pencere açıkken veya iki parmak hareketi sürerken araçlar tek parmak girdisini yoksayar */
-    const isToolInputBlocked = (): boolean => this.ui.isModalOpen || this.cameraController.isMultiTouch;
+    const isToolInputBlocked = (): boolean =>
+      this.ui.isModalOpen || this.cameraController.isMultiTouch || Boolean(this.rotationPreview?.visible);
 
     /* İnşa ve Yerleşim Kontrolcüsü */
     this.placementController = new PlacementController(
@@ -651,7 +654,7 @@ export class GameScene extends Phaser.Scene {
       },
     });
     this.contextBar = new ToolContextBar(this.ui, {
-      onRotate: () => this.placementController.rotate(true),
+      onRotate: () => this.rotateWithPreview(),
       onConfirm: () => {
         if (this.placementController.isActive) {
           this.placementController.confirmPlacement();
@@ -659,8 +662,16 @@ export class GameScene extends Phaser.Scene {
           this.demolishTool.confirmDemolish();
         }
       },
-      onCancel: () => this.cancelActiveTool(),
+      // Yön önizlemesi açıkken bu düğme yeşil "tamam"dır: önizlemeyi kapatır, yerleştirmeye döner
+      onCancel: () => {
+        if (this.rotationPreview.visible) {
+          this.rotationPreview.hide();
+        } else {
+          this.cancelActiveTool();
+        }
+      },
     });
+    this.rotationPreview = new RotationPreview(this.ui);
     this.toast = new UiToast(this.ui);
     this.confirmDialog = new UiConfirmDialog(this.ui);
 
@@ -1228,7 +1239,36 @@ export class GameScene extends Phaser.Scene {
     this.demolishTool.activate();
   }
 
+  /** Yön önizlemesi olan öğeler: makineler ve hammadde girişleri */
+  private rotationSubjectOf(item: PlacementItem): RotationPreviewSubject | null {
+    if ((item.type === 'MACHINE' || item.type === 'MACHINE_MOVE') && item.machineDef) {
+      return { kind: 'machine', def: item.machineDef };
+    }
+    if (item.type === 'INTAKE_NEW' || item.type === 'INTAKE_MOVE') {
+      return { kind: 'intake' };
+    }
+    return null;
+  }
+
+  /**
+   * Döndür düğmesi: makine/giriş için fabrikayı karartıp öğeyi ortada büyük gösterir;
+   * her basış bir çeyrek tur döndürür. Bant gibi öğeler doğrudan döner.
+   */
+  private rotateWithPreview(): void {
+    const placement = this.placementController;
+    if (!placement.isActive || !placement.currentItem) return;
+
+    placement.rotate(true);
+    const subject = this.rotationSubjectOf(placement.currentItem);
+    if (subject && !this.rotationPreview.visible) {
+      this.rotationPreview.show(subject, placement.rotation);
+    } else {
+      this.rotationPreview.sync(placement.rotation);
+    }
+  }
+
   private cancelActiveTool(): void {
+    this.rotationPreview?.hide();
     if (this.placementController?.isActive) {
       this.placementController.cancelPlacement();
     }
@@ -1255,9 +1295,24 @@ export class GameScene extends Phaser.Scene {
 
     if (placement.isActive && placement.currentItem) {
       this.toolbar.setActiveTool(placement.currentItem.type === 'CONVEYOR' ? 'belt' : null);
-      this.contextBar.show(this.buildPlacementContext(placement.currentItem, isTouch));
+      const context = this.buildPlacementContext(placement.currentItem, isTouch);
+      // Önizleme açıkken küçük hayalet gizlenir; kapanınca geri gelir
+      placement.ghostContainer.setVisible(!this.rotationPreview.visible);
+      if (this.rotationPreview.visible) {
+        // R tuşuyla döndürme de önizlemeye yansır
+        this.rotationPreview.sync(placement.rotation);
+        this.contextBar.show({
+          ...context,
+          hint: 'Döndür ile yönü seç, tik ile onayla',
+          showConfirm: false,
+          rotating: true,
+        });
+      } else {
+        this.contextBar.show(context);
+      }
       return;
     }
+    if (this.rotationPreview.visible) this.rotationPreview.hide();
 
     if (demolish.isActive) {
       this.toolbar.setActiveTool('demolish');
@@ -1458,6 +1513,7 @@ export class GameScene extends Phaser.Scene {
       barBottom,
       viewWidth - m.safe.left - SPACE.md * 2,
     );
+    this.rotationPreview.layout(contentTop, barBottom - ToolContextBar.height - SPACE.sm);
 
     this.toast.setAnchor(contentTop + SPACE.sm);
 

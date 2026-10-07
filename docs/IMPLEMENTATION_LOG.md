@@ -1239,3 +1239,9 @@
 - **Önceki işler:** tek yönlü hammadde girişi (DEC-026), yan ürün ayrımı (DEC-025).
 
 **Doğrulama:** `npm test` 262/262, `npx tsc --noEmit` temiz, `npm run build` başarılı. Tarayıcıda (masaüstü): katalog kartları, montaj istasyonu bilgi penceresi, fiyat listesi ve makine penceresindeki üç düğme görüldü; TAŞI yerleştirme modunu açtı. Taşımanın kendisi arayüzden tıklanarak değil, aynı yerleştirme işlevi çağrılarak sınandı (seviye 3 korundu, eski hücre boşaldı, dolu hücre reddedildi). Telefonda bakılmadı.
+
+### [2026-10-07] — Yön Seçme Önizlemesi
+
+Yerleştirme sırasında döndür düğmesine basınca (`RotationPreview`) fabrika alanı opak karartılır ve seçili makine ya da hammadde girişi ortada büyük, giriş/çıkış oklarıyla gösterilir; her basış bir çeyrek tur döndürür. Bu sırada araç çubuğundaki iptal düğmesi yeşil "tamam" düğmesine dönüşür; basınca önizleme kapanır ve seçilen yönle yerleştirmeye dönülür. Bant, ayırıcı ve birleştirici eskisi gibi doğrudan döner; R tuşu da çalışır ve önizleme açıksa ona yansır.
+
+**Doğrulama:** `npm test` 262/262, `npx tsc --noEmit` temiz, `npm run build` başarılı. Tarayıcıda (masaüstü, fare): pres seçilip döndür düğmesine iki kez basıldı, önizleme doğu ve güney yönlerini oklarla gösterdi, tik ile kapanıp yerleştirmeye güney yönüyle dönüldü. Telefonda ve hammadde girişiyle ekranda denenmedi.
