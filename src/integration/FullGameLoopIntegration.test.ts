@@ -381,15 +381,19 @@ describe('TASK-INT-07: Master Full Game Loop End-to-End Verification Tests', () 
     const baseThrust = getMainThrust(1);
     const baseHullHP = getMaxHullHP(1);
 
-    // Motoru Seviye 2'ye geliştir (Eksik havacılık parçaları piyasa bedeliyle hızlı inşa edilir)
+    // Motoru Seviye 2'ye geliştir: parçaların çoğu fabrikadan gelir, en fazla dörtte biri
+    // (6 motorun 1'i) hızlı inşayla nakitle tamamlanır
     const initialCash = economy.resources.toNumber();
+    assert.strictEqual(bridge.upgradeModule('engine', factoryEconomy, true), false, 'Parça üretmeden hızlı inşa yapılamaz');
+    bridge.depositPart('electric_motor', 5);
     const engineUpgradeSuccess = bridge.upgradeModule('engine', factoryEconomy, true);
     assert.strictEqual(engineUpgradeSuccess, true);
     assert.strictEqual(bridge.getModuleLevel('engine'), 2);
     assert.ok(economy.resources.toNumber() < initialCash);
     assert.ok(getMainThrust(2) > baseThrust, 'Seviye 2 motor daha yüksek itiş gücü üretmelidir');
 
-    // Gövdeyi Seviye 2'ye geliştir
+    // Gövdeyi Seviye 2'ye geliştir (5 çerçevenin 4'ü fabrikadan, 1'i nakitle)
+    bridge.depositPart('reinforced_frame', 4);
     const hullUpgradeSuccess = bridge.upgradeModule('hull', factoryEconomy, true);
     assert.strictEqual(hullUpgradeSuccess, true);
     assert.strictEqual(bridge.getModuleLevel('hull'), 2);
@@ -622,6 +626,7 @@ describe('TASK-INT-07: Master Full Game Loop End-to-End Verification Tests', () 
 
     // 7. Roket Geliştirmesi
     economy.addResources(3000);
+    bridge.depositPart('electric_motor', 5);
     const upgraded = bridge.upgradeModule('engine', factoryEconomy, true);
     assert.strictEqual(upgraded, true);
     assert.strictEqual(bridge.getModuleLevel('engine'), 2);

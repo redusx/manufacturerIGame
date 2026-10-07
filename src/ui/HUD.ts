@@ -10,7 +10,7 @@
 import Phaser from 'phaser';
 import type { DecimalSource } from 'break_eternity.js';
 import { D } from '../utils/decimal';
-import { formatNumber, formatRate } from '../utils/format';
+import { formatDistance, formatNumber, formatRate } from '../utils/format';
 import { SEMANTIC, SPACE } from './theme';
 import { UiButton } from './system/UiButton.ts';
 import { UiChip } from './system/UiWidgets.ts';
@@ -110,7 +110,7 @@ export class HUD {
     this.moneyText.setText(`$${formatNumber(D(resources))}`);
     this.incomeChip.setChip(`+$${formatRate(D(perSecond))}/sn`, SEMANTIC.primary);
     this.bestDistance = bestDistance;
-    this.recordText.setText(`${bestDistance} m`);
+    this.recordText.setText(formatDistance(bestDistance));
     this.reposition();
   }
 

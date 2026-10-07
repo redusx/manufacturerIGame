@@ -173,8 +173,12 @@ export class RocketHangarHelper {
 
     const { cashText, partsSummary, canAffordParts } = this.formatCostAndPartsSummary(cost, bridge);
     const hasEnoughCash = economy.canAfford(cost.cashCost);
-    const totalQuickBuildCost = bridge.getTotalUpgradeCostWithMissingParts(category);
-    const canQuickBuild = allowQuickBuild && !canAffordParts && economy.canAfford(totalQuickBuildCost);
+    // Hızlı inşa: her parçanın en fazla dörtte biri, güncel satış değerinin 10 katına (DEC-029)
+    const revenueMultiplier = (economy as { revenueMultiplier?: number }).revenueMultiplier ?? 1;
+    const quote = bridge.getQuickBuildQuote(category, revenueMultiplier);
+    const totalQuickBuildCost = quote.totalCost;
+    const canQuickBuild =
+      allowQuickBuild && !canAffordParts && quote.allowed && economy.canAfford(totalQuickBuildCost);
 
     const canAfford = (hasEnoughCash && canAffordParts) || canQuickBuild;
 

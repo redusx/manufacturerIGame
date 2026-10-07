@@ -205,3 +205,15 @@
   6. Uçuş fiziği saf bir modüldedir (`src/flight/FlightPhysics.ts`); oyun ve `tools/flight_sim.ts` aynı kodu çalıştırır.
 * **Kalibrasyon:** menzil çarpanları, nitroyu yalnızca basılı tutan oyuncu (gerçek oyunda ölçüldü: bu oynayışta kristal toplanmıyor) sınıfının basamağına %3 payla ulaşacak şekilde seçildi. Nitroyu düşerken kullanan oyuncu (kristallerin %20–30'unu toplar) hedefin %140–160'ına, yani yaklaşık bir basamak ileriye gider. 75 ve 100 km basamakları Sv.10'da yalnızca böyle oynayarak geçilir.
 * **Gerekçe:** `M9_PLAN.md` §2.2 ve §4.2. Mesafeyi roket seviyesine bağlamadan "daha ileri" hedefi kurulamıyordu.
+
+### [DEC-029] Roket Seviyeleri: Sv.10, Nakit + Parça, Menzil İzni, Sınırlı Hızlı İnşa (M9-B)
+* **Tarih:** 2026-10-08
+* **Karar:**
+  1. Her modül **Sv.10**'a kadar yükselir (28 yeni yükseltme). Kademeler: Mk I (Sv.1–3), Mk II (4–6), Mk III (7–9), Mk IV (10). Her seviyenin kendi roket görünümü vardır (`tools/generate_rocket_tiers.py`).
+  2. Sv.4–10 bedeli formülledir (`RocketHangarBridge.getModuleUpgradeDefinition`): nakit `taban × 2,4^(Sv−4)` (gövde 30.000 · motor 40.000 · kanat 35.000 · nitro 25.000), parça `taban × 1,8^(Sv−ilk seviye)` (5'in katına yuvarlanır). Karışım: gövde çerçeve + kompozit panel (+ Sv.7'den cam blok); motor elektrik motoru + itici blok (+ Sv.7'den dişli); kanat mikroçip + güdüm bilgisayarı (+ Sv.5'ten sensör); nitro plastik + kart tabanı (+ Sv.6'dan bakır tel). Sv.2–3 bedelleri değişmedi.
+  3. **Menzil izni:** Mk II 5 km, Mk III 14 km, Mk IV 40 km basamağıyla açılır (`RangeLadder`). İzin bekleyen seviye için parça toplanmaz.
+  4. **Hedef modül:** oyuncu bir modülü hedef seçerse ihracattan yalnızca onun parçaları hangara ayrılır; seçmezse (varsayılan) bütün modüllerinki ayrılır.
+  5. **Hızlı inşa (DEC-012'yi günceller):** her parçanın en fazla %25'i nakitle tamamlanır; birim fiyat güncel satış değerinin (gelir çarpanı dahil) 10 katıdır. Bütün seviyelerde geçerlidir; roket artık üretmeden tamamlanamaz.
+  6. **Rekor:** eski uçuş modeliyle yapılmış rekorlar 5 km'de kesilir (`recordVersion`); yeni basamaklar yeni modelle geçilir.
+* **Gerekçe:** `M9_PLAN.md` §2.1 ve §4.3: roketin tamamı $35.210'a, hiç parça üretmeden alınabiliyordu.
+* **Not:** Nakit ve parça değerleri başlangıç değeridir; M9-F'de ölçülerek ayarlanır.

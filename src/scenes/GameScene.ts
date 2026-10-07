@@ -34,6 +34,7 @@ import { BeltStepper } from '../ui/BeltStepper.ts';
 import { DIRECTION_VECTORS, type Direction, type GridCoord } from '../factory/types.ts';
 import { ItemPriceModal, MachineInfoModal } from '../ui/CatalogInfoModals.ts';
 import { MACHINE_SPRITE_SHEETS, PORT_ARROW_IMAGES } from '../factory/view/MachineSprites.ts';
+import { MAX_ROCKET_LEVEL, getRangeScale } from '../data/RocketData.ts';
 import { GridView } from '../factory/view/GridView.ts';
 import { CameraController } from '../factory/view/CameraController.ts';
 import { GridMap } from '../factory/simulation/GridMap.ts';
@@ -101,6 +102,8 @@ export class GameScene extends Phaser.Scene {
   private toast!: UiToast;
   private confirmDialog!: UiConfirmDialog;
   private rotationPreview!: RotationPreview;
+  /** Son bilinen roket sınıfı; yükseltmede sınıf atlandıysa kutlanır */
+  private lastRocketClass = 1;
   private beltStepper!: BeltStepper;
   /** Dokunmatikte son döşenen bant; adım adım döşeme düğmeleri buna göre konumlanır */
   private beltStep: { coord: GridCoord; direction: Direction } | null = null;
@@ -156,25 +159,12 @@ export class GameScene extends Phaser.Scene {
    * ================================================================ */
 
   preload(): void {
-    // Roket Gövdeleri
-    this.load.image('rocket_hull_1', 'assets/rocket_hull_1.png');
-    this.load.image('rocket_hull_2', 'assets/rocket_hull_2.png');
-    this.load.image('rocket_hull_3', 'assets/rocket_hull_3.png');
-
-    // Roket Motorları
-    this.load.image('rocket_engine_1', 'assets/rocket_engine_1.png');
-    this.load.image('rocket_engine_2', 'assets/rocket_engine_2.png');
-    this.load.image('rocket_engine_3', 'assets/rocket_engine_3.png');
-
-    // Roket Kanatları
-    this.load.image('rocket_wings_1', 'assets/rocket_wings_1.png');
-    this.load.image('rocket_wings_2', 'assets/rocket_wings_2.png');
-    this.load.image('rocket_wings_3', 'assets/rocket_wings_3.png');
-
-    // Roket Boost Tankları
-    this.load.image('rocket_tank_1', 'assets/rocket_tank_1.png');
-    this.load.image('rocket_tank_2', 'assets/rocket_tank_2.png');
-    this.load.image('rocket_tank_3', 'assets/rocket_tank_3.png');
+    // Roket modülleri: her seviyenin kendi görünümü vardır (Sv.4+ tools/generate_rocket_tiers.py)
+    for (const part of ['hull', 'engine', 'wings', 'tank']) {
+      for (let level = 1; level <= MAX_ROCKET_LEVEL; level++) {
+        this.load.image(`rocket_${part}_${level}`, `assets/rocket_${part}_${level}.png`);
+      }
+    }
 
     // Alev Sprite'ları
     this.load.image('flame_idle', 'assets/flame_idle.png');
@@ -641,6 +631,7 @@ export class GameScene extends Phaser.Scene {
       this.hangarBridge,
       this.factoryEconomy,
       (message) => this.notify(message, 'warning'),
+      () => this.saveGame(),
     );
 
     /* Ana ekran */
@@ -746,12 +737,21 @@ export class GameScene extends Phaser.Scene {
       if (evt.type === 'rocket_upgrade') {
         sound.playUpgrade();
         fx.emitSparkles(this, this.ui.width / 2, this.ui.height / 2, 20, PALETTE.rocketCyan, 'ui');
+        // Dört modül de bir üst seviyeye çıktıysa roket sınıf atlar: hız çarpanı büyür
+        const rocketClass = this.hangarBridge.getRocketClass();
+        if (rocketClass > this.lastRocketClass) {
+          this.notify(`Roket ${rocketClass}. sınıf oldu: hız ×${getRangeScale(rocketClass)}`, 'reward');
+          fx.emitConfetti(this, this.ui.width / 2, this.hud.bottom + 30, 24, 'ui');
+        }
+        this.lastRocketClass = rocketClass;
         this.saveGame();
       }
     });
 
     /* Kayıt yükle */
     this.loadGame();
+
+    this.lastRocketClass = this.hangarBridge.getRocketClass();
 
     /* İlk UI güncellemesi */
     this.refreshUI();
@@ -1063,7 +1063,7 @@ export class GameScene extends Phaser.Scene {
     this.hud.update(
       this.economy.resources,
       revenuePerSec,
-      this.economy.stats.bestDistance,
+      this.hangarBridge.getFlightStats().bestDistance,
     );
 
     /* Hedef kartı: tamamlanan aşamanın ödülünü ver, sonra sıradaki görevi göster */

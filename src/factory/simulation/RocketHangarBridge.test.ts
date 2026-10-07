@@ -135,8 +135,13 @@ describe('RocketHangarBridge Headless Unit Tests', () => {
     assert.strictEqual(bridge.getModuleLevel('hull'), 3);
     assert.strictEqual(bridge.getPartCount('aero_hull_plate'), 2); // 10 - 8 = 2 left
 
-    // Maximum level reached: no more upgrades
-    assert.strictEqual(bridge.getUpgradeCost('hull'), null);
+    // Level 4 (Mk II) is defined but stays locked until the 5 km range rung is reached
+    const cost3 = bridge.getUpgradeCost('hull');
+    assert.ok(cost3);
+    assert.strictEqual(cost3.targetLevel, 4);
+    assert.strictEqual(cost3.cashCost, 30000);
+    assert.strictEqual(bridge.getLevelCap(), 3);
+    assert.strictEqual(bridge.getUpgradeLock('hull')?.targetMeters, 5000);
     assert.strictEqual(bridge.canAffordUpgrade('hull', economy), false);
     assert.strictEqual(bridge.upgradeModule('hull', economy), false);
   });

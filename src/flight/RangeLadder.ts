@@ -161,6 +161,32 @@ export class RangeLadder {
     return hours;
   }
 
+  /**
+   * Basamağın ödüllerini kısa parçalar hâlinde yazar:
+   * ["gelir ×1.25", "Mk III modüller (Sv.7–9)", "yeni parsel izni", "çevrimdışı 8 saat"].
+   */
+  static describeRewards(rung: RangeRung): string[] {
+    const parts: string[] = [];
+    if (rung.multiplierBonus) parts.push(`gelir +%${Math.round(rung.multiplierBonus * 100)}`);
+    if (rung.multiplierFactor) parts.push(`gelir ×${rung.multiplierFactor}`);
+    if (rung.unlocksRocketLevelCap) {
+      const cap = rung.unlocksRocketLevelCap;
+      const range = cap >= 10 ? 'Sv.10' : `Sv.${cap - 2}–${cap}`;
+      parts.push(`${RangeLadder.tierName(cap)} modüller (${range})`);
+    }
+    if (rung.unlocksPlotIndex !== undefined) parts.push('yeni parsel izni');
+    if (rung.offlineCapHours) parts.push(`çevrimdışı ${rung.offlineCapHours} saat`);
+    return parts;
+  }
+
+  /** Seviyenin ait olduğu kademe: Mk I (Sv.1-3), Mk II (4-6), Mk III (7-9), Mk IV (10) */
+  static tierName(level: number): string {
+    if (level >= 10) return 'Mk IV';
+    if (level >= 7) return 'Mk III';
+    if (level >= 4) return 'Mk II';
+    return 'Mk I';
+  }
+
   /** Uçuş sırasında içinde bulunulan bölge: geçilen basamak sayısı (0 = kalkış bölgesi) */
   static zoneIndex(distanceMeters: number): number {
     return RangeLadder.achieved(distanceMeters).length;

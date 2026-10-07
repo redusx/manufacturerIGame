@@ -67,26 +67,30 @@ describe('TASK-INT-01: Rocket Hangar & Economy Integration Tests', () => {
     assert.strictEqual(bridge.canAffordUpgrade('hull', factoryEconomy), false);
     assert.strictEqual(bridge.canAffordQuickBuild('hull', factoryEconomy), false);
 
-    // Give player enough cash for quick build ($500 base + 5 frames * $40 * 4 = $1,300)
     economy.addResources(3000);
 
     // Standard upgrade requires physical parts
     assert.strictEqual(bridge.hasRequiredParts('hull'), false);
     assert.strictEqual(bridge.canAffordUpgrade('hull', factoryEconomy), false);
 
-    // Quick build is affordable because player has $3,000 >= $1,300
+    // Cash alone is not enough: at most a quarter of each part can be bought (1 of 5 frames)
+    assert.strictEqual(bridge.canAffordQuickBuild('hull', factoryEconomy), false);
+    assert.strictEqual(bridge.upgradeModule('hull', factoryEconomy, true), false);
+
+    // With 4 of 5 frames produced, the last one can be bought: 1 * $40 * 10 = $400
+    bridge.depositPart('reinforced_frame', 4);
     assert.strictEqual(bridge.canAffordQuickBuild('hull', factoryEconomy), true);
-    assert.strictEqual(bridge.getMissingPartsTotalCost('hull'), 800);
-    assert.strictEqual(bridge.getTotalUpgradeCostWithMissingParts('hull'), 1300);
+    assert.strictEqual(bridge.getMissingPartsTotalCost('hull'), 400);
+    assert.strictEqual(bridge.getTotalUpgradeCostWithMissingParts('hull'), 900);
 
     // Upgrade hull with quick build (allowProcureMissing = true)
     const upgraded = bridge.upgradeModule('hull', factoryEconomy, true);
     assert.strictEqual(upgraded, true);
     assert.strictEqual(bridge.getModuleLevel('hull'), 2);
 
-    // Check money deduction: $3,000 - $1,300 = $1,700 remaining
-    assert.strictEqual(economy.resources.toNumber(), 1700);
-    assert.strictEqual(factoryEconomy.money, 1700);
+    // Check money deduction: $3,000 - $900 = $2,100 remaining
+    assert.strictEqual(economy.resources.toNumber(), 2100);
+    assert.strictEqual(factoryEconomy.money, 2100);
 
     // Sync to EconomyManager (matching RocketHangarView behavior)
     economy.setRocketUpgradeLevel('hull', bridge.getModuleLevel('hull'));
@@ -128,8 +132,9 @@ describe('TASK-INT-01: Rocket Hangar & Economy Integration Tests', () => {
     assert.strictEqual(vmNoMoney.btnText, 'EKSİK MALZEME');
     assert.strictEqual(vmNoMoney.canAfford, false);
 
-    // Give cash: becomes HIZLI İNŞA
+    // Cash without parts is still not enough; with 4 of 5 frames it becomes HIZLI İNŞA
     economy.addResources(2500);
+    bridge.depositPart('reinforced_frame', 4);
     const vmQuickBuild = RocketHangarHelper.getCardViewModel(
       'hull',
       'Gövde Zırhı',
@@ -141,10 +146,10 @@ describe('TASK-INT-01: Rocket Hangar & Economy Integration Tests', () => {
     );
     assert.strictEqual(vmQuickBuild.btnText, 'HIZLI İNŞA');
     assert.strictEqual(vmQuickBuild.canAfford, true);
-    assert.strictEqual(vmQuickBuild.costText, `$${(1300).toLocaleString()}`);
+    assert.strictEqual(vmQuickBuild.costText, `$${(900).toLocaleString()}`);
 
-    // Deposit parts: becomes standard İNŞA ET at base price
-    bridge.depositPart('reinforced_frame', 5);
+    // Deposit the last part: becomes standard İNŞA ET at base price
+    bridge.depositPart('reinforced_frame', 1);
     const vmStandard = RocketHangarHelper.getCardViewModel(
       'hull',
       'Gövde Zırhı',
@@ -206,6 +211,7 @@ describe('TASK-INT-01: Rocket Hangar & Economy Integration Tests', () => {
 
     // Give cash and upgrade engine to level 2
     economy1.addResources(5000);
+    bridge1.depositPart('electric_motor', 5);
     bridge1.upgradeModule('engine', factoryEconomy1, true);
     economy1.setRocketUpgradeLevel('engine', bridge1.getModuleLevel('engine'));
 

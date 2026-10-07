@@ -8,7 +8,7 @@
 import Decimal, { type DecimalSource } from 'break_eternity.js';
 import { D, D_ZERO } from '../utils/decimal.ts';
 import { BASE_CLICK_POWER } from '../data/MachineData.ts';
-import { ROCKET_UPGRADES, type RocketUpgradeDef } from '../data/RocketData.ts';
+import { MAX_ROCKET_LEVEL, ROCKET_UPGRADES, type RocketUpgradeDef } from '../data/RocketData.ts';
 
 /* ---- Dışarıya açılan olay tipleri ---- */
 
@@ -158,7 +158,7 @@ export class EconomyManager {
    * (RocketHangarBridge entegrasyonu için)
    */
   setRocketUpgradeLevel(id: string, level: number): void {
-    this.rocketUpgrades[id] = Math.min(3, Math.max(1, level));
+    this.rocketUpgrades[id] = Math.min(MAX_ROCKET_LEVEL, Math.max(1, level));
     this.emit({
       type: 'rocket_upgrade',
       upgradeId: id,

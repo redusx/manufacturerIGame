@@ -6,6 +6,9 @@
  * fabrika ekonomisine geri akar.
  * ====================================================================== */
 
+/** Bir roket modülünün ulaşabileceği en yüksek seviye */
+export const MAX_ROCKET_LEVEL = 10;
+
 export interface RocketUpgradeDef {
   id: string;
   name: string;
@@ -25,15 +28,14 @@ export const ROCKET_UPGRADES: readonly RocketUpgradeDef[] = [
     id: 'hull',
     name: 'Gövde Zırhı',
     category: 'hull',
-    description: 'Roketin zemin çarpmalarına ve engellere karşı dayanıklılığını ve sekme gücünü artırır.',
+    description: 'Roketin engellere karşı dayanıklılığını artırır; ileri bölgelerde engeller daha sert vurur.',
     baseCost: 150,
     costScale: 3.0,
-    maxLevel: 3,
+    maxLevel: MAX_ROCKET_LEVEL,
     spritePrefix: 'rocket_hull_',
     getStatText: (level) => {
       const hp = getMaxHullHP(level);
-      const bounce = Math.round(getGroundBounce(level) * 100);
-      return `Zırh: ${hp} HP | Sekme: %${bounce}`;
+      return `Zırh: ${hp} HP | Engel hasarı ÷${getHullDamageDivisor(level).toFixed(1)}`;
     },
   },
   {
@@ -43,7 +45,7 @@ export const ROCKET_UPGRADES: readonly RocketUpgradeDef[] = [
     description: 'Fırlatma rampası hızını, ana motor itiş gücünü ve yakıt süresini artırır.',
     baseCost: 250,
     costScale: 3.2,
-    maxLevel: 3,
+    maxLevel: MAX_ROCKET_LEVEL,
     spritePrefix: 'rocket_engine_',
     getStatText: (level) => {
       const thrust = getMainThrust(level);
@@ -58,10 +60,11 @@ export const ROCKET_UPGRADES: readonly RocketUpgradeDef[] = [
     description: 'Havadaki süzülme kaldırma kuvvetini (lift), eğim çevikliğini ve aerodinamik kaymayı artırır.',
     baseCost: 200,
     costScale: 3.0,
-    maxLevel: 3,
+    maxLevel: MAX_ROCKET_LEVEL,
     spritePrefix: 'rocket_wings_',
     getStatText: (level) => {
-      return `Süzülme: +%${level * 25} | Çeviklik: +%${level * 20}`;
+      const effective = physicsLevel(level);
+      return `Süzülme: +%${Math.round(effective * 25)} | Çeviklik: +%${Math.round(effective * 20)}`;
     },
   },
   {
@@ -71,7 +74,7 @@ export const ROCKET_UPGRADES: readonly RocketUpgradeDef[] = [
     description: 'Süpersonik nitro boost süresini ve anlık hızlanma patlamasını yükseltir.',
     baseCost: 350,
     costScale: 3.5,
-    maxLevel: 3,
+    maxLevel: MAX_ROCKET_LEVEL,
     spritePrefix: 'rocket_tank_',
     getStatText: (level) => {
       const cap = getMaxBoostDuration(level).toFixed(1);
@@ -95,9 +98,6 @@ export const CRYSTAL_PICKUP_VALUE = 15;
 export const DODGE_BONUS_VALUE = 4;
 
 /* ---- Seviye Ölçeği (Sv.1–10) ---- */
-
-/** Bir roket modülünün ulaşabileceği en yüksek seviye */
-export const MAX_ROCKET_LEVEL = 10;
 
 /**
  * Sv.3'ten sonraki her seviyenin fizik değerlerine katkısı (Sv.1–3'teki bir seviyeye oranla).

@@ -29,6 +29,7 @@ import {
   stepFlight,
 } from '../flight/FlightPhysics.ts';
 import { RANGE_LADDER, RangeLadder } from '../flight/RangeLadder.ts';
+import { MAX_ROCKET_LEVEL } from '../data/RocketData.ts';
 import { PALETTE, FONT_FAMILY, SEMANTIC, FLIGHT_SKY_TONES } from '../ui/theme';
 import { formatDistance } from '../utils/format';
 import { UiLayer } from '../ui/system/UiLayer.ts';
@@ -342,19 +343,19 @@ export class FlightScene extends Phaser.Scene {
     this.flameSprite = this.add.image(-28, 0, 'flame_idle').setOrigin(1, 0.5).setScale(1.7).setVisible(false);
     this.rocketContainer.add(this.flameSprite);
 
-    const engineKey = `rocket_engine_${Math.min(3, Math.max(1, this.engineLevel))}`;
+    const engineKey = `rocket_engine_${Math.min(MAX_ROCKET_LEVEL, Math.max(1, this.engineLevel))}`;
     this.engineSprite = this.add.image(-16, 0, engineKey).setOrigin(0.5).setScale(1.8);
     this.rocketContainer.add(this.engineSprite);
 
-    const tankKey = `rocket_tank_${Math.min(3, Math.max(1, this.boostLevel))}`;
+    const tankKey = `rocket_tank_${Math.min(MAX_ROCKET_LEVEL, Math.max(1, this.boostLevel))}`;
     this.tankSprite = this.add.image(-4, 0, tankKey).setOrigin(0.5).setScale(1.8);
     this.rocketContainer.add(this.tankSprite);
 
-    const wingsKey = `rocket_wings_${Math.min(3, Math.max(1, this.wingsLevel))}`;
+    const wingsKey = `rocket_wings_${Math.min(MAX_ROCKET_LEVEL, Math.max(1, this.wingsLevel))}`;
     this.wingsSprite = this.add.image(-8, 0, wingsKey).setOrigin(0.5).setScale(1.8);
     this.rocketContainer.add(this.wingsSprite);
 
-    const hullKey = `rocket_hull_${Math.min(3, Math.max(1, this.hullLevel))}`;
+    const hullKey = `rocket_hull_${Math.min(MAX_ROCKET_LEVEL, Math.max(1, this.hullLevel))}`;
     this.hullSprite = this.add.image(4, 0, hullKey).setOrigin(0.5).setScale(1.8);
     this.rocketContainer.add(this.hullSprite);
   }
