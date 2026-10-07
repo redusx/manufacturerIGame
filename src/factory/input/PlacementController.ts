@@ -38,6 +38,8 @@ export interface PlacementItem {
   sourceCoord?: GridCoord;
   /** INTAKE_NEW için: kurulacak girişin vereceği hammadde */
   intakeItemId?: string;
+  /** MACHINE_MOVE için: taşınan makinenin kimliği */
+  sourceInstanceId?: string;
 }
 
 export interface PlacementControllerConfig {
@@ -188,6 +190,10 @@ export class PlacementController {
       const source = item.sourceCoord ?? this.grid.getIntakeCells()[0]?.coord;
       const data = source ? this.grid.getCell(source.x, source.y)?.intakeData : undefined;
       this.currentRotation = data?.direction ?? 'SOUTH';
+    } else if (item.type === 'MACHINE_MOVE' && item.sourceInstanceId) {
+      // Taşınan makine mevcut yönüyle başlar
+      const machine = this.engine.getMachine(item.sourceInstanceId);
+      if (machine) this.currentRotation = PlacementMath.rotationDegToDirection(machine.rotation);
     }
     this.ghostContainer.setVisible(true);
 
@@ -411,6 +417,7 @@ export class PlacementController {
       unlockedBounds: dimensions,
       sourceCoord: this.selectedItem.sourceCoord,
       intakeItemId: this.selectedItem.intakeItemId,
+      sourceInstanceId: this.selectedItem.sourceInstanceId,
     });
 
     if (result.success) {
@@ -422,6 +429,7 @@ export class PlacementController {
 
       if (
         (this.selectedItem.type === 'MACHINE' && this.autoCloseMachines) ||
+        this.selectedItem.type === 'MACHINE_MOVE' ||
         this.selectedItem.type === 'INTAKE_MOVE' ||
         this.selectedItem.type === 'EXPORT_MOVE' ||
         this.selectedItem.type === 'INTAKE_NEW'
@@ -448,7 +456,7 @@ export class PlacementController {
 
     if (!this.selectedItem) return;
 
-    if (this.selectedItem.type === 'MACHINE' && this.selectedItem.machineDef) {
+    if (this.isMachineItem(this.selectedItem) && this.selectedItem.machineDef) {
       const def = this.selectedItem.machineDef;
       const textureKey = machineTextureKey(def, 0);
 
@@ -502,6 +510,7 @@ export class PlacementController {
       unlockedBounds: dimensions,
       sourceCoord: this.selectedItem.sourceCoord,
       intakeItemId: this.selectedItem.intakeItemId,
+      sourceInstanceId: this.selectedItem.sourceInstanceId,
     });
     this.lastValidation = validation;
 
@@ -526,7 +535,7 @@ export class PlacementController {
     if (this.ghostSprite) {
       this.ghostSprite.setPosition(pixelW * 0.5, pixelH * 0.5);
       // Makine kendi renkleriyle görünür (katalogdaki gibi); yalnız geçersiz yerde kızarır
-      if (this.selectedItem.type === 'MACHINE' && isValid) {
+      if (this.isMachineItem(this.selectedItem) && isValid) {
         this.ghostSprite.clearTint();
       } else {
         this.ghostSprite.setTint(tintColor);
@@ -536,7 +545,7 @@ export class PlacementController {
         const rad = ConveyorGeometry.directionToAngleRad(this.currentRotation);
         this.ghostSprite.setRotation(rad);
         this.ghostSprite.setDisplaySize(this.tileSize, this.tileSize);
-      } else if (this.selectedItem.type === 'MACHINE' && this.selectedItem.machineDef) {
+      } else if (this.isMachineItem(this.selectedItem) && this.selectedItem.machineDef) {
         // Resim döndürülmez; o yöndeki çizim seçilir (fabrikadaki görünümle aynı)
         const rotDeg = PlacementMath.directionToRotationDeg(this.currentRotation);
         const key = machineTextureKey(this.selectedItem.machineDef, rotDeg);
@@ -558,7 +567,7 @@ export class PlacementController {
     // 3. Port okları (yalnızca makineler): fabrikadaki okların aynısı
     const isIntake = this.selectedItem.type === 'INTAKE_NEW' || this.selectedItem.type === 'INTAKE_MOVE';
     const ports: Array<{ type: 'INPUT' | 'OUTPUT'; direction: Direction; localCoord: GridCoord }> =
-      this.selectedItem.type === 'MACHINE'
+      this.isMachineItem(this.selectedItem)
         ? validation.previewPorts
         : isIntake
           ? [{ type: 'OUTPUT', direction: this.currentRotation, localCoord: { x: 0, y: 0 } }]
@@ -653,6 +662,10 @@ export class PlacementController {
   // -------------------------------------------------------------
   // YARDIMCILAR
   // -------------------------------------------------------------
+
+  private isMachineItem(item: PlacementItem): boolean {
+    return item.type === 'MACHINE' || item.type === 'MACHINE_MOVE';
+  }
 
   private getOpposite(dir: Direction): Direction {
     const opp: Record<Direction, Direction> = {

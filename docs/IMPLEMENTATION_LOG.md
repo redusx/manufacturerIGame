@@ -1231,3 +1231,11 @@
 
 **Doğrulama:** `npm test` 262/262, `npx tsc --noEmit` temiz, `npm run build` başarılı. Başsız simülasyon: yandan beslenen pres levha üretti; çıkış okunun önünden beslenen pres artık hattı kilitlemiyor. Tarayıcıda (masaüstü): altı makine ve döndürülmüş pres/fırın fabrikada, katalogda, hayalette (R ile döndürme) ve makine penceresinde aynı görselle ve oklarla göründü. Uçtan uca bir pres hattı tarayıcıda elle kurulup oynanmadı; telefonda bakılmadı.
 
+
+### [2026-10-07] — Katalog Bilgileri, Fiyat Listesi ve Makine Taşıma
+
+- **Katalog:** makine kartları ürettiklerinin tamamını yazar (kısaltma yok). Her makine kartında KUR'un solunda bilgi ("i") düğmesi: `MachineInfoModal` makinenin reçetelerini girdi/çıktı adetleri, çevrim süresi, saniyelik üretim ve birim fiyatla gösterir (kilitli makinelerde de açılır). Katalogun altında "Birim Fiyat Listesi": `ItemPriceModal` bütün eşyaların temel satış fiyatını kademe kademe listeler. İkisi de `src/ui/CatalogInfoModals.ts` içindedir ve kayıtlardaki gerçek değerleri okur.
+- **Makine taşıma:** makine penceresinde SÖK ile YÜKSELT arasında TAŞI. Yeni yerleştirme türü `MACHINE_MOVE` (ücretsiz, döndürülebilir); `ProductionEngine.moveMachine` aynı makineyi seviyesi, reçetesi ve deposuyla taşır, yer uygun değilse eski yerinde bırakır. Makinenin kendi hücreleri taşırken boş sayılır (yerinde döndürme).
+- **Önceki işler:** tek yönlü hammadde girişi (DEC-026), yan ürün ayrımı (DEC-025).
+
+**Doğrulama:** `npm test` 262/262, `npx tsc --noEmit` temiz, `npm run build` başarılı. Tarayıcıda (masaüstü): katalog kartları, montaj istasyonu bilgi penceresi, fiyat listesi ve makine penceresindeki üç düğme görüldü; TAŞI yerleştirme modunu açtı. Taşımanın kendisi arayüzden tıklanarak değil, aynı yerleştirme işlevi çağrılarak sınandı (seviye 3 korundu, eski hücre boşaldı, dolu hücre reddedildi). Telefonda bakılmadı.

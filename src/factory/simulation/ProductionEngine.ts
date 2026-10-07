@@ -11,6 +11,7 @@
 import {
   DIRECTION_VECTORS,
   OPPOSITE_DIRECTIONS,
+  type GridCoord,
   type MachineEntityState,
 } from '../types.ts';
 import { GridMap } from './GridMap.ts';
@@ -88,6 +89,36 @@ export class ProductionEngine {
 
     this.machines.set(machine.instanceId, machine);
     this.machineLevels.set(machine.instanceId, Math.max(1, initialLevel));
+  }
+
+  /**
+   * Makineyi yeni konuma ve yöne taşır; seviyesi, reçetesi ve deposu korunur.
+   * Yeni yer uygun değilse makine eski yerinde kalır ve false döner.
+   */
+  moveMachine(instanceId: string, coord: GridCoord, rotation: 0 | 90 | 180 | 270): boolean {
+    const machine = this.machines.get(instanceId);
+    if (!machine) return false;
+
+    const previous = { x: machine.coord.x, y: machine.coord.y, rotation: machine.rotation };
+    this.grid.removeMachine(instanceId);
+
+    machine.coord.x = coord.x;
+    machine.coord.y = coord.y;
+    machine.rotation = rotation;
+    const ok = this.grid.canPlaceMachine(coord.x, coord.y, machine.effectiveWidth, machine.effectiveHeight);
+    if (!ok) {
+      machine.coord.x = previous.x;
+      machine.coord.y = previous.y;
+      machine.rotation = previous.rotation;
+    }
+    this.grid.placeMachine(
+      instanceId,
+      machine.coord.x,
+      machine.coord.y,
+      machine.effectiveWidth,
+      machine.effectiveHeight,
+    );
+    return ok;
   }
 
   /**

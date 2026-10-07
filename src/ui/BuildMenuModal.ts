@@ -9,6 +9,7 @@
  * ====================================================================== */
 
 import Phaser from 'phaser';
+import type { MachineDefinition } from '../factory/types.ts';
 import { defaultMachineRegistry } from '../factory/simulation/MachineRegistry.ts';
 import { MACHINE_SPRITE_TILE, machineThumbScale } from '../factory/view/MachineSprites.ts';
 import { defaultRecipeRegistry } from '../factory/simulation/RecipeRegistry.ts';
@@ -49,6 +50,10 @@ export interface BuildMenuModalConfig {
   onExpandPlot?: (plotIndex: number) => void;
   /** Kilitli veya parası yetmeyen karta basılınca gösterilecek açıklama */
   onDenied?: (message: string) => void;
+  /** Makine kartındaki bilgi düğmesi: makinenin reçetelerini gösteren pencere */
+  onMachineInfo?: (def: MachineDefinition) => void;
+  /** Alttaki "Birim Fiyat Listesi" düğmesi */
+  onPriceList?: () => void;
 }
 
 /** Yeni hammadde girişi kartlarının kimlik öneki (`intake_new_<hammadde>`) */
@@ -79,11 +84,12 @@ interface CardRef {
   button: UiButton;
 }
 
-const CARD_HEIGHT = 92;
-const CARD_HEIGHT_STACKED = 128;
+const CARD_HEIGHT = 100;
+const CARD_HEIGHT_STACKED = 140;
 const CARD_GAP = SPACE.sm;
 const ICON_BOX = 68;
-const SIDE_CTA_WIDTH = 108;
+const SIDE_CTA_WIDTH = 152;
+const INFO_BUTTON_WIDTH = 44;
 
 export class BuildMenuModal extends UiModal {
   private readonly economy: FactoryEconomy;
@@ -241,7 +247,7 @@ export class BuildMenuModal extends UiModal {
       const name = outputId ? defaultItemRegistry.get(outputId)?.name : undefined;
       if (name && !names.includes(name)) names.push(name);
     }
-    return names.length > 3 ? `${names.slice(0, 3).join(', ')} +${names.length - 3}` : names.join(', ');
+    return names.join(', ');
   }
 
   private lockStageOf(entry: CatalogEntry): number | null {
@@ -339,11 +345,28 @@ export class BuildMenuModal extends UiModal {
       }),
     );
 
-    // Eylem düğmesi
-    const buttonWidth = stacked ? cardWidth - textX - SPACE.sm : SIDE_CTA_WIDTH;
+    // Eylem düğmesi (makinelerde solunda "bilgi" düğmesiyle)
+    const machineDef = entry.item?.type === 'MACHINE' ? entry.item.machineDef : undefined;
+    const infoSpace = machineDef ? INFO_BUTTON_WIDTH + SPACE.xs : 0;
+    const buttonWidth = (stacked ? cardWidth - textX - SPACE.sm : SIDE_CTA_WIDTH) - infoSpace;
     const buttonHeight = stacked ? 40 : 48;
-    const buttonX = stacked ? textX + buttonWidth / 2 : cardWidth - SPACE.sm - buttonWidth / 2;
+    const buttonX = stacked
+      ? textX + infoSpace + buttonWidth / 2
+      : cardWidth - SPACE.sm - buttonWidth / 2;
     const buttonY = stacked ? cardHeight - SPACE.sm - buttonHeight / 2 : cardHeight / 2;
+
+    if (machineDef) {
+      // Kilitli makinenin de ne ürettiğine bakılabilir
+      card.add(
+        new UiButton(layer, buttonX - buttonWidth / 2 - SPACE.xs - INFO_BUTTON_WIDTH / 2, buttonY, {
+          width: INFO_BUTTON_WIDTH,
+          height: buttonHeight,
+          variant: 'secondary',
+          icon: uiIcon('info'),
+          onClick: () => this.callbacks.onMachineInfo?.(machineDef),
+        }),
+      );
+    }
 
     let button: UiButton;
     if (lockStage !== null) {
@@ -388,6 +411,23 @@ export class BuildMenuModal extends UiModal {
     if (entry.item) {
       this.callbacks.onSelectItem(entry.item);
     }
+  }
+
+  protected buildFooter(footer: Phaser.GameObjects.Container, width: number): number {
+    const height = 44;
+    const buttonWidth = Math.min(width, 260);
+    footer.add(
+      new UiButton(this.layer, width / 2, height / 2, {
+        width: buttonWidth,
+        height,
+        variant: 'secondary',
+        icon: uiIcon('info'),
+        label: 'BİRİM FİYAT LİSTESİ',
+        textVariant: 'buttonSmall',
+        onClick: () => this.callbacks.onPriceList?.(),
+      }),
+    );
+    return height;
   }
 
   /** Açıkken her karede çağrılır: paranın yetip yetmediğine göre düğmeleri günceller */

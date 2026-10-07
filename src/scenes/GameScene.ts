@@ -29,6 +29,7 @@ import { calculateOfflineReport } from '../ui/OfflineEarningsHelper.ts';
 import { UiLayer } from '../ui/system/UiLayer.ts';
 import { UiToast, type UiToastKind } from '../ui/system/UiWidgets.ts';
 import { UiConfirmDialog } from '../ui/system/UiConfirmDialog.ts';
+import { ItemPriceModal, MachineInfoModal } from '../ui/CatalogInfoModals.ts';
 import { MACHINE_SPRITE_SHEETS, PORT_ARROW_IMAGES } from '../factory/view/MachineSprites.ts';
 import { GridView } from '../factory/view/GridView.ts';
 import { CameraController } from '../factory/view/CameraController.ts';
@@ -96,6 +97,8 @@ export class GameScene extends Phaser.Scene {
   private contextBar!: ToolContextBar;
   private toast!: UiToast;
   private confirmDialog!: UiConfirmDialog;
+  private machineInfoModal!: MachineInfoModal;
+  private itemPriceModal!: ItemPriceModal;
 
   /* Pencereler */
   private buildMenuModal!: BuildMenuModal;
@@ -459,6 +462,11 @@ export class GameScene extends Phaser.Scene {
           } else if (result.itemType === 'EXPORT_MOVE' || this.placementController.currentItem?.type === 'EXPORT_MOVE') {
             this.gridView.refresh();
             this.notify('Sevkiyat Sandığı taşındı', 'success');
+          } else if (result.itemType === 'MACHINE_MOVE') {
+            this.machineRenderer.rebuild();
+            this.machineStatusIndicator.rebuild();
+            const movedName = this.productionEngine.getMachine(result.instanceId ?? '')?.def.name ?? 'Makine';
+            this.notify(`${movedName} taşındı`, 'success');
           } else if (result.instanceId) {
             this.machineRenderer.rebuild();
             this.machineStatusIndicator.rebuild();
@@ -498,6 +506,13 @@ export class GameScene extends Phaser.Scene {
         onRecipeChanged: (_machine, _recipeId) => {
           this.saveGame();
           sound.playCoin();
+        },
+        onMoveRequested: (machine) => {
+          this.startPlacement({
+            type: 'MACHINE_MOVE',
+            machineDef: machine.def,
+            sourceInstanceId: machine.instanceId,
+          });
         },
         onDemolishRequested: (machine) => {
           const result = DemolishMath.executeDemolish({
@@ -599,7 +614,11 @@ export class GameScene extends Phaser.Scene {
         }
       },
       onDenied: (message) => this.notify(message, 'warning'),
+      onMachineInfo: (def) => this.machineInfoModal.showFor(def),
+      onPriceList: () => this.itemPriceModal.open(),
     });
+    this.machineInfoModal = new MachineInfoModal(this.ui);
+    this.itemPriceModal = new ItemPriceModal(this.ui);
 
     /* Roket Hangarı */
     this.rocketHangar = new RocketHangarView(
@@ -1289,6 +1308,14 @@ export class GameScene extends Phaser.Scene {
         const cost = PlacementMath.getItemCost('INTAKE_NEW', undefined, item.intakeItemId);
         return { ...base, icon: uiIcon('intake'), title: `${name} Girişi · $${formatNumber(cost)}`, hint: isTouch ? `${stepHint} · ok çıkış yönü` : 'Bir hücreye tıkla · ok çıkış yönü · R: döndür', canRotate: true };
       }
+      case 'MACHINE_MOVE':
+        return {
+          ...base,
+          icon: item.machineDef?.spriteBaseKey ?? 'icon_factory',
+          title: `${item.machineDef?.name ?? 'Makine'} taşınıyor`,
+          hint: isTouch ? `${stepHint} · ücretsiz` : 'Bir hücreye tıkla · ücretsiz · R: döndür',
+          canRotate: true,
+        };
       case 'MACHINE': {
         const def = item.machineDef;
         return {

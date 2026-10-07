@@ -49,6 +49,8 @@ export interface MachineInspectorModalConfig {
   onUpgradeDenied?: () => void;
   onRecipeChanged?: (machine: MachineEntity, recipeId: string) => void;
   onDemolishRequested?: (machine: MachineEntity) => void;
+  /** Makine yeni bir yere taşınmak isteniyor (ücretsiz; seviye ve depo korunur) */
+  onMoveRequested?: (machine: MachineEntity) => void;
   onClose?: () => void;
 }
 
@@ -431,8 +433,9 @@ export class MachineInspectorModal extends UiModal {
 
     const height = 48;
     const gap = SPACE.sm;
-    const demolishWidth = Math.max(96, Math.round(width * 0.34));
-    const upgradeWidth = width - demolishWidth - gap;
+    const demolishWidth = Math.max(84, Math.round(width * 0.27));
+    const moveWidth = Math.max(72, Math.round(width * 0.22));
+    const upgradeWidth = width - demolishWidth - moveWidth - gap * 2;
 
     const demolishButton = new UiButton(this.layer, demolishWidth / 2, height / 2, {
       width: demolishWidth,
@@ -444,7 +447,20 @@ export class MachineInspectorModal extends UiModal {
       onClick: () => this.demolish(),
     });
 
-    this.upgradeButton = new UiButton(this.layer, demolishWidth + gap + upgradeWidth / 2, height / 2, {
+    const moveButton = new UiButton(this.layer, demolishWidth + gap + moveWidth / 2, height / 2, {
+      width: moveWidth,
+      height,
+      variant: 'secondary',
+      label: 'TAŞI',
+      sublabel: 'Ücretsiz',
+      onClick: () => this.move(),
+    });
+
+    this.upgradeButton = new UiButton(
+      this.layer,
+      demolishWidth + moveWidth + gap * 2 + upgradeWidth / 2,
+      height / 2,
+      {
       width: upgradeWidth,
       height,
       variant: 'primary',
@@ -452,11 +468,12 @@ export class MachineInspectorModal extends UiModal {
       sublabel: `$${formatNumber(data.upgradeCost)}`,
       silent: true,
       onClick: () => this.upgrade(),
-      onDisabledClick: () => this.callbacks.onUpgradeDenied?.(),
-    });
+        onDisabledClick: () => this.callbacks.onUpgradeDenied?.(),
+      },
+    );
     this.upgradeButton.setEnabled(data.canAffordUpgrade);
 
-    footer.add([demolishButton, this.upgradeButton]);
+    footer.add([demolishButton, moveButton, this.upgradeButton]);
     return height;
   }
 
@@ -488,6 +505,13 @@ export class MachineInspectorModal extends UiModal {
       this.rebuild();
       this.callbacks.onRecipeChanged?.(machine, recipeId);
     }
+  }
+
+  private move(): void {
+    const machine = this.targetMachine;
+    if (!machine) return;
+    this.close();
+    this.callbacks.onMoveRequested?.(machine);
   }
 
   private demolish(): void {

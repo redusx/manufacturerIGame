@@ -26,6 +26,7 @@ import { GridCoordinates } from '../view/GridCoordinates.ts';
 
 export type PlacementItemType =
   | 'MACHINE'
+  | 'MACHINE_MOVE'
   | 'CONVEYOR'
   | 'SPLITTER'
   | 'MERGER'
@@ -84,6 +85,8 @@ export interface PlacementValidationParams {
   sourceCoord?: GridCoord;
   /** INTAKE_NEW için: kurulacak girişin vereceği hammadde */
   intakeItemId?: string;
+  /** MACHINE_MOVE için: taşınan makinenin kimliği (kendi hücreleri boş sayılır) */
+  sourceInstanceId?: string;
 }
 
 export interface PlacementValidationResult {
@@ -303,8 +306,9 @@ export class PlacementMath {
     } = params;
 
     // 1. Ayak izi hesabı
+    const isMachine = itemType === 'MACHINE' || itemType === 'MACHINE_MOVE';
     const baseFootprint =
-      itemType === 'MACHINE' && machineDef
+      isMachine && machineDef
         ? { width: machineDef.width, height: machineDef.height }
         : { width: 1, height: 1 };
 
@@ -313,7 +317,7 @@ export class PlacementMath {
 
     // 2. Port önizlemesi
     const previewPorts =
-      itemType === 'MACHINE' && machineDef
+      isMachine && machineDef
         ? this.computePreviewWorldPorts(machineDef, rootCoord, direction)
         : [];
 
@@ -361,7 +365,13 @@ export class PlacementMath {
         c.x === params.sourceCoord.x &&
         c.y === params.sourceCoord.y;
 
-      if (!isSelfSource && !grid.isCellEmpty(c.x, c.y)) {
+      // Taşınan makinenin şu an kapladığı hücreler ona engel değildir
+      const isOwnCell =
+        itemType === 'MACHINE_MOVE' &&
+        params.sourceInstanceId !== undefined &&
+        grid.getCell(c.x, c.y)?.machineInstanceId === params.sourceInstanceId;
+
+      if (!isSelfSource && !isOwnCell && !grid.isCellEmpty(c.x, c.y)) {
         return {
           isValid: false,
           reason: 'CELL_OCCUPIED',
@@ -485,6 +495,26 @@ export class PlacementMath {
         spentMoney: validation.cost,
         coord: rootCoord,
         itemType: 'INTAKE_NEW',
+      };
+    }
+
+    // Makine taşıma: aynı makine (seviyesi, reçetesi ve deposuyla) yeni yere geçer
+    if (itemType === 'MACHINE_MOVE') {
+      if (!engine || !params.sourceInstanceId) {
+        throw new Error('[PlacementMath] Makine taşımak için ProductionEngine ve makine kimliği gereklidir.');
+      }
+      const moved = engine.moveMachine(
+        params.sourceInstanceId,
+        rootCoord,
+        this.directionToRotationDeg(direction),
+      );
+      return {
+        success: moved,
+        reason: moved ? undefined : 'CELL_OCCUPIED',
+        instanceId: params.sourceInstanceId,
+        spentMoney: 0,
+        coord: rootCoord,
+        itemType: 'MACHINE_MOVE',
       };
     }
 
