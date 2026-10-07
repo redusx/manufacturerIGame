@@ -131,10 +131,12 @@ export class MachineStatusIndicator {
       const relPos = MachineStatusHelper.computeBadgeRelativePosition(
         bounds.pixelW,
         bounds.pixelH,
-        7,
+        2,
       );
 
+      // Küçük ve köşeye taşmış: makine resmini örtmez
       const badgeContainer = this.scene.add.container(relPos.x, relPos.y);
+      badgeContainer.setScale(0.75);
 
       // Rozet arka planı (14x14 beveled kare)
       const badgeBg = this.scene.add.rectangle(0, 0, 14, 14, PALETTE.cardBg);

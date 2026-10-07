@@ -29,6 +29,8 @@ import {
 } from './PlacementMath.ts';
 import { PALETTE } from '../../ui/theme.ts';
 import { isPointerInsideViewport, isPointerOverUi, pointerToGrid } from './WorldPointer.ts';
+import { DIRECTION_VECTORS } from '../types.ts';
+import { PORT_ARROW_IN, PORT_ARROW_OUT, machineTextureKey } from '../view/MachineSprites.ts';
 
 export interface PlacementItem {
   type: PlacementItemType;
@@ -86,7 +88,7 @@ export class PlacementController {
   readonly ghostContainer: Phaser.GameObjects.Container;
   private ghostBoxGraphics: Phaser.GameObjects.Graphics;
   private ghostSprite: Phaser.GameObjects.Sprite | null = null;
-  private ghostPortGraphics: Phaser.GameObjects.Graphics;
+  private ghostPortArrows: Phaser.GameObjects.Image[] = [];
 
   /** Klavye dinleyicisi */
   private keyR?: Phaser.Input.Keyboard.Key;
@@ -121,8 +123,7 @@ export class PlacementController {
     // Hayalet önizleme katmanı (depth 120: zemin ve bantların üstü, UI altı)
     this.ghostContainer = this.scene.add.container(0, 0).setDepth(120).setVisible(false);
     this.ghostBoxGraphics = this.scene.add.graphics();
-    this.ghostPortGraphics = this.scene.add.graphics();
-    this.ghostContainer.add([this.ghostBoxGraphics, this.ghostPortGraphics]);
+    this.ghostContainer.add(this.ghostBoxGraphics);
 
     this.bindInputs();
   }
@@ -441,11 +442,11 @@ export class PlacementController {
 
     if (this.selectedItem.type === 'MACHINE' && this.selectedItem.machineDef) {
       const def = this.selectedItem.machineDef;
-      const textureKey = this.getMachineTextureKey(def.id);
+      const textureKey = machineTextureKey(def, 0);
 
       if (this.scene.textures.exists(textureKey)) {
-        this.ghostSprite = this.scene.add.sprite(0, 0, textureKey);
-        this.ghostSprite.setAlpha(0.65);
+        this.ghostSprite = this.scene.add.sprite(0, 0, textureKey, 0);
+        this.ghostSprite.setAlpha(0.8);
         this.ghostContainer.add(this.ghostSprite);
       }
     } else if (this.selectedItem.type === 'CONVEYOR') {
@@ -516,15 +517,25 @@ export class PlacementController {
     // 2. Sprite Konum ve Rotasyonunu Güncelle
     if (this.ghostSprite) {
       this.ghostSprite.setPosition(pixelW * 0.5, pixelH * 0.5);
-      this.ghostSprite.setTint(tintColor);
+      // Makine kendi renkleriyle görünür (katalogdaki gibi); yalnız geçersiz yerde kızarır
+      if (this.selectedItem.type === 'MACHINE' && isValid) {
+        this.ghostSprite.clearTint();
+      } else {
+        this.ghostSprite.setTint(tintColor);
+      }
 
       if (this.selectedItem.type === 'CONVEYOR') {
         const rad = ConveyorGeometry.directionToAngleRad(this.currentRotation);
         this.ghostSprite.setRotation(rad);
         this.ghostSprite.setDisplaySize(this.tileSize, this.tileSize);
       } else if (this.selectedItem.type === 'MACHINE' && this.selectedItem.machineDef) {
+        // Resim döndürülmez; o yöndeki çizim seçilir (fabrikadaki görünümle aynı)
         const rotDeg = PlacementMath.directionToRotationDeg(this.currentRotation);
-        this.ghostSprite.setAngle(rotDeg);
+        const key = machineTextureKey(this.selectedItem.machineDef, rotDeg);
+        if (this.ghostSprite.texture.key !== key && this.scene.textures.exists(key)) {
+          this.ghostSprite.setTexture(key, 0);
+        }
+        this.ghostSprite.setAngle(0);
         this.ghostSprite.setDisplaySize(pixelW, pixelH);
       } else if (
         this.selectedItem.type === 'INTAKE_MOVE' ||
@@ -536,43 +547,34 @@ export class PlacementController {
       }
     }
 
-    // 3. Port Oklarını Çiz (Yalnızca makineler için)
-    this.ghostPortGraphics.clear();
-    if (this.selectedItem.type === 'MACHINE' && validation.previewPorts.length > 0) {
-      const halfTile = this.tileSize * 0.5;
-
-      for (const port of validation.previewPorts) {
-        // Makine içi yerel merkez
-        const localCenterX = port.localCoord.x * this.tileSize + halfTile;
-        const localCenterY = port.localCoord.y * this.tileSize + halfTile;
-
-        const arrowDir = port.type === 'OUTPUT' ? port.direction : this.getOpposite(port.direction);
-        const arrowRad = ConveyorGeometry.directionToAngleRad(arrowDir);
-        const arrowColor = port.type === 'INPUT' ? PALETTE.successGreen : PALETTE.factoryAmber;
-
-        // Port kenar oku
-        this.ghostPortGraphics.fillStyle(arrowColor, 0.9);
-        this.ghostPortGraphics.lineStyle(1, PALETTE.borderDark, 1.0);
-
-        // Küçük ok üçgeni
-        const arrowLen = 8;
-        const tipX = localCenterX + Math.cos(arrowRad) * 10;
-        const tipY = localCenterY + Math.sin(arrowRad) * 10;
-
-        const leftX = tipX - Math.cos(arrowRad - 0.5) * arrowLen;
-        const leftY = tipY - Math.sin(arrowRad - 0.5) * arrowLen;
-        const rightX = tipX - Math.cos(arrowRad + 0.5) * arrowLen;
-        const rightY = tipY - Math.sin(arrowRad + 0.5) * arrowLen;
-
-        this.ghostPortGraphics.beginPath();
-        this.ghostPortGraphics.moveTo(tipX, tipY);
-        this.ghostPortGraphics.lineTo(leftX, leftY);
-        this.ghostPortGraphics.lineTo(rightX, rightY);
-        this.ghostPortGraphics.closePath();
-        this.ghostPortGraphics.fillPath();
-        this.ghostPortGraphics.strokePath();
-      }
+    // 3. Port okları (yalnızca makineler): fabrikadaki okların aynısı
+    const ports =
+      this.selectedItem.type === 'MACHINE' ? validation.previewPorts : [];
+    while (this.ghostPortArrows.length < ports.length) {
+      const arrow = this.scene.add.image(0, 0, PORT_ARROW_IN).setOrigin(0.5);
+      this.ghostContainer.add(arrow);
+      this.ghostPortArrows.push(arrow);
     }
+    const halfTile = this.tileSize * 0.5;
+    this.ghostPortArrows.forEach((arrow, index) => {
+      const port = ports[index];
+      if (!port) {
+        arrow.setVisible(false);
+        return;
+      }
+      const vec = DIRECTION_VECTORS[port.direction];
+      const isInput = port.type === 'INPUT';
+      const flow = isInput ? this.getOpposite(port.direction) : port.direction;
+      arrow
+        .setTexture(isInput ? PORT_ARROW_IN : PORT_ARROW_OUT)
+        .setPosition(
+          Math.round(port.localCoord.x * this.tileSize + halfTile + vec.dx * halfTile),
+          Math.round(port.localCoord.y * this.tileSize + halfTile + vec.dy * halfTile),
+        )
+        .setRotation(ConveyorGeometry.directionToAngleRad(flow))
+        .setVisible(true);
+      this.ghostContainer.bringToTop(arrow);
+    });
   }
 
   // -------------------------------------------------------------
@@ -638,18 +640,6 @@ export class PlacementController {
   // -------------------------------------------------------------
   // YARDIMCILAR
   // -------------------------------------------------------------
-
-  private getMachineTextureKey(machineId: string): string {
-    const keyMap: Record<string, string> = {
-      crusher: 'machine_press',
-      smelter: 'machine_bench',
-      press: 'machine_press',
-      cutter: 'machine_welder',
-      refinery: 'machine_automation',
-      assembler: 'machine_automation',
-    };
-    return keyMap[machineId] ?? 'machine_press';
-  }
 
   private getOpposite(dir: Direction): Direction {
     const opp: Record<Direction, Direction> = {

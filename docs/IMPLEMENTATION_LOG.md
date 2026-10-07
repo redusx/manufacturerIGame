@@ -1222,3 +1222,12 @@
 - Dar kartlarda uzun makine/parça adları kırpılıyordu (önce küçült, sonra kısalt).
 
 **Doğrulama:** `npm test` 262/262, `npx tsc --noEmit` temiz, `npm run build` başarılı. Tarayıcıda (cihaz piksel oranı 2) 375x812, 390x844, 812x375, 844x390, 768x1024, 1024x768, 1280x720, 1366x768, 1920x1080 ve 2560x1080'de açılış; telefonda dikey/yatay ve masaüstünde bütün akışlar elle oynandı (dokunma: sentetik dokunma olayları). Her boyutta kullanılabilir bütün ölçek kademelerinde ana ekran ve altı pencere için otomatik taşma/kırpılma denetimi temiz. Ayrıntılı tablo: `UI_UX_SYSTEM.md` §17. Fiziksel telefon/tablette oynanmadı.
+
+### [2026-10-07] — Makine Girdi/Çıktı Düzeltmeleri, Port Okları ve Yeni Makine Görselleri
+
+**Sorun:** Oyuncu 5. aşamada presi besleyemedi. (1) Aşama metni oyunda olmayan "Demir Levha"yı istiyordu (eşyanın adı Çelik Levha). (2) Makineler girdiyi yalnız tek kenardaki porttan alıyordu ve port işareti 6 piksellik bir kareydi. (3) Girdi her kenardan kabul edilince, çıkış portunun önünden beslenen makine ürününü besleme bandına geri basıp hattı kilitledi.
+
+**Yapılanlar:** DEC-023 ve DEC-024. `LogisticsNetwork` (her kenardan girdi), `ProductionEngine` (geri akan banda çıktı yok; bitişik makineye her kenardan aktarım), `MilestoneManager` (eşya adları), `MachineSprites.ts` (yeni), `MachineRegistry` (yeni doku anahtarları), `MachineRenderer` (döndürülmeyen doku, kare animasyonu, ok sprite'ları, tıkalı çıkışta yanıp sönme), `PlacementController` (hayalette aynı doku ve oklar; Graphics okları kaldırıldı), `BuildMenuModal` ve `MachineInspectorModal` (aynı doku, durum açıklaması), `MachineStatusIndicator` (küçük rozet), `tools/generate_machine_assets.py` (yeni).
+
+**Doğrulama:** `npm test` 262/262, `npx tsc --noEmit` temiz, `npm run build` başarılı. Başsız simülasyon: yandan beslenen pres levha üretti; çıkış okunun önünden beslenen pres artık hattı kilitlemiyor. Tarayıcıda (masaüstü): altı makine ve döndürülmüş pres/fırın fabrikada, katalogda, hayalette (R ile döndürme) ve makine penceresinde aynı görselle ve oklarla göründü. Uçtan uca bir pres hattı tarayıcıda elle kurulup oynanmadı; telefonda bakılmadı.
+

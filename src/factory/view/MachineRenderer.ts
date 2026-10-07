@@ -14,11 +14,19 @@ import type { MachineEntity } from '../simulation/MachineEntity.ts';
 import {
   MachineVisualGeometry,
   type MachineVisualBounds,
-  type PortVisualData,
 } from './MachineVisualGeometry.ts';
 import { GridCoordinates } from './GridCoordinates.ts';
 import { PALETTE, FONT_FAMILY } from '../../ui/theme.ts';
 import { bindWorldTap } from '../input/WorldPointer.ts';
+import { DIRECTION_VECTORS, OPPOSITE_DIRECTIONS } from '../types.ts';
+import { ConveyorGeometry } from './ConveyorGeometry.ts';
+import {
+  MACHINE_WORK_FPS,
+  MACHINE_WORK_FRAMES,
+  PORT_ARROW_IN,
+  PORT_ARROW_OUT,
+  machineTextureKey,
+} from './MachineSprites.ts';
 
 export interface MachineRendererConfig {
   tileSize?: number;
@@ -30,10 +38,15 @@ interface MachineVisualBay {
   machine: MachineEntity;
   container: Phaser.GameObjects.Container;
   baseSprite: Phaser.GameObjects.Sprite | Phaser.GameObjects.Rectangle;
-  activePartSprite?: Phaser.GameObjects.Sprite;
+  /** Çıkış okları; çıkış tıkandığında yanıp sönerler */
+  outputArrows: Phaser.GameObjects.Image[];
   portGraphicsContainer: Phaser.GameObjects.Container;
   levelBadgeText?: Phaser.GameObjects.Text;
   animTimer: number;
+  /** Gösterilen animasyon karesi ve ok durumu (yalnız değişince güncellenir) */
+  frame: number;
+  arrowAlpha: number;
+  arrowBlocked: boolean;
 }
 
 export class MachineRenderer {
@@ -117,89 +130,46 @@ export class MachineRenderer {
     // Makine merkezinde ana konteyner
     const bayContainer = this.scene.add.container(bounds.centerX, bounds.centerY);
 
-    // 1. Taban Kaidesi / Şasi (Derin çelik arka plan gölgesi)
-    const baseBed = this.scene.add.rectangle(
-      0,
-      0,
-      bounds.pixelW - 2,
-      bounds.pixelH - 2,
-      PALETTE.cardBg,
-    );
-    bayContainer.add(baseBed);
-
-    // 2. Makine Gövde Sprite'ı
+    // 1. Makine gövdesi: resim döndürülmez, yönü oklar gösterir. Katalogdaki ve
+    //    yerleştirme hayaletindeki dokunun aynısıdır (MachineSprites).
+    const textureKey = machineTextureKey(machine.def, machine.rotation);
     let baseSprite: Phaser.GameObjects.Sprite | Phaser.GameObjects.Rectangle;
-    if (this.scene.textures.exists(machine.def.spriteBaseKey)) {
-      const sprite = this.scene.add.sprite(0, 0, machine.def.spriteBaseKey);
+    if (this.scene.textures.exists(textureKey)) {
+      const sprite = this.scene.add.sprite(0, 0, textureKey, 0);
       sprite.setOrigin(0.5, 0.5);
-      sprite.setRotation(bounds.rotationRad);
-      // Sprite boyutunu ayak izi boyutuna ölçekle (64x64 baz alınır)
-      const scaleX = bounds.pixelW / 64;
-      const scaleY = bounds.pixelH / 64;
-      sprite.setScale(scaleX, scaleY);
+      sprite.setDisplaySize(bounds.pixelW, bounds.pixelH);
       bayContainer.add(sprite);
       baseSprite = sprite;
     } else {
-      // Doku yoksa endüstriyel koyu dikdörtgen
-      const rect = this.scene.add.rectangle(
-        0,
-        0,
-        bounds.pixelW - 4,
-        bounds.pixelH - 4,
-        PALETTE.panelBg,
-      );
-      rect.setRotation(bounds.rotationRad);
+      const rect = this.scene.add.rectangle(0, 0, bounds.pixelW - 4, bounds.pixelH - 4, PALETTE.panelBg);
       bayContainer.add(rect);
       baseSprite = rect;
-    }
-
-    // 3. Çalışan Hareketli Parça Sprite'ı (Moving Part)
-    let activePartSprite: Phaser.GameObjects.Sprite | undefined;
-    if (
-      machine.def.spriteActiveKey &&
-      this.scene.textures.exists(machine.def.spriteActiveKey)
-    ) {
-      const part = this.scene.add.sprite(0, 0, machine.def.spriteActiveKey);
-      part.setOrigin(0.5, 0.5);
-      part.setRotation(bounds.rotationRad);
-      // Hareketli parça ölçeklemesi
-      const scaleX = (bounds.pixelW / 64) * 0.9;
-      const scaleY = (bounds.pixelH / 64) * 0.9;
-      part.setScale(scaleX, scaleY);
-      bayContainer.add(part);
-      activePartSprite = part;
     }
 
     // 4. Port Göstergeleri (INPUT / OUTPUT Okları)
     const portContainer = this.scene.add.container(0, 0);
     bayContainer.add(portContainer);
 
-    this.renderPortIndicators(machine, bounds, portContainer);
+    const outputArrows = this.renderPortIndicators(machine, bounds, portContainer);
 
-    // 5. Seviye Rozeti (Level Badge: Lv.N)
+    // 5. Seviye rozeti: makine resmini örtmesin diye sol-üst köşede, zeminsiz ve
+    //    konturlu yazıdır; 1. seviyede (varsayılan) hiç gösterilmez.
     const level = this.engine.getMachineLevel(machine.instanceId);
-    const badgeBg = this.scene.add.rectangle(
-      -bounds.pixelW * 0.5 + 14,
-      -bounds.pixelH * 0.5 + 8,
-      24,
-      12,
-      PALETTE.borderDark,
-    );
-    badgeBg.setOrigin(0.5, 0.5);
-    bayContainer.add(badgeBg);
-
     const levelText = this.scene.add.text(
-      -bounds.pixelW * 0.5 + 14,
-      -bounds.pixelH * 0.5 + 8,
+      -bounds.pixelW * 0.5 + 1,
+      -bounds.pixelH * 0.5,
       `Lv.${level}`,
       {
         fontFamily: FONT_FAMILY,
         fontSize: '9px',
         color: PALETTE.resourceGoldHex,
         fontStyle: 'bold',
+        stroke: '#0c1020',
+        strokeThickness: 3,
       },
     );
-    levelText.setOrigin(0.5, 0.5);
+    levelText.setOrigin(0, 0.5);
+    levelText.setVisible(level > 1);
     bayContainer.add(levelText);
 
     // 6. Etkileşim Alanı (Tıklama Bölgesi)
@@ -222,55 +192,51 @@ export class MachineRenderer {
       machine,
       container: bayContainer,
       baseSprite,
-      activePartSprite,
+      outputArrows,
       portGraphicsContainer: portContainer,
       levelBadgeText: levelText,
       animTimer: 0,
+      frame: 0,
+      arrowAlpha: 1,
+      arrowBlocked: false,
     });
   }
 
   /**
-   * Port giriş ve çıkış oklarını çizer.
+   * Port oklarını çizer: yeşil ok girdinin makineye girdiği, turuncu ok ürünün
+   * çıktığı kenarı ve yönü gösterir. Ok, hücre kenarının tam üstünde durur.
+   * Çıkış oklarını döner (çıkış tıkandığında yanıp sönerler).
    */
   private renderPortIndicators(
     machine: MachineEntity,
     bounds: MachineVisualBounds,
     portContainer: Phaser.GameObjects.Container,
-  ): void {
-    const worldPorts = machine.getWorldPorts();
-    const portVisuals: PortVisualData[] = MachineVisualGeometry.computePortVisuals(
-      worldPorts,
-      this.tileSize,
-      0,
-      0,
-    );
+  ): Phaser.GameObjects.Image[] {
+    const outputArrows: Phaser.GameObjects.Image[] = [];
+    const half = this.tileSize * 0.5;
 
-    for (const pv of portVisuals) {
-      // Bay container merkezine göre bağıl koordinat
-      const localX = pv.arrowWorldX - bounds.centerX;
-      const localY = pv.arrowWorldY - bounds.centerY;
+    for (const port of machine.getWorldPorts()) {
+      const vec = DIRECTION_VECTORS[port.direction];
+      const isInput = port.type === 'INPUT';
+      // Ok akış yönüne bakar: giriş içeri, çıkış dışarı
+      const flow = isInput ? OPPOSITE_DIRECTIONS[port.direction] : port.direction;
 
-      const isInput = pv.type === 'INPUT';
-      const color = isInput ? PALETTE.successGreen : PALETTE.factoryAmber;
-
-      // Küçük piksel gösterge oku (8x8 dikdörtgen taban)
-      const arrowIndicator = this.scene.add.rectangle(
-        localX,
-        localY,
-        6,
-        6,
-        color,
+      const arrow = this.scene.add.image(
+        Math.round(port.worldCoord.x * this.tileSize + half + vec.dx * half - bounds.centerX),
+        Math.round(port.worldCoord.y * this.tileSize + half + vec.dy * half - bounds.centerY),
+        isInput ? PORT_ARROW_IN : PORT_ARROW_OUT,
       );
-      arrowIndicator.setOrigin(0.5, 0.5);
-      arrowIndicator.setRotation(pv.arrowAngleRad);
-      portContainer.add(arrowIndicator);
+      arrow.setOrigin(0.5, 0.5);
+      arrow.setRotation(ConveyorGeometry.directionToAngleRad(flow));
+      portContainer.add(arrow);
+      if (!isInput) outputArrows.push(arrow);
     }
+    return outputArrows;
   }
 
   /**
-   * Her render karesinde çağrılır.
-   * Makinelerin animasyon sayaçlarını ilerletir ve çalışan parçaların
-   * fiziksel piston salınımını günceller.
+   * Her render karesinde çağrılır: seviye rozetini eşitler, çalışan makinenin
+   * animasyon karesini ilerletir, çıkışı tıkalı makinenin çıkış okunu yakıp söndürür.
    *
    * @param dt Geçen kare süresi (saniye)
    */
@@ -280,28 +246,38 @@ export class MachineRenderer {
     for (const bay of this.visualBays.values()) {
       const machine = bay.machine;
 
-      // 1. Seviye metnini senkronize et
       if (bay.levelBadgeText) {
-        const currentLevel = this.engine.getMachineLevel(machine.instanceId);
-        const expected = `Lv.${currentLevel}`;
+        const expected = `Lv.${this.engine.getMachineLevel(machine.instanceId)}`;
         if (bay.levelBadgeText.text !== expected) {
           bay.levelBadgeText.setText(expected);
+          bay.levelBadgeText.setVisible(expected !== 'Lv.1');
         }
       }
 
-      // 2. Hareketli parça animasyonu (yalnızca PROCESSING durumunda)
-      if (bay.activePartSprite) {
-        if (machine.status === 'PROCESSING') {
-          bay.animTimer += dt;
-          const offset = MachineVisualGeometry.computeActivePartOffset(
-            machine.status,
-            bay.animTimer,
-            3.0,
-          );
-          bay.activePartSprite.setPosition(offset.offsetX, offset.offsetY);
-        } else {
-          bay.activePartSprite.setPosition(0, 0);
-          bay.animTimer = 0;
+      bay.animTimer += dt;
+
+      if (bay.baseSprite instanceof Phaser.GameObjects.Sprite) {
+        const frame =
+          machine.status === 'PROCESSING'
+            ? 1 + (Math.floor(bay.animTimer * MACHINE_WORK_FPS) % MACHINE_WORK_FRAMES)
+            : 0;
+        if (bay.frame !== frame) {
+          bay.frame = frame;
+          bay.baseSprite.setFrame(frame);
+        }
+      }
+
+      const blocked = machine.status === 'BLOCKED_OUTPUT';
+      const blinkOn = !blocked || Math.floor(bay.animTimer * 3) % 2 === 0;
+      const alpha = blinkOn ? 1 : 0.25;
+      const tinted = blocked;
+      if (bay.arrowAlpha !== alpha || bay.arrowBlocked !== tinted) {
+        bay.arrowAlpha = alpha;
+        bay.arrowBlocked = tinted;
+        for (const arrow of bay.outputArrows) {
+          arrow.setAlpha(alpha);
+          if (tinted) arrow.setTint(PALETTE.dangerRed);
+          else arrow.clearTint();
         }
       }
     }

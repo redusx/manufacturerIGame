@@ -131,12 +131,12 @@ describe('Modal Layering & Click-Through Dismissal Integration Tests', () => {
       conveyor: 'conveyor_belt',
       splitter: 'conveyor_belt',
       merger: 'conveyor_belt',
-      crusher: 'machine_press',
-      smelter: 'machine_bench',
-      press: 'machine_press',
-      cutter: 'machine_welder',
-      assembler: 'machine_automation',
-      refinery: 'machine_bench',
+      crusher: 'mach_crusher',
+      smelter: 'mach_smelter',
+      press: 'mach_press',
+      cutter: 'mach_cutter',
+      assembler: 'mach_assembler',
+      refinery: 'mach_refinery',
     };
 
     for (const [id, expectedKey] of Object.entries(expectedIconKeys)) {

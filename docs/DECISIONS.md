@@ -165,3 +165,19 @@
 * **Karar:** Makineye doğru akan bant, makinenin hangi hücresine ve hangi kenarına dayanırsa dayansın girdiyi teslim eder. Giriş portu işareti yalnızca önerilen yönü gösterir. Çıkış portu bağlayıcı kalır: ürün yalnızca çıkış portunun önündeki banda verilir. Makine, etkin reçetesinin istemediği eşyayı almaz.
 * **Gerekçe:** Oyuncu 5. aşamada presi (1x2, tek girişi üst hücrenin kuzeyinde) yandan besledi; doğru eşya geldiği hâlde bant sessizce tıkandı ve bu hata gibi göründü. Küçük port işaretiyle tek kenar kuralı öğretilemiyordu.
 * **Not:** Aşama metinlerindeki eşya adları da eşya kayıtlarıyla eşitlendi ("Demir Levha" → "Çelik Levha", "Çelik Dişli" → "Hassas Dişli" vb.); oyunda "Demir Levha" adında bir eşya yoktu.
+
+### [DEC-024] Makine Görünümü ve Port Okları
+* **Tarih:** 2026-10-07
+* **Karar:**
+  1. Her makinenin kendine ait, ayak izi boyutunda çizilmiş bir dokusu vardır (`public/assets/machines/`, üretici: `tools/generate_machine_assets.py`). Katalog kartı, yerleştirme hayaleti, fabrika zemini ve makine penceresi aynı dokuyu kullanır (`src/factory/view/MachineSprites.ts`).
+  2. Makine döndürülünce resim döndürülmez; kare olmayan makinelerin (fırın, pres) yatay ve dikey iki çizimi vardır. Yönü oklar gösterir: **yeşil ok** girdinin girdiği, **turuncu ok** ürünün çıktığı kenar ve yöndür. Oklar hayalette de görünür.
+  3. Çıkışı tıkalı makinenin çıkış oku kırmızı yanıp söner; makine penceresi duruma göre ne yapılacağını yazar.
+  4. Makine, kendisine doğru akan banda ürün vermez. (DEC-023 sonrası, çıkış okunun önünden beslenen makine ürününü besleme bandına geri basıp hattı kilitliyordu.) Bitişik makineler arası doğrudan aktarım da girdiyi her kenardan kabul eder.
+  5. Seviye rozeti 1. seviyede gösterilmez; seviye ve durum rozetleri makine resmini örtmeyecek şekilde köşeye alındı.
+* **Not:** Eski `machine_*.png` dokuları artık yüklenmiyor; dosyaları silinmedi.
+
+
+### [DEC-025] Yan Ürün (Hurda) Asıl Hattı Tıkamaz
+* **Tarih:** 2026-10-07
+* **Karar:** Reçetenin yan ürünü (kesicide Hurda Talaş) yalnızca hurda portundan (`out_scrap`; kesicide doğuya bakan ikinci turuncu ok) çıkar, asıl ürün yalnızca ana çıkıştan. Hurda portunun önünde onu alabilecek bir bant/sandık yoksa hurda atılır; makineyi ve hattı tıkamaz. Hurdayı satmak isteyen oyuncu hurda portuna bant bağlar.
+* **Gerekçe:** Oyuncu 8. aşamada dişliyi montaj istasyonuna bağladı; aynı banda karışan hurdayı istasyon almadığı için hat kilitlendi ve hurdayı ayıracak/atacak bir araç yoktu.

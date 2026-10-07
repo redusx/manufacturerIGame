@@ -23,6 +23,15 @@ import {
 } from './MachineInspectorHelper.ts';
 import { formatNumber } from '../../utils/format.ts';
 import { SEMANTIC, SPACE, uiIcon } from '../../ui/theme.ts';
+import { machineTextureKey, machineThumbScale } from './MachineSprites.ts';
+
+/** Duruma göre oyuncuya ne yapacağını söyleyen kısa açıklama */
+const STATUS_HINTS: Record<string, string> = {
+  PROCESSING: 'Yeşil ok girdinin girdiği, turuncu ok ürünün çıktığı yönü gösterir.',
+  WAITING_INPUT: 'Girdi bekliyor: reçetenin istediği eşyayı taşıyan bandı makineye yönelt.',
+  BLOCKED_OUTPUT: 'Çıkış tıkalı: turuncu okun önüne, makineden uzağa giden bir bant koy.',
+  IDLE: 'Yeşil ok girdinin girdiği, turuncu ok ürünün çıktığı yönü gösterir.',
+};
 import { UiButton } from '../../ui/system/UiButton.ts';
 import type { UiLayer } from '../../ui/system/UiLayer.ts';
 import { UiModal } from '../../ui/system/UiModal.ts';
@@ -74,6 +83,8 @@ export class MachineInspectorModal extends UiModal {
 
   // Canlı güncellenen öğeler
   private statusChip: UiChip | null = null;
+  private statusHint: Phaser.GameObjects.Text | null = null;
+  private statusHintStatus = '';
   private statusChipRight = 0;
   private cycleBar: UiProgressBar | null = null;
   private bufferRows: BufferRow[] = [];
@@ -106,6 +117,7 @@ export class MachineInspectorModal extends UiModal {
     this.targetMachine = null;
     this.structureSignature = '';
     this.statusChip = null;
+    this.statusHint = null;
     this.cycleBar = null;
     this.bufferRows = [];
     this.upgradeButton = null;
@@ -159,6 +171,10 @@ export class MachineInspectorModal extends UiModal {
   }
 
   private applyLiveValues(data: MachineInspectorData): void {
+    if (this.statusHint && this.statusHintStatus !== data.status) {
+      this.statusHintStatus = data.status;
+      this.statusHint.setText(STATUS_HINTS[data.status] ?? '');
+    }
     if (this.statusChip) {
       this.statusChip.setChip(data.statusLabel, data.statusColorInt);
       this.statusChip.setX(this.statusChipRight - this.statusChip.chipWidth);
@@ -191,6 +207,7 @@ export class MachineInspectorModal extends UiModal {
     const data = this.inspect();
     this.bufferRows = [];
     this.statusChip = null;
+    this.statusHint = null;
     this.cycleBar = null;
     if (!data || !this.targetMachine) return 0;
     this.structureSignature = this.signatureOf(data);
@@ -208,13 +225,16 @@ export class MachineInspectorModal extends UiModal {
     };
 
     // --- Durum ve seviye ---------------------------------------------------
-    const statusH = 72;
+    const statusH = 88;
     body.add(createInset(scene, 0, y, width, statusH));
-    const sprite = scene.add.image(SPACE.sm + 28, y + 32, machine.def.spriteBaseKey ?? 'machine_bench').setOrigin(0.5);
-    sprite.setScale(Math.min(1, 48 / Math.max(sprite.width, sprite.height)));
+    // Fabrikadaki görünümün aynısı (yön dahil), tamsayı ölçekle
+    const sprite = scene.add
+      .image(SPACE.sm + 32, y + 38, machineTextureKey(machine.def, machine.rotation), 0)
+      .setOrigin(0.5);
+    sprite.setScale(machineThumbScale(sprite.width, sprite.height, 64));
     body.add(sprite);
 
-    const infoX = SPACE.sm + 64;
+    const infoX = SPACE.sm + 72;
     body.add(layer.text(infoX, y + 12, `Seviye ${data.level}`, 'heading'));
     body.add(
       layer.text(infoX, y + 34, `Hız ${MachineInspectorHelper.formatSpeed(data.speedMultiplier)}`, 'caption', {
@@ -230,9 +250,18 @@ export class MachineInspectorModal extends UiModal {
     body.add(this.statusChip);
 
     // Üretim çevriminin ilerlemesi
-    this.cycleBar = new UiProgressBar(scene, SPACE.sm, y + statusH - 16, width - SPACE.sm * 2, 8, 'gold');
+    this.cycleBar = new UiProgressBar(scene, SPACE.sm, y + statusH - 12, width - SPACE.sm * 2, 8, 'gold');
     body.add(this.cycleBar);
-    y += statusH + SPACE.md;
+    y += statusH + SPACE.sm;
+
+    // Durum açıklaması: makine neden durduğunu ve ne yapılacağını söyler
+    this.statusHint = layer.text(0, y, STATUS_HINTS[data.status] ?? '', 'caption', {
+      color: SEMANTIC.textMuted,
+      wrapWidth: width,
+    });
+    this.statusHintStatus = data.status;
+    body.add(this.statusHint);
+    y += 30 + SPACE.sm;
 
     // --- Üretim: ne üretiyor, ne hızla --------------------------------------
     const activeRecipe = data.availableRecipes.find((r) => r.isActive) ?? null;

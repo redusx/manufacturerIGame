@@ -148,8 +148,7 @@ export class MachineRegistry {
         { id: 'in_main', type: 'INPUT', localX: 0, localY: 0, direction: 'NORTH' },
         { id: 'out_main', type: 'OUTPUT', localX: 0, localY: 0, direction: 'SOUTH' },
       ],
-      spriteBaseKey: 'machine_press',
-      spriteActiveKey: 'machine_press_part',
+      spriteBaseKey: 'mach_crusher',
       inputBufferCapacity: 5,
       outputBufferCapacity: 5,
     });
@@ -174,8 +173,7 @@ export class MachineRegistry {
         { id: 'in_main', type: 'INPUT', localX: 0, localY: 0, direction: 'WEST' },
         { id: 'out_main', type: 'OUTPUT', localX: 1, localY: 0, direction: 'EAST' },
       ],
-      spriteBaseKey: 'machine_bench',
-      spriteActiveKey: 'machine_bench_part',
+      spriteBaseKey: 'mach_smelter',
       inputBufferCapacity: 6,
       outputBufferCapacity: 6,
     });
@@ -196,8 +194,7 @@ export class MachineRegistry {
         { id: 'in_main', type: 'INPUT', localX: 0, localY: 0, direction: 'NORTH' },
         { id: 'out_main', type: 'OUTPUT', localX: 0, localY: 1, direction: 'SOUTH' },
       ],
-      spriteBaseKey: 'machine_press',
-      spriteActiveKey: 'machine_press_part',
+      spriteBaseKey: 'mach_press',
       inputBufferCapacity: 6,
       outputBufferCapacity: 6,
     });
@@ -219,8 +216,7 @@ export class MachineRegistry {
         { id: 'out_main', type: 'OUTPUT', localX: 0, localY: 0, direction: 'SOUTH' },
         { id: 'out_scrap', type: 'OUTPUT', localX: 0, localY: 0, direction: 'EAST' }, // Yan ürün portu
       ],
-      spriteBaseKey: 'machine_welder',
-      spriteActiveKey: 'machine_welder_part',
+      spriteBaseKey: 'mach_cutter',
       inputBufferCapacity: 5,
       outputBufferCapacity: 5,
     });
@@ -251,8 +247,7 @@ export class MachineRegistry {
         { id: 'in_3', type: 'INPUT', localX: 0, localY: 1, direction: 'WEST' },
         { id: 'out_main', type: 'OUTPUT', localX: 0, localY: 1, direction: 'SOUTH' },
       ],
-      spriteBaseKey: 'machine_automation',
-      spriteActiveKey: 'machine_automation_part',
+      spriteBaseKey: 'mach_assembler',
       inputBufferCapacity: 8,
       outputBufferCapacity: 6,
     });
@@ -279,8 +274,7 @@ export class MachineRegistry {
         { id: 'out_1', type: 'OUTPUT', localX: 1, localY: 0, direction: 'EAST' },
         { id: 'out_2', type: 'OUTPUT', localX: 1, localY: 1, direction: 'EAST' },
       ],
-      spriteBaseKey: 'machine_bench',
-      spriteActiveKey: 'machine_bench_part',
+      spriteBaseKey: 'mach_refinery',
       inputBufferCapacity: 8,
       outputBufferCapacity: 8,
     });

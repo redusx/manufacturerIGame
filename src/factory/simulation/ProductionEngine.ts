@@ -19,6 +19,9 @@ import { MachineEntity } from './MachineEntity.ts';
 import { MachineRegistry, defaultMachineRegistry } from './MachineRegistry.ts';
 import { RecipeRegistry, defaultRecipeRegistry } from './RecipeRegistry.ts';
 
+/** Yan ürünün (hurda) çıktığı portun kimliği */
+const SCRAP_PORT_ID = 'out_scrap';
+
 export class ProductionEngine {
   readonly grid: GridMap;
   readonly logistics: LogisticsNetwork;
@@ -288,7 +291,7 @@ export class ProductionEngine {
 
         // Hedef 1: İhracat Sandığı (EXPORT)
         if (targetCell.type === 'EXPORT') {
-          const popped = machine.popAnyOutput();
+          const popped = this.popOutputFor(machine, port);
           if (popped && this.logistics.onItemDelivered) {
             this.logistics.onItemDelivered({
               itemId: popped.itemId,
@@ -306,7 +309,7 @@ export class ProductionEngine {
           // onu girdi olarak almaz ve bandın ucunda kalıp besleme hattını kilitler.
           const flowsBackIn = belt?.direction === OPPOSITE_DIRECTIONS[port.direction];
           if (belt && !flowsBackIn && belt.canAcceptItem()) {
-            const popped = machine.popAnyOutput();
+            const popped = this.popOutputFor(machine, port);
             if (popped) {
               belt.acceptItem(popped.itemId, 0.0);
             }
@@ -320,7 +323,7 @@ export class ProductionEngine {
             splitter.inputDirection === port.direction &&
             splitter.canAcceptItem()
           ) {
-            const popped = machine.popAnyOutput();
+            const popped = this.popOutputFor(machine, port);
             if (popped) {
               splitter.acceptItem(popped.itemId);
             }
@@ -330,7 +333,7 @@ export class ProductionEngine {
           // Merger
           const merger = this.logistics.getMerger(targetX, targetY);
           if (merger && merger.canAcceptFrom(port.direction)) {
-            const popped = machine.popAnyOutput();
+            const popped = this.popOutputFor(machine, port);
             if (popped) {
               merger.acceptItemFrom(port.direction, popped.itemId);
             }
@@ -342,25 +345,54 @@ export class ProductionEngine {
         if (targetCell.type === 'MACHINE' && targetCell.machineInstanceId) {
           const nextMachine = this.machines.get(targetCell.machineInstanceId);
           if (nextMachine) {
-            const inPort = nextMachine.getPortAt(targetX, targetY);
-            if (
-              inPort &&
-              inPort.type === 'INPUT' &&
-              inPort.direction === OPPOSITE_DIRECTIONS[port.direction]
-            ) {
-              const peek = machine.peekAnyOutput();
-              if (peek && nextMachine.canAcceptInput(peek.itemId)) {
-                const popped = machine.popAnyOutput();
-                if (popped) {
-                  nextMachine.addInput(popped.itemId);
-                }
-                continue;
+            // Bant gibi, bitişik makine de girdiyi her kenarından alır (DEC-023)
+            const peek = this.peekOutputFor(machine, port);
+            if (nextMachine !== machine && peek && nextMachine.canAcceptInput(peek.itemId)) {
+              const popped = this.popOutputFor(machine, port);
+              if (popped) {
+                nextMachine.addInput(popped.itemId);
               }
+              continue;
             }
           }
         }
       }
+
+      // Yan ürün (hurda) hattı tıkamasın: hurda portundan o an çıkamayan hurda atılır.
+      for (const itemId of this.byproductIdsOf(machine)) {
+        while (machine.popOutput(itemId)) {
+          /* atıldı */
+        }
+      }
     }
+  }
+
+  /** Makinenin etkin reçetesindeki yan ürünler (reçetede `probability` taşıyan çıktılar) */
+  private byproductIdsOf(machine: MachineEntity): string[] {
+    const recipe = machine.activeRecipeId ? this.recipeRegistry.get(machine.activeRecipeId) : undefined;
+    if (!recipe) return [];
+    return recipe.outputs.filter((out) => out.probability !== undefined).map((out) => out.itemId);
+  }
+
+  /**
+   * Bu porttan çıkabilecek sıradaki ürün. Yan ürün yalnızca hurda portundan
+   * (`out_scrap`), asıl ürün yalnızca diğer portlardan çıkar; böylece hurda
+   * asıl ürünün bandına karışıp sonraki makineyi tıkamaz (DEC-025).
+   */
+  private peekOutputFor(machine: MachineEntity, port: { id: string }): { itemId: string } | null {
+    const byproducts = this.byproductIdsOf(machine);
+    const wantsByproduct = port.id === SCRAP_PORT_ID;
+    for (const [itemId, count] of Object.entries(machine.getOutputBufferSnapshot())) {
+      if (count > 0 && byproducts.includes(itemId) === wantsByproduct) {
+        return { itemId };
+      }
+    }
+    return null;
+  }
+
+  private popOutputFor(machine: MachineEntity, port: { id: string }): { itemId: string } | null {
+    const next = this.peekOutputFor(machine, port);
+    return next && machine.popOutput(next.itemId) ? next : null;
   }
 
   // -------------------------------------------------------------

@@ -29,6 +29,7 @@ import { calculateOfflineReport } from '../ui/OfflineEarningsHelper.ts';
 import { UiLayer } from '../ui/system/UiLayer.ts';
 import { UiToast, type UiToastKind } from '../ui/system/UiWidgets.ts';
 import { UiConfirmDialog } from '../ui/system/UiConfirmDialog.ts';
+import { MACHINE_SPRITE_SHEETS, PORT_ARROW_IMAGES } from '../factory/view/MachineSprites.ts';
 import { GridView } from '../factory/view/GridView.ts';
 import { CameraController } from '../factory/view/CameraController.ts';
 import { GridMap } from '../factory/simulation/GridMap.ts';
@@ -189,14 +190,15 @@ export class GameScene extends Phaser.Scene {
     this.load.image('shipping_crate', 'assets/shipping_crate.png');
 
     // 4 Makine ve Parçaları
-    this.load.image('machine_bench', 'assets/machine_bench.png');
-    this.load.image('machine_bench_part', 'assets/machine_bench_part.png');
-    this.load.image('machine_press', 'assets/machine_press.png');
-    this.load.image('machine_press_part', 'assets/machine_press_part.png');
-    this.load.image('machine_welder', 'assets/machine_welder.png');
-    this.load.image('machine_welder_part', 'assets/machine_welder_part.png');
-    this.load.image('machine_automation', 'assets/machine_automation.png');
-    this.load.image('machine_automation_part', 'assets/machine_automation_part.png');
+    for (const sheet of MACHINE_SPRITE_SHEETS) {
+      this.load.spritesheet(sheet.key, sheet.path, {
+        frameWidth: sheet.frameWidth,
+        frameHeight: sheet.frameHeight,
+      });
+    }
+    for (const arrow of PORT_ARROW_IMAGES) {
+      this.load.image(arrow.key, arrow.path);
+    }
 
     // Uçuş & Pist & Uzay Dokuları
     this.load.image('flight_ground', 'assets/flight_ground.png');
@@ -1291,7 +1293,7 @@ export class GameScene extends Phaser.Scene {
           ...base,
           icon: def?.spriteBaseKey ?? 'icon_factory',
           title: `${def?.name ?? 'Makine'} · $${formatNumber(def?.baseCost ?? 0)}`,
-          hint: isTouch ? stepHint : 'Bir hücreye tıkla · R: döndür',
+          hint: isTouch ? `${stepHint} · yeşil ok giriş, turuncu çıkış` : 'Yeşil ok giriş, turuncu ok çıkış · R: döndür',
           canRotate: true,
         };
       }

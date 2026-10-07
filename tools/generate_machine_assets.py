@@ -131,8 +131,8 @@ def draw_crusher(c: Canvas, f: int) -> None:
 
     # Kehribar kırma haznesi
     c.box(4, 11, 27, 24, AM2, AM3, AM1)
-    c.rect(7, 13, 24, 22, ST0)                        # pencere
-    c.frame(6, 12, 25, 23)
+    c.rect(8, 14, 23, 21, ST0)                        # pencere
+    c.frame(7, 13, 24, 22)
 
     # İki dişli merdane; çalışırken dişler döner
     for cx in (11.5, 19.5):

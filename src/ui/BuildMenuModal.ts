@@ -10,6 +10,7 @@
 
 import Phaser from 'phaser';
 import { defaultMachineRegistry } from '../factory/simulation/MachineRegistry.ts';
+import { MACHINE_SPRITE_TILE, machineThumbScale } from '../factory/view/MachineSprites.ts';
 import { defaultRecipeRegistry } from '../factory/simulation/RecipeRegistry.ts';
 import { defaultItemRegistry } from '../factory/simulation/ItemRegistry.ts';
 import {
@@ -78,10 +79,10 @@ interface CardRef {
   button: UiButton;
 }
 
-const CARD_HEIGHT = 84;
-const CARD_HEIGHT_STACKED = 116;
+const CARD_HEIGHT = 92;
+const CARD_HEIGHT_STACKED = 128;
 const CARD_GAP = SPACE.sm;
-const ICON_BOX = 56;
+const ICON_BOX = 68;
 const SIDE_CTA_WIDTH = 108;
 
 export class BuildMenuModal extends UiModal {
@@ -114,7 +115,7 @@ export class BuildMenuModal extends UiModal {
           cost: CONVEYOR_BUILD_COST,
           size: '1x1',
           icon: uiIcon('belt'),
-          iconScale: 2.5,
+          iconScale: 3,
           action: 'build',
           item: { type: 'CONVEYOR' },
         },
@@ -125,7 +126,7 @@ export class BuildMenuModal extends UiModal {
           cost: SPLITTER_BUILD_COST,
           size: '1x1',
           icon: uiIcon('belt'),
-          iconScale: 2.5,
+          iconScale: 3,
           action: 'build',
           item: { type: 'SPLITTER' },
         },
@@ -136,7 +137,7 @@ export class BuildMenuModal extends UiModal {
           cost: MERGER_BUILD_COST,
           size: '1x1',
           icon: uiIcon('belt'),
-          iconScale: 2.5,
+          iconScale: 3,
           action: 'build',
           item: { type: 'MERGER' },
         },
@@ -151,8 +152,13 @@ export class BuildMenuModal extends UiModal {
         detail: `Üretir: ${this.describeOutputs(machine.supportedRecipeIds)}`,
         cost: machine.baseCost,
         size: `${machine.width}x${machine.height}`,
-        icon: machine.spriteBaseKey ?? 'machine_bench',
-        iconScale: 1,
+        // Fabrikada kurulacak makinenin aynı dokusu, tamsayı ölçekle
+        icon: machine.spriteBaseKey,
+        iconScale: machineThumbScale(
+          machine.width * MACHINE_SPRITE_TILE,
+          machine.height * MACHINE_SPRITE_TILE,
+          ICON_BOX - 4,
+        ),
         action: 'build' as const,
         item: { type: 'MACHINE' as const, machineDef: machine },
       })),
@@ -169,7 +175,7 @@ export class BuildMenuModal extends UiModal {
           cost,
           size: '1x1',
           icon: uiIcon('intake'),
-          iconScale: 2.5,
+          iconScale: 3,
           action: 'build' as const,
           item: { type: 'INTAKE_NEW' as const, intakeItemId: itemId },
         };
@@ -188,7 +194,7 @@ export class BuildMenuModal extends UiModal {
             cost: plot.cost,
             size: '',
             icon: uiIcon('expand'),
-            iconScale: 2.5,
+            iconScale: 3,
             action: 'expand',
             plotIndex: plot.index,
           },
@@ -206,7 +212,7 @@ export class BuildMenuModal extends UiModal {
           cost: 0,
           size: '',
           icon: uiIcon('intake'),
-          iconScale: 2.5,
+          iconScale: 3,
           action: 'move',
           item: { type: 'INTAKE_MOVE' },
         },
@@ -217,7 +223,7 @@ export class BuildMenuModal extends UiModal {
           cost: 0,
           size: '',
           icon: uiIcon('crate'),
-          iconScale: 2.5,
+          iconScale: 3,
           action: 'move',
           item: { type: 'EXPORT_MOVE' },
         },
@@ -304,7 +310,7 @@ export class BuildMenuModal extends UiModal {
     const boxY = SPACE.sm + 4;
     card.add(createInset(scene, boxX, boxY, ICON_BOX, ICON_BOX));
     const icon = scene.add
-      .image(boxX + ICON_BOX / 2, boxY + ICON_BOX / 2, entry.icon)
+      .image(boxX + ICON_BOX / 2, boxY + ICON_BOX / 2, entry.icon, entry.icon.startsWith('mach_') ? 0 : undefined)
       .setOrigin(0.5)
       .setScale(entry.iconScale);
     if (lockStage !== null) icon.setAlpha(0.45);
