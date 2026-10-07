@@ -23,7 +23,7 @@
 | M6 | Roket bağlantısı (fabrika → hangar parça akışı, uçuş ödülü, uçuşta fabrika çalışır) | **TAMAMLANDI** (2026-10-06, tarayıcıda doğrulandı, commit `0a151f8`) |
 | M7 | Denge geçişi (eşya değerleri, reçete süreleri, aşama eşik ve ödülleri) | **TAMAMLANDI** (2026-10-06; 1–3. aşamalar tarayıcıda, 1–9. aşamalar başsız simülasyonla ölçüldü, commit `7cc8aec`) |
 | M8 | Sürükleyerek bant çizimi | **TAMAMLANDI** (2026-10-06, tarayıcıda fare ve dokunmatikle doğrulandı, commit `c58ef62`) |
-| M9 | Uzun vade (kontratlar, roket sonrası kademeler) | **ERTELENDİ** (kullanıcı kararı, 2026-10-06). 10. aşamadan sonra oyunda yeni hedef yok; `ContractManager` depoda ama oyuna bağlı değil. |
+| M9 | Uzun vade: 10. aşama sonrası genel hedef (menzil merdiveni), roket Sv.10, ekonomi ölçeği, reklam yerleşimleri | **PLAN HAZIR — onay bekliyor** (2026-10-08). Ayrıntı: `M9_PLAN.md`; hiçbir şey uygulanmadı. Dokuz karar kullanıcı onayı bekliyor (plan §9). |
 | M10 | Temizlik ve yayın (ölü kod, doküman eşitleme, mobil düzen) | **TAMAMLANDI** (2026-10-06, tarayıcıda doğrulandı, commit `7f4f9ca`) |
 | UI 2.0 | Arayüzün baştan kurulması (tek tasarım sistemi, arayüz ölçeği, duyarlı düzen, dokunma/fare/klavye) | **TAMAMLANDI** (2026-10-06, 10 ekran boyutunda tarayıcıda doğrulandı; henüz commit edilmedi). Kurallar: `UI_UX_SYSTEM.md`, DEC-020 … DEC-022. Oynanış, ekonomi ve ilerleme değişmedi. |
 
