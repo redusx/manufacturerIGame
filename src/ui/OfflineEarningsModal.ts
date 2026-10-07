@@ -9,7 +9,8 @@
 import Phaser from 'phaser';
 import type Decimal from 'break_eternity.js';
 import { SEMANTIC, SPACE, uiIcon } from './theme.ts';
-import type { OfflineEarningsReport } from './OfflineEarningsHelper.ts';
+import { MAX_OFFLINE_CAP_HOURS } from '../flight/RangeLadder.ts';
+import { formatOfflineDuration, type OfflineEarningsReport } from './OfflineEarningsHelper.ts';
 import { UiButton } from './system/UiButton.ts';
 import type { UiLayer } from './system/UiLayer.ts';
 import { UiModal } from './system/UiModal.ts';
@@ -99,7 +100,10 @@ export class OfflineEarningsModal extends UiModal {
 
     if (report.wasCapped) {
       y += SPACE.sm;
-      const warning = layer.text(0, y, 'En fazla 4 saatlik kazanç birikir.', 'caption', {
+      // Süre sınırı menzil basamaklarıyla uzar (4 → 8 → 12 saat)
+      const capText = `En fazla ${formatOfflineDuration(report.capSeconds)}lik kazanç birikir.`;
+      const hint = report.capSeconds < MAX_OFFLINE_CAP_HOURS * 3600 ? ' Daha uzak menzil bu süreyi uzatır.' : '';
+      const warning = layer.text(0, y, capText + hint, 'caption', {
         color: SEMANTIC.warningHex,
         wrapWidth: width,
       });

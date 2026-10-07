@@ -10,6 +10,7 @@
  * ====================================================================== */
 
 import type { FactoryEconomy } from '../factory/simulation/FactoryEconomy.ts';
+import { RANGE_LADDER, RangeLadder, type RangeRung } from '../flight/RangeLadder.ts';
 import { formatDistance } from '../utils/format.ts';
 
 export interface FlightRewardParams {
@@ -41,12 +42,16 @@ export const FLIGHT_REWARD_MAX_SECONDS = 180;
 /** Fabrika henüz gelir üretmiyorken uçuş ödülünün dayandığı taban gelir ($/sn) */
 export const FLIGHT_REWARD_MIN_INCOME_PER_SEC = 1;
 
-export interface FlightDistanceMilestone {
-  id: string;
+/** Mesafe kilometre taşı = menzil merdiveninin bir basamağı (src/flight/RangeLadder.ts) */
+export type FlightDistanceMilestone = RangeRung;
+
+/** Uçuş raporunda gösterilen sıradaki menzil hedefi */
+export interface NextRangeTarget {
   name: string;
   targetMeters: number;
-  multiplierBonus: number; // örn: 0.05 (+%5)
-  description: string;
+  /** Hedefe kalan mesafe (metre) */
+  remainingMeters: number;
+  rewards: string[];
 }
 
 export interface FlightReportViewModel {
@@ -64,50 +69,15 @@ export interface FlightReportViewModel {
   unlockedMilestones: FlightDistanceMilestone[];
   milestoneBannerText: string | null;
   cumulativeMultiplierText: string;
+  /** Bu uçuştan sonraki rekora göre sıradaki basamak; hepsi geçildiyse null */
+  nextTarget: NextRangeTarget | null;
 }
 
 /**
- * Kalıcı Mesafe Kilometre Taşları:
- * Roket uçuşunda belirli mesafe eşikleri aşıldığında tüm fabrika ihracat gelirine
- * kalıcı global çarpan (+%5 .. +%25) kazandırır.
+ * Kalıcı mesafe kilometre taşları: menzil merdiveninin basamakları. İlk beşi
+ * gelir çarpanına toplanarak (+%5 .. +%25), sonrakiler çarpılarak (×1,25) eklenir.
  */
-export const FLIGHT_DISTANCE_MILESTONES: readonly FlightDistanceMilestone[] = [
-  {
-    id: 'flight_ms_100',
-    name: 'İlk Tırmanış',
-    targetMeters: 100,
-    multiplierBonus: 0.05,
-    description: '100m Uçuş Mesafesi — Fabrikaya Kalıcı +%5 Gelir Çarpanı!',
-  },
-  {
-    id: 'flight_ms_500',
-    name: 'Stratosfer',
-    targetMeters: 500,
-    multiplierBonus: 0.10,
-    description: '500m Uçuş Mesafesi — Fabrikaya Kalıcı +%10 Gelir Çarpanı!',
-  },
-  {
-    id: 'flight_ms_1000',
-    name: 'Alçak Yörünge',
-    targetMeters: 1000,
-    multiplierBonus: 0.15,
-    description: '1,000m Uçuş Mesafesi — Fabrikaya Kalıcı +%15 Gelir Çarpanı!',
-  },
-  {
-    id: 'flight_ms_2500',
-    name: 'Yörünge İstasyonu',
-    targetMeters: 2500,
-    multiplierBonus: 0.20,
-    description: '2,500m Uçuş Mesafesi — Fabrikaya Kalıcı +%20 Gelir Çarpanı!',
-  },
-  {
-    id: 'flight_ms_5000',
-    name: 'Derin Uzay',
-    targetMeters: 5000,
-    multiplierBonus: 0.25,
-    description: '5,000m Uçuş Mesafesi — Fabrikaya Kalıcı +%25 Gelir Çarpanı!',
-  },
-];
+export const FLIGHT_DISTANCE_MILESTONES: readonly FlightDistanceMilestone[] = RANGE_LADDER;
 
 export class FlightReturnHelper {
   /**
@@ -162,8 +132,7 @@ export class FlightReturnHelper {
    * Belirtilen mesafeye göre hak kazanılmış tüm kilometre taşlarını döner.
    */
   static getAchievedMilestones(distanceMeters: number): FlightDistanceMilestone[] {
-    const dist = Math.max(0, distanceMeters);
-    return FLIGHT_DISTANCE_MILESTONES.filter((m) => dist >= m.targetMeters);
+    return RangeLadder.achieved(distanceMeters);
   }
 
   /**
@@ -173,18 +142,13 @@ export class FlightReturnHelper {
     previousBestDistance: number,
     newDistance: number,
   ): FlightDistanceMilestone[] {
-    const prev = Math.max(0, previousBestDistance);
-    const curr = Math.max(0, newDistance);
-    if (curr <= prev) return [];
-
-    return FLIGHT_DISTANCE_MILESTONES.filter(
-      (m) => prev < m.targetMeters && curr >= m.targetMeters,
-    );
+    return RangeLadder.newlyReached(previousBestDistance, newDistance);
   }
 
   /**
-   * Yeni kazanılan kilometre taşı çarpanlarını fabrika ekonomisine kalıcı olarak uygular.
-   * Eklenen toplam çarpan bonusunu döner.
+   * Yeni kazanılan kilometre taşı çarpanlarını fabrika ekonomisine kalıcı olarak uygular:
+   * önce toplamalı bonuslar eklenir, sonra bileşik çarpanlar uygulanır.
+   * Gelir çarpanındaki artışı döner.
    */
   static applyMilestonesToEconomy(
     newlyUnlocked: FlightDistanceMilestone[],
@@ -193,18 +157,19 @@ export class FlightReturnHelper {
     if (!newlyUnlocked || newlyUnlocked.length === 0) return 0;
 
     let bonus = 0;
+    let factor = 1;
     for (const m of newlyUnlocked) {
-      bonus += m.multiplierBonus;
-    }
-    bonus = Number(bonus.toFixed(2));
-
-    if (factoryEconomy && bonus > 0) {
-      factoryEconomy.revenueMultiplier = Number(
-        (factoryEconomy.revenueMultiplier + bonus).toFixed(2),
-      );
+      bonus += m.multiplierBonus ?? 0;
+      factor *= m.multiplierFactor ?? 1;
     }
 
-    return bonus;
+    const before = factoryEconomy ? factoryEconomy.revenueMultiplier : 1;
+    const after = Number(((before + bonus) * factor).toFixed(4));
+    if (factoryEconomy && after > before) {
+      factoryEconomy.revenueMultiplier = after;
+    }
+
+    return Number((after - before).toFixed(4));
   }
 
   /**
@@ -246,10 +211,21 @@ export class FlightReturnHelper {
     let milestoneBannerText: string | null = null;
     if (unlockedMilestones.length > 0) {
       const names = unlockedMilestones
-        .map((m) => `${m.name} (+%${Math.round(m.multiplierBonus * 100)})`)
-        .join(', ');
-      milestoneBannerText = `🎉 YENİ KİLOMETRE TAŞI: ${names}`;
+        .map((m) => `${m.name} (${RangeLadder.describeRewards(m).join(', ')})`)
+        .join(' · ');
+      milestoneBannerText = `Yeni menzil: ${names}`;
     }
+
+    const bestAfterFlight = Math.max(data.previousBestDistance, data.distance);
+    const nextRung = RangeLadder.next(bestAfterFlight);
+    const nextTarget: NextRangeTarget | null = nextRung
+      ? {
+          name: nextRung.name,
+          targetMeters: nextRung.targetMeters,
+          remainingMeters: Math.max(0, nextRung.targetMeters - Math.floor(bestAfterFlight)),
+          rewards: RangeLadder.describeRewards(nextRung),
+        }
+      : null;
 
     const currentMultiplier = data.currentRevenueMultiplier ?? 1.0;
     const multiplierPercent = Math.round((currentMultiplier - 1.0) * 100);
@@ -261,7 +237,7 @@ export class FlightReturnHelper {
     return {
       distanceText: formatDistance(data.distance),
       durationText: `${data.durationSec.toFixed(1)} sn`,
-      maxAltitudeText: `${Math.round(data.maxAltitude)} m`,
+      maxAltitudeText: formatDistance(data.maxAltitude),
       maxSpeedText: `${Math.round(data.maxSpeedKmH)} km/s`,
       gearsText: `${data.gears} adet (+$${breakdown.gearsCash})`,
       crystalsText: `${data.crystals} adet (+$${breakdown.crystalsCash})`,
@@ -273,6 +249,7 @@ export class FlightReturnHelper {
       unlockedMilestones,
       milestoneBannerText,
       cumulativeMultiplierText,
+      nextTarget,
     };
   }
 }

@@ -42,6 +42,8 @@ const PREVIEW_HEIGHT = 128;
 const TARGET_BUTTON_HEIGHT = 26;
 /** Kartın sol sütunu: modül görseli ve altındaki hedef düğmesi */
 const MODULE_THUMB_WIDTH = 64;
+const RANGES_BUTTON_WIDTH = 140;
+const RANGES_BUTTON_HEIGHT = 36;
 
 export class RocketHangarView extends UiModal {
   private readonly economy: EconomyManager;
@@ -51,6 +53,8 @@ export class RocketHangarView extends UiModal {
   private readonly onDenied: (message: string) => void;
   /** Kayda yazılması gereken bir seçim değişti (hedef modül) */
   private readonly onChanged: () => void;
+  /** Seferler (menzil merdiveni) penceresini açar */
+  private readonly onOpenRanges: () => void;
 
   private rocketContainer: Phaser.GameObjects.Container | null = null;
   private launchButton: UiButton | null = null;
@@ -67,6 +71,7 @@ export class RocketHangarView extends UiModal {
     factoryEconomy: FactoryEconomy,
     onDenied: (message: string) => void = () => undefined,
     onChanged: () => void = () => undefined,
+    onOpenRanges: () => void = () => undefined,
   ) {
     super(layer, { title: 'Roket Hangarı', maxWidth: 760, depth: 205, accent: SEMANTIC.rocket });
     this.economy = economy;
@@ -75,6 +80,7 @@ export class RocketHangarView extends UiModal {
     this.factoryEconomy = factoryEconomy;
     this.onDenied = onDenied;
     this.onChanged = onChanged;
+    this.onOpenRanges = onOpenRanges;
   }
 
   // -------------------------------------------------------------
@@ -230,6 +236,21 @@ export class RocketHangarView extends UiModal {
       SEMANTIC.textMuted,
     );
     y += SPACE.xs;
+
+    // Bütün menzil basamakları ve ödülleri ayrı pencerededir
+    const rangesButton = new UiButton(layer, RANGES_BUTTON_WIDTH / 2, y + RANGES_BUTTON_HEIGHT / 2, {
+      width: RANGES_BUTTON_WIDTH,
+      height: RANGES_BUTTON_HEIGHT,
+      variant: 'secondary',
+      label: 'SEFERLER',
+      icon: 'icon_flag',
+      onClick: () => {
+        this.close();
+        this.onOpenRanges();
+      },
+    });
+    body.add(rangesButton);
+    y += RANGES_BUTTON_HEIGHT + SPACE.sm;
 
     // Parçaların hangi modül için ayrıldığı
     const target = this.hangarBridge.getTargetModule();

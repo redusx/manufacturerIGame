@@ -217,3 +217,13 @@
   6. **Rekor:** eski uçuş modeliyle yapılmış rekorlar 5 km'de kesilir (`recordVersion`); yeni basamaklar yeni modelle geçilir.
 * **Gerekçe:** `M9_PLAN.md` §2.1 ve §4.3: roketin tamamı $35.210'a, hiç parça üretmeden alınabiliyordu.
 * **Not:** Nakit ve parça değerleri başlangıç değeridir; M9-F'de ölçülerek ayarlanır.
+
+### [DEC-030] Genel Hedef: Seferler (Menzil Merdiveni Ödülleri) (M9-C)
+* **Tarih:** 2026-10-08
+* **Karar:**
+  1. 10 aşama bittikten sonra hedef kartı sıradaki menzil basamağını gösterir ("SEFER 6/14 · 7.00 km menziline ulaş"); karta dokununca **Seferler** penceresi açılır (bütün basamaklar, ödülleri, önerilen roket sınıfı). Pencere hangardan da açılır.
+  2. Uçuş kilometre taşları artık `RangeLadder` basamaklarıdır (tek kaynak). İlk beş basamağın ödülü değişmedi (toplamalı +%5 … +%25). Yeni basamaklar gelir çarpanını **çarpar** (×1,25; son ikisi ×1,15): `yeni = (eski + toplamalı) × çarpanlar`.
+  3. Çevrimdışı gelirin birikme süresi basamaklarla uzar: 4 saat → 10 km'de 8 saat → 40 km'de 12 saat.
+  4. Uçuş raporu yeni ulaşılan basamakların ödüllerini ve sıradaki hedefe kalan mesafeyi gösterir.
+* **Gerekçe:** `M9_PLAN.md` §4.1 ve §4.6: aşamalar oyunu öğretir; sonrası için "roketi geliştir, daha ileri git" tek ve sürdürülebilir hedeftir.
+* **Not:** Parsel izinleri (7, 14, 28, 40 km) M9-D'de parsellere bağlanır.

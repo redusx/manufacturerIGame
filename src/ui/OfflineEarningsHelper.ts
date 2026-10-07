@@ -1,7 +1,7 @@
 /* ======================================================================
  * src/ui/OfflineEarningsHelper.ts — Çevrimdışı İlerleme Hesaplayıcı ve Veri Modeli
  *
- * Oyuncu oyundan uzaktayken üretilen kaynakları, zaman limitlerini (maks 4 saat),
+ * Oyuncu oyundan uzaktayken üretilen kaynakları, zaman limitlerini (4 saat; menzil basamaklarıyla 12'ye kadar),
  * %50 baz verimliliği ve 2x reklam çarpanını hesaplayan saf matematik/mantık motoru.
  *
  * Sorumluluklar:
@@ -29,8 +29,10 @@ export interface OfflineEarningsReport {
   elapsedSeconds: number;
   /** Hesaba dahil edilen sınırlandırılmış süre (saniye) */
   effectiveSeconds: number;
-  /** 4 saatlik tavan sınırına takıldı mı? */
+  /** Tavan sınırına takıldı mı? */
   wasCapped: boolean;
+  /** Kazancın birikebildiği en uzun süre (saniye); menzil basamaklarıyla uzar */
+  capSeconds: number;
   /** Uygulanan verimlilik yüzdesi (örn: 50) */
   efficiencyPercent: number;
   /** Temel kazanılan kaynak miktarı (Decimal) */
@@ -79,11 +81,15 @@ export function formatOfflineDuration(seconds: number): string {
 /**
  * Uzakta kalınan süreye göre karşılama mesajı üretir.
  */
-export function getWelcomeMessage(elapsedSeconds: number, wasCapped: boolean): { title: string; message: string } {
+export function getWelcomeMessage(
+  elapsedSeconds: number,
+  wasCapped: boolean,
+  maxCapSeconds: number = MAX_OFFLINE_SECONDS,
+): { title: string; message: string } {
   if (wasCapped) {
     return {
       title: 'UZUN BİR MOLA!',
-      message: 'Makinelerin maksimum 4 saatlik çevrimdışı kapasitesini doldurdu.',
+      message: `Makinelerin maksimum ${formatOfflineDuration(maxCapSeconds)}lik çevrimdışı kapasitesini doldurdu.`,
     };
   }
 
@@ -126,6 +132,7 @@ export function calculateOfflineReport(
       elapsedSeconds,
       effectiveSeconds: 0,
       wasCapped: false,
+      capSeconds: maxCapSeconds,
       efficiencyPercent: Math.round(efficiency * 100),
       baseEarnings: D_ZERO,
       doubledEarnings: D_ZERO,
@@ -145,12 +152,13 @@ export function calculateOfflineReport(
   const baseEarnings = pps.mul(effectiveSeconds).mul(efficiency).floor();
   const doubledEarnings = baseEarnings.mul(2);
 
-  const { title, message } = getWelcomeMessage(elapsedSeconds, wasCapped);
+  const { title, message } = getWelcomeMessage(elapsedSeconds, wasCapped, maxCapSeconds);
 
   return {
     elapsedSeconds,
     effectiveSeconds,
     wasCapped,
+    capSeconds: maxCapSeconds,
     efficiencyPercent: Math.round(efficiency * 100),
     baseEarnings,
     doubledEarnings,

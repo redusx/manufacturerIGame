@@ -16,7 +16,7 @@ import Phaser from 'phaser';
 import { EconomyManager } from '../economy/EconomyManager';
 import { SaveManager } from '../save/SaveManager';
 import { AUTO_SAVE_INTERVAL_MS } from '../data/MachineData';
-import { formatNumber, formatMoney } from '../utils/format';
+import { formatDistance, formatNumber, formatMoney } from '../utils/format';
 
 import { HUD } from '../ui/HUD';
 import { ObjectiveCard, buildObjectiveView, formatMilestoneCompleted } from '../ui/ObjectiveCard.ts';
@@ -24,6 +24,8 @@ import { Toolbar } from '../ui/Toolbar.ts';
 import { ToolContextBar, type ToolContextState } from '../ui/ToolContextBar.ts';
 import { SettingsPanel } from '../ui/SettingsPanel';
 import { StagesModal } from '../ui/StagesModal.ts';
+import { RangeLadderModal } from '../ui/RangeLadderModal.ts';
+import { RangeLadder } from '../flight/RangeLadder.ts';
 import { OfflineEarningsModal } from '../ui/OfflineEarningsModal';
 import { calculateOfflineReport } from '../ui/OfflineEarningsHelper.ts';
 import { UiLayer } from '../ui/system/UiLayer.ts';
@@ -119,6 +121,7 @@ export class GameScene extends Phaser.Scene {
   private rocketHangar!: RocketHangarView;
   private settingsPanel!: SettingsPanel;
   private stagesModal!: StagesModal;
+  private rangeLadderModal!: RangeLadderModal;
   private offlineEarningsModal!: OfflineEarningsModal;
 
   /* 2D Fabrika Zemin Izgarası ve Kamerası */
@@ -632,6 +635,7 @@ export class GameScene extends Phaser.Scene {
       this.factoryEconomy,
       (message) => this.notify(message, 'warning'),
       () => this.saveGame(),
+      () => this.rangeLadderModal.open(),
     );
 
     /* Ana ekran */
@@ -639,9 +643,24 @@ export class GameScene extends Phaser.Scene {
     this.stagesModal = new StagesModal(this.ui, this.milestones, () =>
       this.milestones.getCurrentProgress(this.factoryEconomy, this.productionEngine),
     );
+    this.rangeLadderModal = new RangeLadderModal(
+      this.ui,
+      () => ({
+        bestDistance: this.hangarBridge.getFlightStats().bestDistance,
+        rocketClass: this.hangarBridge.getRocketClass(),
+        revenueMultiplier: this.factoryEconomy.revenueMultiplier,
+        hangarUnlocked: this.milestones.isFeatureUnlocked(HANGAR_FEATURE),
+      }),
+      () => this.openHangar(),
+    );
+    // Aşamalar bitince hedef kartı menzil hedefini gösterir ve Seferler penceresini açar
     this.objective = new ObjectiveCard(this.ui, () => {
       this.cancelActiveTool();
-      this.stagesModal.open();
+      if (this.milestones.completedCount >= this.milestones.totalCount) {
+        this.rangeLadderModal.open();
+      } else {
+        this.stagesModal.open();
+      }
     });
     this.toolbar = new Toolbar(this.ui, {
       onProduce: () => this.onClickProduce(),
@@ -795,7 +814,7 @@ export class GameScene extends Phaser.Scene {
     const factoryText = factoryEarned > 0 ? `\nSen uçarken fabrika +$${formatNumber(factoryEarned)} kazandı` : '';
 
     this.notify(
-      `Uçuş primi +$${formatNumber(totalResources)} (${distance} m)${bonusText}${factoryText}`,
+      `Uçuş primi +$${formatNumber(totalResources)} (${formatDistance(distance)})${bonusText}${factoryText}`,
       'reward',
     );
 
@@ -1074,6 +1093,7 @@ export class GameScene extends Phaser.Scene {
         this.milestones.completedCount,
         this.milestones.totalCount,
         revenuePerSec,
+        this.hangarBridge.getFlightStats().bestDistance,
       ),
     );
     this.syncObjectiveSlot();
@@ -1087,6 +1107,7 @@ export class GameScene extends Phaser.Scene {
     if (this.machineInspectorModal.isOpen) this.machineInspectorModal.refresh();
     if (this.rocketHangar.isOpen) this.rocketHangar.refresh();
     if (this.stagesModal.isOpen) this.stagesModal.refresh();
+    if (this.rangeLadderModal.isOpen) this.rangeLadderModal.refresh();
 
     /* Sıradaki parsel rozeti: para yetince alınabilir görünüme geçsin */
     this.gridView.syncLockedPlotAffordability();
@@ -1219,7 +1240,9 @@ export class GameScene extends Phaser.Scene {
 
     /* Çevrimdışı ilerleme: fabrika, kayıt anında ölçülen hızla çalışmaya devam etmiş sayılır */
     if (data.timestamp > 0 && savedRevenuePerSec > 0) {
-      const report = calculateOfflineReport(data.timestamp, Date.now(), savedRevenuePerSec);
+      // Çevrimdışı süre sınırı menzil basamaklarıyla uzar (4 → 8 → 12 saat)
+      const offlineCapSeconds = RangeLadder.offlineCapHours(this.hangarBridge.getFlightStats().bestDistance) * 3600;
+      const report = calculateOfflineReport(data.timestamp, Date.now(), savedRevenuePerSec, offlineCapSeconds);
       if (report.isEligible) {
         this.time.delayedCall(400, () => {
           this.offlineEarningsModal.showReport(report);

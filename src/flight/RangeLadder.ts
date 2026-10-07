@@ -103,6 +103,12 @@ export const RANGE_LADDER: readonly RangeRung[] = Object.freeze([
   { id: 'range_100k', index: 14, name: 'Neptün', targetMeters: 100000, expectedClass: 10, multiplierFactor: 1.15 },
 ]);
 
+/** Bütün basamaklar geçildiğinde çevrimdışı gelirin birikebildiği süre (saat) */
+export const MAX_OFFLINE_CAP_HOURS = Math.max(
+  BASE_OFFLINE_CAP_HOURS,
+  ...RANGE_LADDER.map((rung) => rung.offlineCapHours ?? 0),
+);
+
 /** Tehlike kademesinin (engel hasarı) artmaya başladığı menzil */
 const HAZARD_START_METERS = 5000;
 

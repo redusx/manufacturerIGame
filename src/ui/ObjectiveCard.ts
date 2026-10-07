@@ -16,7 +16,8 @@ import type {
   MilestoneReward,
 } from '../factory/progression/MilestoneManager.ts';
 import { defaultMachineRegistry } from '../factory/simulation/MachineRegistry.ts';
-import { formatDuration, formatNumber } from '../utils/format';
+import { RANGE_LADDER, RangeLadder } from '../flight/RangeLadder.ts';
+import { formatDistance, formatDuration, formatNumber } from '../utils/format';
 import { SEMANTIC, SPACE } from './theme';
 import type { UiLayer } from './system/UiLayer.ts';
 import { UiProgressBar } from './system/UiWidgets.ts';
@@ -35,6 +36,8 @@ export interface ObjectiveView {
   /** Para koşullarında tahmini kalan süre: "~2dk 10sn" */
   eta: string;
   allDone: boolean;
+  /** Kartın ikonu; verilmezse aşama bayrağı (hepsi bittiyse kupa) */
+  icon?: string;
 }
 
 /** Aşama ödülüyle açılan özelliklerin oyuncuya gösterilen adları */
@@ -68,23 +71,50 @@ export function formatMilestoneReward(reward: MilestoneReward): string {
   return parts.join(' · ');
 }
 
-/** İlerleme durumundan kartın göstereceği metinleri üretir */
-export function buildObjectiveView(
-  progress: MilestoneProgress | null,
-  completedCount: number,
-  totalCount: number,
-  revenuePerSec: number,
-): ObjectiveView {
-  if (!progress) {
+/**
+ * Aşamalar bittikten sonraki genel hedef: menzil merdiveninin sıradaki basamağı
+ * ("SEFER 6/14 · 7.00 km menziline ulaş").
+ */
+export function buildRangeObjectiveView(bestDistance: number): ObjectiveView {
+  const total = RANGE_LADDER.length;
+  const next = RangeLadder.next(bestDistance);
+  if (!next) {
     return {
-      stageLabel: `AŞAMA ${totalCount}/${totalCount}`,
-      title: 'Tüm aşamalar tamamlandı!',
-      counter: '',
+      stageLabel: `SEFER ${total}/${total}`,
+      title: 'Bütün seferler tamamlandı!',
+      counter: formatDistance(bestDistance),
       progress: 1,
       reward: '',
       eta: '',
       allDone: true,
     };
+  }
+
+  return {
+    stageLabel: `SEFER ${next.index}/${total}`,
+    title: `${formatDistance(next.targetMeters)} menziline ulaş: ${next.name}`,
+    counter: `${formatDistance(bestDistance)}/${formatDistance(next.targetMeters)}`,
+    progress: Phaser.Math.Clamp(bestDistance / next.targetMeters, 0, 1),
+    reward: `Ödül: ${RangeLadder.describeRewards(next).join(' · ')}`,
+    eta: '',
+    allDone: false,
+    icon: 'icon_rocket',
+  };
+}
+
+/**
+ * İlerleme durumundan kartın göstereceği metinleri üretir. Bütün aşamalar
+ * tamamlandıysa (progress null) kart menzil hedefine geçer.
+ */
+export function buildObjectiveView(
+  progress: MilestoneProgress | null,
+  completedCount: number,
+  totalCount: number,
+  revenuePerSec: number,
+  bestDistance = 0,
+): ObjectiveView {
+  if (!progress) {
+    return buildRangeObjectiveView(bestDistance);
   }
 
   const pending = progress.conditions.find((c) => !c.isMet) ?? progress.conditions[0];
@@ -223,7 +253,7 @@ export class ObjectiveCard {
     const height = ObjectiveCard.heightFor(this.variant);
     this.bg.setSize(w, height);
     this.zone.setSize(w, Math.max(height, 44));
-    this.icon.setTexture(view.allDone ? 'icon_trophy' : 'icon_flag');
+    this.icon.setTexture(view.icon ?? (view.allDone ? 'icon_trophy' : 'icon_flag'));
 
     if (this.variant === 'strip') {
       // Tek satır: [ikon] AŞAMA 3/10 · görev ............ sayaç, altında ince çubuk

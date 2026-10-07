@@ -7,8 +7,9 @@
  * ====================================================================== */
 
 import Phaser from 'phaser';
+import { RangeLadder } from '../flight/RangeLadder.ts';
 import type { FlightReportViewModel } from '../scenes/FlightReturnHelper.ts';
-import { formatNumber } from '../utils/format.ts';
+import { formatDistance, formatNumber } from '../utils/format.ts';
 import { SEMANTIC, SPACE, uiIcon } from './theme.ts';
 import { UiButton } from './system/UiButton.ts';
 import type { UiLayer } from './system/UiLayer.ts';
@@ -76,20 +77,50 @@ export class FlightReportModal extends UiModal {
     );
     y += primH + SPACE.sm;
 
-    // Yeni mesafe hedefi: kalıcı fabrika geliri
+    // Yeni ulaşılan menziller: her birinin kalıcı ödülü
     if (view.unlockedMilestones.length > 0) {
-      const names = view.unlockedMilestones
-        .map((milestone) => `${milestone.name} (+%${Math.round(milestone.multiplierBonus * 100)})`)
-        .join(', ');
-      const banner = layer.text(SPACE.md + 20, y + SPACE.sm, `Kalıcı gelir artışı: ${names}`, 'bodyBold', {
+      const lines = view.unlockedMilestones
+        .map(
+          (rung) =>
+            `${rung.name} (${formatDistance(rung.targetMeters)}): ${RangeLadder.describeRewards(rung).join(' · ')}`,
+        )
+        .join('\n');
+      const title = layer.text(SPACE.md + 20, y + SPACE.sm, 'Yeni menzile ulaştın!', 'bodyBold', {
         color: SEMANTIC.moneyHex,
+      });
+      const banner = layer.text(SPACE.md + 20, title.y + title.height + 2, lines, 'caption', {
+        color: SEMANTIC.textPrimary,
         wrapWidth: width - SPACE.md * 2 - 20,
       });
-      const bannerH = banner.height + SPACE.sm * 2;
+      const bannerH = title.height + 2 + banner.height + SPACE.sm * 2;
       body.add(createInset(scene, 0, y, width, bannerH));
-      body.add(scene.add.image(SPACE.md + 6, y + bannerH / 2, 'icon_trophy').setOrigin(0.5));
-      body.add(banner);
+      body.add(scene.add.image(SPACE.md + 6, y + SPACE.sm + title.height / 2, 'icon_trophy').setOrigin(0.5));
+      body.add([title, banner]);
       y += bannerH + SPACE.sm;
+    }
+
+    // Sıradaki menzil hedefi: daha ileri gitmek için neyin kaldığı
+    if (view.nextTarget) {
+      const target = view.nextTarget;
+      const head = layer.text(
+        SPACE.md + 20,
+        y + SPACE.sm,
+        `Sıradaki hedef: ${formatDistance(target.targetMeters)} (${target.name})`,
+        'bodyBold',
+        { color: SEMANTIC.rocketHex, wrapWidth: width - SPACE.md * 2 - 20 },
+      );
+      const detail = layer.text(
+        SPACE.md + 20,
+        head.y + head.height + 2,
+        `Hedefe ${formatDistance(target.remainingMeters)} kaldı · Ödül: ${target.rewards.join(' · ')}`,
+        'caption',
+        { color: SEMANTIC.textMuted, wrapWidth: width - SPACE.md * 2 - 20 },
+      );
+      const targetH = head.height + 2 + detail.height + SPACE.sm * 2;
+      body.add(createInset(scene, 0, y, width, targetH));
+      body.add(scene.add.image(SPACE.md + 6, y + SPACE.sm + head.height / 2, 'icon_rocket').setOrigin(0.5));
+      body.add([head, detail]);
+      y += targetH + SPACE.sm;
     }
 
     // Uçuş ayrıntıları

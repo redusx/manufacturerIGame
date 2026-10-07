@@ -81,8 +81,12 @@ describe('FlightReturnHelper Headless Unit Tests', () => {
       ['flight_ms_100', 'flight_ms_500', 'flight_ms_1000'],
     );
 
+    // İlk beş taş 5 km'de biter; merdivenin geri kalanı daha ileridedir (M9)
     const at5500 = FlightReturnHelper.getAchievedMilestones(5500);
-    assert.strictEqual(at5500.length, FLIGHT_DISTANCE_MILESTONES.length);
+    assert.strictEqual(at5500.length, 5);
+
+    const at100km = FlightReturnHelper.getAchievedMilestones(100000);
+    assert.strictEqual(at100km.length, FLIGHT_DISTANCE_MILESTONES.length);
   });
 
   it('Should accurately detect newly unlocked milestones between flights', () => {
