@@ -175,6 +175,8 @@ export interface IntakeCellData {
   itemId: string;
   intervalSec: number;
   timerSec?: number;
+  /** Hammaddenin çıktığı kenar; eski kayıtlarda yoktur */
+  direction?: Direction;
 }
 
 /** 7. FABRİKA SERİLEŞTİRME MODELİ */

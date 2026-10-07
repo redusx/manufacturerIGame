@@ -49,7 +49,6 @@
   - **M7 sonrası denge (DEC-019):** Hedef, ilgili bir oyuncunun 10 aşamayı ~40–50 dakikada bitirmesidir (varsayım; kullanıcı onayı bekliyor). Hiç beklemeden kuran bot 9. aşamayı 15,6 dakikada bitiriyor (aşama başına 0,9–2,8 dk). "Toplam ciro" yalnız ihracat ve tıklamadan oluşur; aşama ödülü, uçuş primi ve iade sayılmaz.
   - 10. aşama (itici blok hattı, $30.000 parsel, $40.000 ciro) simüle edilmedi ve oynanmadı; süresi yalnız tahmindir (~10–15 dk ek).
   - Makine seviye yükseltmesi (maliyet ×1,15, hız +%20/seviye), uçuş mesafe çarpanları (+%75) ve roket yükseltme bedelleri M7'de değiştirilmedi.
-  - **Giriş tuzağı:** Giriş, yanındaki her banda hammadde basar; girişin yanından geçen başka bir hattın bandı ham cevherle dolup tıkanır.
   - Sekme arka plandayken fabrika durur ve geri dönünce telafi edilmez; çevrimdışı gelir yalnız sayfa yeniden açılınca hesaplanır.
   - Büyük fabrikalarda (20x16 ve üzeri) telefonda hücreler küçülüyor; iki parmakla yakınlaştırmak gerekiyor. Yerleştirme/söküm modunda tek parmak araca aittir, kamera iki parmakla kaydırılır.
   - Telefonda dikey ekranda 12x8 fabrika rahat dokunulan zoom'da yatayda bir hücreden az taşar (kaydırılarak görülür).

@@ -22,6 +22,9 @@ import { GridCoordinates } from './GridCoordinates.ts';
 import { INTAKE_SHORT_NAMES } from '../input/PlacementMath.ts';
 import { bindWorldTap, isTap } from '../input/WorldPointer.ts';
 import { SCREEN_LABEL_NAME } from '../../ui/system/UiLayer.ts';
+import { DIRECTION_VECTORS } from '../types.ts';
+import { ConveyorGeometry } from './ConveyorGeometry.ts';
+import { PORT_ARROW_OUT } from './MachineSprites.ts';
 
 export { GridCoordinates };
 
@@ -31,6 +34,9 @@ export interface GridViewConfig {
   originX?: number;
   originY?: number;
 }
+
+/** Kilitli parsel rozetinin doğal genişliği (dünya pikseli) */
+const LOCKED_BADGE_WIDTH = 132;
 
 export class GridView {
   readonly scene: Phaser.Scene;
@@ -71,6 +77,8 @@ export class GridView {
   /** Kilitli parsel rozeti; kamera uzaklaşınca okunaklı kalsın diye ölçeklenir */
   private lockedBadge: Phaser.GameObjects.Container | null = null;
   private labelScale = 1;
+  private lockedBadgeCenterX = 0;
+  private lockedBadgeAnchorX = 0;
 
   constructor(
     scene: Phaser.Scene,
@@ -118,7 +126,20 @@ export class GridView {
    */
   setLabelScale(scale: number): void {
     this.labelScale = scale;
-    this.lockedBadge?.setScale(scale);
+    this.applyBadgeLayout();
+  }
+
+  /**
+   * Rozet büyüdükçe etkin fabrikanın üstüne taşmasın: sol kenarı her zaman
+   * fabrikanın sağ kenarının dışında kalır, rozet dışarı doğru büyür.
+   */
+  private applyBadgeLayout(): void {
+    const badge = this.lockedBadge;
+    if (!badge) return;
+    badge.setScale(this.labelScale);
+    const halfWidth = (LOCKED_BADGE_WIDTH * this.labelScale) / 2;
+    const gap = 6 * this.labelScale;
+    badge.setX(Math.round(Math.max(this.lockedBadgeCenterX, this.lockedBadgeAnchorX + gap + halfWidth)));
   }
 
   // -------------------------------------------------------------
@@ -331,6 +352,20 @@ export class GridView {
         intakeCont.add(fallbackIntake);
       }
 
+      // Çıkış oku: hammadde yalnızca bu kenardan, bu yöndeki banda verilir (DEC-026)
+      if (this.scene.textures.exists(PORT_ARROW_OUT)) {
+        const direction = cell.intakeData?.direction ?? 'SOUTH';
+        const vec = DIRECTION_VECTORS[direction];
+        const half = this.tileSize / 2;
+        const arrow = this.scene.add.image(
+          Math.round(half + vec.dx * half),
+          Math.round(half + vec.dy * half),
+          PORT_ARROW_OUT,
+        );
+        arrow.setRotation(ConveyorGeometry.directionToAngleRad(direction));
+        intakeCont.add(arrow);
+      }
+
       // Giriş oku veya etiket
       const inText = this.scene.add.text(
         this.tileSize / 2,
@@ -433,9 +468,10 @@ export class GridView {
       const centerY = Math.round(plotPixelH / 2);
 
       const badgeContainer = this.scene.add.container(centerX, centerY);
+      this.lockedBadgeAnchorX = activePixelW;
 
       // Rozet: uzun parsel adı kutudan taşmasın diye satıra bölünür, yükseklik metne göre ayarlanır
-      const badgeW = 132;
+      const badgeW = LOCKED_BADGE_WIDTH;
       const canAfford = this.economy.canAfford(plot.cost);
       this.lockedPlotAffordable = canAfford;
 
@@ -491,8 +527,10 @@ export class GridView {
       );
 
       badgeContainer.add([badgeBg, titleText, costText, hitZone]);
-      badgeContainer.setName(SCREEN_LABEL_NAME).setScale(this.labelScale);
+      badgeContainer.setName(SCREEN_LABEL_NAME);
       this.lockedBadge = badgeContainer;
+      this.lockedBadgeCenterX = centerX;
+      this.applyBadgeLayout();
       plotContainer.add(badgeContainer);
 
       this.lockedPlotsContainer.add(plotContainer);

@@ -7,7 +7,7 @@
  * Phaser bağımlılığı yoktur.
  * ====================================================================== */
 
-import type { GridCoord } from '../types.ts';
+import type { Direction, GridCoord } from '../types.ts';
 
 export type CellType =
   | 'EMPTY'
@@ -29,6 +29,11 @@ export interface GridCell {
     itemId: string;
     intervalSec: number;
     timerSec: number;
+    /**
+     * Hammaddenin çıktığı tek kenar (DEC-026). Eski kayıtlarda yoktur; ilk
+     * yüklemede komşu banda göre belirlenir (LogisticsNetwork.resolveIntakeDirections).
+     */
+    direction?: Direction;
   };
 }
 
@@ -97,7 +102,7 @@ export class GridMap {
   }
 
   /** Sabit hammadde giriş silosu yerleştirir */
-  setIntake(x: number, y: number, itemId: string, intervalSec = 1.0): void {
+  setIntake(x: number, y: number, itemId: string, intervalSec = 1.0, direction?: Direction): void {
     if (!this.isInBounds(x, y)) {
       throw new Error(`[GridMap] Sınır dışı hammadde girişi: (${x}, ${y})`);
     }
@@ -107,6 +112,7 @@ export class GridMap {
       itemId,
       intervalSec,
       timerSec: 0,
+      direction,
     };
   }
 
@@ -123,7 +129,7 @@ export class GridMap {
    * Hammadde giriş silosu yerini değiştirir (taşır).
    * Kaynak hücre INTAKE, hedef hücre ise boş (EMPTY) olmalıdır.
    */
-  moveIntake(fromX: number, fromY: number, toX: number, toY: number): boolean {
+  moveIntake(fromX: number, fromY: number, toX: number, toY: number, direction?: Direction): boolean {
     if (!this.isInBounds(fromX, fromY) || !this.isInBounds(toX, toY)) {
       return false;
     }
@@ -132,6 +138,8 @@ export class GridMap {
       return false;
     }
     if (fromX === toX && fromY === toY) {
+      // Yerinde bırakmak yalnızca yönünü değiştirir
+      if (direction && fromCell.intakeData) fromCell.intakeData.direction = direction;
       return true;
     }
     if (!this.isCellEmpty(toX, toY)) {
@@ -143,6 +151,7 @@ export class GridMap {
     toCell.intakeData = fromCell.intakeData
       ? { ...fromCell.intakeData }
       : { itemId: 'iron_ore', intervalSec: 1.0, timerSec: 0 };
+    if (direction) toCell.intakeData.direction = direction;
 
     fromCell.type = 'EMPTY';
     fromCell.intakeData = undefined;

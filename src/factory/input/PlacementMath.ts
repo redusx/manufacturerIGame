@@ -434,7 +434,7 @@ export class PlacementMath {
           coord: rootCoord,
         };
       }
-      const moved = grid.moveIntake(source.x, source.y, rootCoord.x, rootCoord.y);
+      const moved = grid.moveIntake(source.x, source.y, rootCoord.x, rootCoord.y, direction);
       return {
         success: moved,
         reason: moved ? undefined : 'CELL_OCCUPIED',
@@ -479,7 +479,7 @@ export class PlacementMath {
 
     // Yeni hammadde girişi
     if (itemType === 'INTAKE_NEW' && params.intakeItemId) {
-      grid.setIntake(rootCoord.x, rootCoord.y, params.intakeItemId, INTAKE_INTERVAL_SEC);
+      grid.setIntake(rootCoord.x, rootCoord.y, params.intakeItemId, INTAKE_INTERVAL_SEC, direction);
       return {
         success: true,
         spentMoney: validation.cost,

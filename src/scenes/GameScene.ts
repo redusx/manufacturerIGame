@@ -1035,7 +1035,7 @@ export class GameScene extends Phaser.Scene {
    */
   private setupStarterFactoryLayout(): void {
     // 1. Sabit Giriş ve Çıkış
-    this.gridMap.setIntake(1, 0, 'iron_ore', 1.0);
+    this.gridMap.setIntake(1, 0, 'iron_ore', 1.0, 'SOUTH');
     this.gridMap.setExport(6, 7);
 
     // 2. Kırıcı Makine at (1, 3) (1x1 makine)
@@ -1116,7 +1116,7 @@ export class GameScene extends Phaser.Scene {
       if (data.factoryLayout.intakes) {
         for (const intake of data.factoryLayout.intakes) {
           if (this.gridMap.isInBounds(intake.coord.x, intake.coord.y)) {
-            this.gridMap.setIntake(intake.coord.x, intake.coord.y, intake.itemId, intake.intervalSec);
+            this.gridMap.setIntake(intake.coord.x, intake.coord.y, intake.itemId, intake.intervalSec, intake.direction);
           }
         }
       }
@@ -1128,6 +1128,8 @@ export class GameScene extends Phaser.Scene {
         }
       }
       this.logistics.loadFromSerialized(data.factoryLayout.conveyors);
+      // Yön bilgisi olmayan eski girişler, bağlı oldukları banda göre yön alır
+      this.logistics.resolveIntakeDirections();
       this.productionEngine.loadFromSerialized(data.factoryLayout.machines);
     } else {
       this.setupStarterFactoryLayout();
@@ -1279,13 +1281,13 @@ export class GameScene extends Phaser.Scene {
 
     switch (item.type) {
       case 'INTAKE_MOVE':
-        return { ...base, icon: uiIcon('intake'), title: 'Hammadde Girişi taşınıyor', hint: stepHint, canRotate: false };
+        return { ...base, icon: uiIcon('intake'), title: 'Hammadde Girişi taşınıyor', hint: isTouch ? `${stepHint} · ok çıkış yönü` : 'Bir hücreye tıkla · ok çıkış yönü · R: döndür', canRotate: true };
       case 'EXPORT_MOVE':
         return { ...base, icon: uiIcon('crate'), title: 'Sevkiyat Sandığı taşınıyor', hint: stepHint, canRotate: false };
       case 'INTAKE_NEW': {
         const name = defaultItemRegistry.get(item.intakeItemId ?? '')?.name ?? 'Hammadde';
         const cost = PlacementMath.getItemCost('INTAKE_NEW', undefined, item.intakeItemId);
-        return { ...base, icon: uiIcon('intake'), title: `${name} Girişi · $${formatNumber(cost)}`, hint: stepHint, canRotate: false };
+        return { ...base, icon: uiIcon('intake'), title: `${name} Girişi · $${formatNumber(cost)}`, hint: isTouch ? `${stepHint} · ok çıkış yönü` : 'Bir hücreye tıkla · ok çıkış yönü · R: döndür', canRotate: true };
       }
       case 'MACHINE': {
         const def = item.machineDef;

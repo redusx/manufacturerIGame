@@ -296,18 +296,46 @@ export class LogisticsNetwork {
     }
   }
 
+  /**
+   * Girişin hammadde verdiği bant: yalnızca çıkış yönündeki komşu hücre (DEC-026).
+   * Yanından geçen başka hatlara ve girişe doğru akan banda hammadde basılmaz.
+   */
   private findIntakeTargetBelt(intakeX: number, intakeY: number): ConveyorBelt | null {
-    const dirs: Direction[] = ['EAST', 'SOUTH', 'WEST', 'NORTH'];
-    for (const dir of dirs) {
-      const vec = DIRECTION_VECTORS[dir];
-      const targetX = intakeX + vec.dx;
-      const targetY = intakeY + vec.dy;
-      const belt = this.getConveyor(targetX, targetY);
-      if (belt && belt.canAcceptItem()) {
-        return belt;
+    const data = this.grid.getCell(intakeX, intakeY)?.intakeData;
+    if (!data) return null;
+    if (!data.direction) {
+      data.direction = this.inferIntakeDirection(intakeX, intakeY);
+    }
+
+    const vec = DIRECTION_VECTORS[data.direction];
+    const belt = this.getConveyor(intakeX + vec.dx, intakeY + vec.dy);
+    if (!belt || belt.direction === OPPOSITE_DIRECTIONS[data.direction]) return null;
+    return belt.canAcceptItem() ? belt : null;
+  }
+
+  /**
+   * Yönü kayıtlı olmayan (eski kayıt) girişlere yön verir: önce girişten uzağa akan
+   * komşu bant, yoksa herhangi bir komşu bant, o da yoksa güney.
+   */
+  resolveIntakeDirections(): void {
+    for (const cell of this.grid.getIntakeCells()) {
+      if (cell.intakeData && !cell.intakeData.direction) {
+        cell.intakeData.direction = this.inferIntakeDirection(cell.coord.x, cell.coord.y);
       }
     }
-    return null;
+  }
+
+  private inferIntakeDirection(intakeX: number, intakeY: number): Direction {
+    const dirs: Direction[] = ['SOUTH', 'EAST', 'WEST', 'NORTH'];
+    let fallback: Direction | null = null;
+    for (const dir of dirs) {
+      const vec = DIRECTION_VECTORS[dir];
+      const belt = this.getConveyor(intakeX + vec.dx, intakeY + vec.dy);
+      if (!belt) continue;
+      if (belt.direction === dir) return dir;
+      if (!fallback && belt.direction !== OPPOSITE_DIRECTIONS[dir]) fallback = dir;
+    }
+    return fallback ?? 'SOUTH';
   }
 
   /**

@@ -181,6 +181,14 @@ export class PlacementController {
     this.selectedItem = item;
     this._isActive = true;
     this.currentRotation = 'NORTH';
+    // Girişte ok, hammaddenin çıkacağı yöndür: yenisi güneye, taşınan mevcut yönüne bakar
+    if (item.type === 'INTAKE_NEW') {
+      this.currentRotation = 'SOUTH';
+    } else if (item.type === 'INTAKE_MOVE') {
+      const source = item.sourceCoord ?? this.grid.getIntakeCells()[0]?.coord;
+      const data = source ? this.grid.getCell(source.x, source.y)?.intakeData : undefined;
+      this.currentRotation = data?.direction ?? 'SOUTH';
+    }
     this.ghostContainer.setVisible(true);
 
     // Hayalet önceki oturumun hücresinde kalmasın: farede imlecin altına,
@@ -548,8 +556,13 @@ export class PlacementController {
     }
 
     // 3. Port okları (yalnızca makineler): fabrikadaki okların aynısı
-    const ports =
-      this.selectedItem.type === 'MACHINE' ? validation.previewPorts : [];
+    const isIntake = this.selectedItem.type === 'INTAKE_NEW' || this.selectedItem.type === 'INTAKE_MOVE';
+    const ports: Array<{ type: 'INPUT' | 'OUTPUT'; direction: Direction; localCoord: GridCoord }> =
+      this.selectedItem.type === 'MACHINE'
+        ? validation.previewPorts
+        : isIntake
+          ? [{ type: 'OUTPUT', direction: this.currentRotation, localCoord: { x: 0, y: 0 } }]
+          : [];
     while (this.ghostPortArrows.length < ports.length) {
       const arrow = this.scene.add.image(0, 0, PORT_ARROW_IN).setOrigin(0.5);
       this.ghostContainer.add(arrow);

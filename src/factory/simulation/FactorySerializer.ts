@@ -83,6 +83,7 @@ export class FactorySerializer {
       itemId: c.intakeData!.itemId,
       intervalSec: c.intakeData!.intervalSec,
       timerSec: c.intakeData!.timerSec,
+      direction: c.intakeData!.direction,
     }));
 
     const exports = grid.getExportCells().map((c) => ({
@@ -222,6 +223,7 @@ export class FactorySerializer {
             intake.coord.y,
             intake.itemId,
             intake.intervalSec,
+            intake.direction,
           );
           if (intake.timerSec !== undefined) {
             const cell = grid.getCell(intake.coord.x, intake.coord.y);

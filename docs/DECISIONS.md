@@ -181,3 +181,9 @@
 * **Tarih:** 2026-10-07
 * **Karar:** Reçetenin yan ürünü (kesicide Hurda Talaş) yalnızca hurda portundan (`out_scrap`; kesicide doğuya bakan ikinci turuncu ok) çıkar, asıl ürün yalnızca ana çıkıştan. Hurda portunun önünde onu alabilecek bir bant/sandık yoksa hurda atılır; makineyi ve hattı tıkamaz. Hurdayı satmak isteyen oyuncu hurda portuna bant bağlar.
 * **Gerekçe:** Oyuncu 8. aşamada dişliyi montaj istasyonuna bağladı; aynı banda karışan hurdayı istasyon almadığı için hat kilitlendi ve hurdayı ayıracak/atacak bir araç yoktu.
+
+### [DEC-026] Hammadde Girişi Tek Yönlüdür
+* **Tarih:** 2026-10-07
+* **Karar:** Hammadde girişi yalnızca çıkış okunun (turuncu) gösterdiği kenardaki banda hammadde verir; yanından geçen başka hatlara ve girişe doğru akan banda vermez. Yeni giriş güneye bakar; yerleştirirken ve taşırken R / döndür düğmesiyle yön seçilir. Girişi kendi hücresine "taşımak" yalnızca yönünü değiştirir. Yönü olmayan eski kayıtlarda yön, girişten uzağa akan komşu banda göre (yoksa herhangi bir komşu banda, o da yoksa güneye) bir kez belirlenir.
+* **Gerekçe:** Giriş, dört komşusundaki ilk boş banda hammadde bastığı için yanından geçen hatları ham cevherle doldurup tıkıyordu (PROJECT_STATUS'taki "giriş tuzağı").
+* **Ek:** Kilitli parsel rozeti büyüse de etkin fabrikanın üstüne taşmaz; sol kenarı fabrikanın sağ kenarının dışına sabitlenir ve rozet dışarı doğru büyür.
