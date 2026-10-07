@@ -61,6 +61,28 @@ export const PALETTE = {
 };
 
 /** ART_DIRECTION §5: temiz, yüksek okunabilirlikli sans-serif (her platformda hazır bulunur) */
+/**
+ * Uçuş bölgelerinin gökyüzü tonları (bölge indeksiyle seçilir). Kalkışta lacivert
+ * atmosfer, ilerledikçe uzayın koyu tonları; son tonlar tekrar eder.
+ */
+export const FLIGHT_SKY_TONES: readonly number[] = [
+  0x0f1b33, // Kalkış
+  0x0d172c, // İlk Tırmanış
+  0x0b1325, // Stratosfer
+  0x0a0f20, // Alçak Yörünge
+  0x090c1a, // Yörünge İstasyonu
+  0x070913, // Derin Uzay
+  0x0c0a1c, // Ay Geçişi
+  0x120a1f, // Ay Üssü
+  0x190b1a, // Mars Transferi
+  0x1c0d14, // Mars Yörüngesi
+  0x15110f, // Asteroit Kuşağı
+  0x1a140c, // Jüpiter
+  0x101613, // Satürn Halkaları
+  0x0a161a, // Uranüs
+  0x091226, // Neptün
+];
+
 export const FONT_FAMILY = 'Arial, Helvetica, sans-serif';
 
 /* =========================================================================

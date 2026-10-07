@@ -19,17 +19,18 @@ import type { RocketHangarBridge } from '../factory/simulation/RocketHangarBridg
 import type { FactoryEconomy } from '../factory/simulation/FactoryEconomy';
 import { FlightReturnHelper } from './FlightReturnHelper';
 import {
-  BOOST_SPEED_MULTIPLIER,
-  getMaxHullHP,
-  getMaxBoostDuration,
-  getFuelCapacity,
-  getMainThrust,
-  getLaunchVelocity,
-  getSteeringAgility,
-  getLiftEfficiency,
-  getGroundBounce,
-} from '../data/RocketData';
-import { PALETTE, FONT_FAMILY, SEMANTIC } from '../ui/theme';
+  type FlightBody,
+  type FlightStats,
+  applyCrystal,
+  computeFlightStats,
+  createFlightBody,
+  currentSpeedKmH,
+  obstacleDamage,
+  stepFlight,
+} from '../flight/FlightPhysics.ts';
+import { RANGE_LADDER, RangeLadder } from '../flight/RangeLadder.ts';
+import { PALETTE, FONT_FAMILY, SEMANTIC, FLIGHT_SKY_TONES } from '../ui/theme';
+import { formatDistance } from '../utils/format';
 import { UiLayer } from '../ui/system/UiLayer.ts';
 import { FlightHud } from '../ui/FlightHud.ts';
 import { FlightReportModal } from '../ui/FlightReportModal.ts';
@@ -60,6 +61,9 @@ interface CollectibleEntity {
   isCollected: boolean;
 }
 
+/** Bu bölgeden (5 km, Derin Uzay) itibaren gökyüzünde bulut çizilmez */
+const CLOUDLESS_ZONE_INDEX = 5;
+
 type FlightState = 'countdown' | 'launching' | 'flying' | 'crashed' | 'landed' | 'finished';
 
 export class FlightScene extends Phaser.Scene {
@@ -73,36 +77,19 @@ export class FlightScene extends Phaser.Scene {
   private wingsLevel = 1;
   private boostLevel = 1;
 
-  /* Fizik ve Stat Parametreleri */
-  private maxHP = 100;
+  /** Modül seviyelerinden türeyen uçuş değerleri ve roketin anlık durumu (saf fizik modülü) */
+  private stats: FlightStats = computeFlightStats({ hull: 1, engine: 1, wings: 1, boost: 1 });
+  private body: FlightBody = createFlightBody(this.stats, 0.5);
   private currentHP = 100;
-  private fuelCapacity = 4.0;
-  private currentFuel = 4.0;
-  private boostCapacity = 3.5;
-  private currentBoost = 3.5;
 
-  private launchVelocity = 380;
-  private mainThrust = 400;
-  private steerAgility = 2.5;
-  private liftCoeff = 0.45;
-  private groundBounce = 0.45;
-
-  /* Hız, Konum ve Açı */
   private flightState: FlightState = 'countdown';
   private rocketScreenX = 140;
   private rocketScreenY = 240;
-  private altitude = 0;       // Yükseklik (metre cinsinden sanal irtifa)
-  private distance = 0;       // Yatay uçuş mesafesi (metre)
-  private maxAltitude = 0;
-  private maxSpeed = 0;
-  private flightDuration = 0;  // Havada kalma süresi (saniye)
+  /** Roketin içinde bulunduğu menzil bölgesi (geçilen basamak sayısı) */
+  private zoneIndex = 0;
+  /** Uçuş başlamadan önceki rekor; HUD'daki "hedef" bunu geçen ilk basamaktır */
+  private previousBest = 0;
 
-  private vx = 0;             // Yatay hız (px/s)
-  private vy = 0;             // Dikey hız (px/s, aşağı yönlü pozitif)
-  private currentAngle = 0;   // Radyan açısı (negatif: burun yukarı, pozitif: burun aşağı)
-
-  private isThrusting = false;
-  private isBoosting = false;
   private invulnerableTimer = 0;
   private flightScore = 0;
   private collectedGears = 0;
@@ -217,25 +204,24 @@ export class FlightScene extends Phaser.Scene {
       ? this.bridge.getModuleLevel('boost')
       : this.economy.getRocketUpgradeLevel('boost');
 
-    this.maxHP = getMaxHullHP(this.hullLevel);
-    this.currentHP = this.maxHP;
-    this.fuelCapacity = getFuelCapacity(this.engineLevel);
-    this.currentFuel = this.fuelCapacity;
-    this.boostCapacity = getMaxBoostDuration(this.boostLevel);
-    this.currentBoost = this.boostCapacity;
-
-    this.launchVelocity = getLaunchVelocity(this.engineLevel);
-    this.mainThrust = getMainThrust(this.engineLevel);
-    this.steerAgility = getSteeringAgility(this.wingsLevel);
-    this.liftCoeff = getLiftEfficiency(this.wingsLevel);
-    this.groundBounce = getGroundBounce(this.hullLevel);
+    this.stats = computeFlightStats({
+      hull: this.hullLevel,
+      engine: this.engineLevel,
+      wings: this.wingsLevel,
+      boost: this.boostLevel,
+    });
+    // Rampadaki roket: fırlatma gücü belli olunca gövde yeniden kurulur
+    this.body = createFlightBody(this.stats, 0.5);
+    this.body.vx = 0;
+    this.body.vy = 0;
+    this.body.altitude = 0;
+    this.currentHP = this.stats.maxHp;
+    this.zoneIndex = 0;
+    this.previousBest = this.bridge
+      ? this.bridge.getFlightStats().bestDistance
+      : this.economy.stats.bestDistance;
 
     this.flightState = 'countdown';
-    this.distance = 0;
-    this.altitude = 0;
-    this.maxAltitude = 0;
-    this.maxSpeed = 0;
-    this.flightDuration = 0;
     this.flightScore = 0;
     this.collectedGears = 0;
     this.collectedCrystals = 0;
@@ -245,7 +231,7 @@ export class FlightScene extends Phaser.Scene {
     this.collectibles = [];
 
     // 1. Arka Plan
-    this.cameras.main.setBackgroundColor('#070913');
+    this.cameras.main.setBackgroundColor(FLIGHT_SKY_TONES[0]);
 
     // 2. Parallaks Katmanları
     this.createParallaxLayers(w, h);
@@ -269,7 +255,6 @@ export class FlightScene extends Phaser.Scene {
     // 4. Roket Nesnesi (Başlangıçta rampada dikeyden 30° açılı: -60° yükseliş açısı)
     this.rocketScreenX = rampX + 16;
     this.rocketScreenY = rampY - 26;
-    this.currentAngle = -Phaser.Math.DegToRad(60);
     this.createRocket();
 
     // 5. Arayüz: üst çubuk, nitro düğmesi, fırlatma göstergesi ve uçuş sonu raporu
@@ -352,7 +337,7 @@ export class FlightScene extends Phaser.Scene {
 
   private createRocket(): void {
     this.rocketContainer = this.add.container(this.rocketScreenX, this.rocketScreenY).setDepth(20);
-    this.rocketContainer.rotation = this.currentAngle;
+    this.rocketContainer.rotation = this.body.angle;
 
     this.flameSprite = this.add.image(-28, 0, 'flame_idle').setOrigin(1, 0.5).setScale(1.7).setVisible(false);
     this.rocketContainer.add(this.flameSprite);
@@ -384,7 +369,7 @@ export class FlightScene extends Phaser.Scene {
 
     // Minimum %25, maksimum %100 güç
     const powerRatio = Phaser.Math.Clamp(this.currentLaunchPower, 0.25, 1.0);
-    this.launchVelocity = getLaunchVelocity(this.engineLevel) * (0.45 + 0.55 * powerRatio);
+    this.body = createFlightBody(this.stats, powerRatio);
 
     const percent = Math.round(powerRatio * 100);
 
@@ -409,14 +394,8 @@ export class FlightScene extends Phaser.Scene {
       this.flameSprite.setTexture('flame_idle');
     }
 
-    // Kullanıcı İsteği: Dikeyden 30 derece açıyla (-60° yükseliş açısı) fırlatma
-    const launchAngle = -Phaser.Math.DegToRad(60);
-    this.currentAngle = launchAngle;
-    this.rocketContainer.rotation = launchAngle;
-
-    this.altitude = 5;
-    this.vx = Math.cos(launchAngle) * this.launchVelocity;
-    this.vy = Math.sin(launchAngle) * this.launchVelocity;
+    // Gövde triggerLaunchFromMeter'da fırlatma gücüyle kuruldu (-60° çıkış açısı)
+    this.rocketContainer.rotation = this.body.angle;
 
     sound.playLaunch();
     fx.emitSparkles(this, this.rocketScreenX - 25, this.rocketScreenY + 20, 20, PALETTE.factoryAmber);
@@ -506,54 +485,27 @@ export class FlightScene extends Phaser.Scene {
   }
 
   private handleFlightInput(dt: number): void {
-    // Boost kontrolü: SPACE tuşu, fare sol tık veya dokunmatik ekran basılı tutma
-    const boostActive = (this.keySpace?.isDown || this.pointerHoldingBoost);
+    // Nitro: SPACE tuşu, nitro düğmesi veya ekrana basılı tutma
+    const boostHeld = Boolean(this.keySpace?.isDown || this.pointerHoldingBoost);
+    const wasBoosting = this.body.isBoosting;
 
-    // 1. Sürekli Ana Motor İtişi (Fuel varsa sürekli çalışır, fırlatmanın momentumuyla gider)
-    if (this.currentFuel > 0) {
-      this.isThrusting = true;
-      this.currentFuel = Math.max(0, this.currentFuel - dt);
+    // İtiş, nitro, yer çekimi, süzülme, mesafe: saf fizik modülü
+    const distanceDelta = stepFlight(this.body, this.stats, boostHeld, dt);
+    this.flightScore += Math.round(distanceDelta * 1.8);
 
-      // Kullanıcı İsteği: Ekstra aşırı itici güç olmayacak, roket fırlatmanın etkisiyle gidecek
-      const cruiseThrust = this.mainThrust * 0.35;
-      this.vx += Math.cos(this.currentAngle) * cruiseThrust * dt;
-      this.vy += Math.sin(this.currentAngle) * cruiseThrust * dt;
-    } else {
-      this.isThrusting = false;
-    }
-
-    // 2. Süpersonik Boost (Nitro) & Kafa Dikme Mekaniği
-    if (boostActive && this.currentBoost > 0) {
-      if (!this.isBoosting) {
-        sound.playBoost();
-      }
-      this.isBoosting = true;
-      this.currentBoost = Math.max(0, this.currentBoost - dt);
-
-      // İleri güçlü ivmelenme
-      const boostThrust = this.mainThrust * BOOST_SPEED_MULTIPLIER;
-      this.vx += Math.cos(this.currentAngle) * boostThrust * dt;
-      this.vy += Math.sin(this.currentAngle) * boostThrust * dt;
-
-      // Kullanıcı İsteği: Boost basıldığında kafa dikilmeye giderek daha fazla ilerleme sağlanacak
-      const pitchUpSpeed = (2.2 + this.wingsLevel * 0.4) * dt;
-      this.currentAngle -= pitchUpSpeed;
-      // Dikeyden geriye (-55°) devrilmesini engelle (maksimum tırmanış açısı)
-      this.currentAngle = Math.max(-Phaser.Math.DegToRad(55), this.currentAngle);
-
+    if (this.body.isBoosting) {
+      if (!wasBoosting) sound.playBoost();
       if (Math.random() < 0.25) {
         this.cameras.main.shake(50, 0.003);
       }
-    } else {
-      this.isBoosting = false;
     }
 
     // 3. Alev Görseli
-    if (this.isBoosting) {
+    if (this.body.isBoosting) {
       this.flameSprite.setVisible(true);
       if (this.textures.exists('flame_boost')) this.flameSprite.setTexture('flame_boost');
       this.flameSprite.setScale(2.2, 1.8);
-    } else if (this.isThrusting) {
+    } else if (this.body.isThrusting) {
       this.flameSprite.setVisible(true);
       if (this.textures.exists('flame_idle')) this.flameSprite.setTexture('flame_idle');
       this.flameSprite.setScale(1.7, 1.3);
@@ -563,66 +515,15 @@ export class FlightScene extends Phaser.Scene {
   }
 
   private updateFlightPhysics(dt: number): void {
-    const GRAVITY = 380; // px/s² yer çekimi ivmesi
-
-    // 1. Yer Çekimi
-    this.vy += GRAVITY * dt;
-
-    // 2. Aerodinamik Kaldırma Kuvveti (Lift - Kanat Seviyesine Göre Süzülme)
-    const aoa = -this.currentAngle; // Burun yukarı açısı
-    if (this.vx > 40 && aoa > -0.2 && aoa < Phaser.Math.DegToRad(40)) {
-      const glideLift = this.vx * (0.32 + Math.cos(aoa) * 0.38) * this.liftCoeff * 0.8;
-      const maxLift = GRAVITY * 0.70;
-      const lift = Math.min(maxLift, glideLift);
-      this.vy -= lift * dt;
-    }
-
-    // 3. Hava Direnci (Drag) - Aşırı hız kaybı yaşanmadan dengeli sürtünme
-    const dragCoeff = 0.00018 / (1 + this.wingsLevel * 0.18);
-    this.vx -= (this.vx * Math.abs(this.vx) * dragCoeff) * dt;
-    this.vx = Math.max(0, this.vx);
-
-    // 4. İrtifa ve Mesafe Entegrasyonu
-    this.altitude = Math.max(0, this.altitude - this.vy * dt);
-    const distDelta = (this.vx * dt) * 0.1;
-    this.distance += distDelta;
-    this.flightDuration += dt;
-
-    const currentSpeedKmH = Math.round(Math.sqrt(this.vx * this.vx + this.vy * this.vy) * 0.7);
-    this.maxSpeed = Math.max(this.maxSpeed, currentSpeedKmH);
-    this.maxAltitude = Math.max(this.maxAltitude, Math.round(this.altitude * 0.25));
-    this.flightScore += Math.round(distDelta * 1.8);
-
-    // 5. Yer Çekimi Dönüşü (Gravity Turn) & Kafa Eğme Mekaniği:
-    // Boost basılı değilken roket yükselirken burnunu tepe noktasına (yatay 0°) doğru kıvırır,
-    // alçalırken ise kademeli olarak burnunu yere doğru eğerek doğal parabolik düşüşe geçer.
-    if (!this.isBoosting) {
-      const flightPathAngle = Math.atan2(this.vy, Math.max(50, this.vx));
-
-      let targetAngle: number;
-      if (this.vy < 0) {
-        // Tırmanış fazı: Tepe noktasına doğru burnunu yatırır (0°'yi aşmaz)
-        targetAngle = Math.min(0, flightPathAngle);
-      } else {
-        // Alçalış fazı: Kafasını yere doğru eğer (maksimum +52° dalış açısı)
-        targetAngle = Math.min(Phaser.Math.DegToRad(52), flightPathAngle);
-      }
-
-      // Yakıt varken yumuşak süzülüş, yakıt bittiğinde kafa daha hızlı yere eğilir
-      const pitchDownRate = (this.currentFuel > 0 ? 0.95 : 1.5) * dt;
-      this.currentAngle = Phaser.Math.Angle.RotateTo(this.currentAngle, targetAngle, pitchDownRate);
-
-      // Tırmanırken geriye aşırı dikilmesini engelle
-      this.currentAngle = Math.max(-Phaser.Math.DegToRad(60), this.currentAngle);
-    }
+    this.updateZone();
 
     // 7. Zemin Çarpışması / İniş Kontrolü
-    if (this.altitude <= 0) {
+    if (this.body.altitude <= 0) {
       this.handleGroundImpact(dt);
     }
 
     // Roket rotasyonu
-    this.rocketContainer.rotation = this.currentAngle;
+    this.rocketContainer.rotation = this.body.angle;
 
     // Hasar dokunulmazlık efekti
     if (this.invulnerableTimer > 0) {
@@ -633,10 +534,37 @@ export class FlightScene extends Phaser.Scene {
     }
   }
 
+  /**
+   * Menzil bölgesi: roket bir basamağı geçtiğinde duyurulur ve gökyüzü o bölgenin
+   * tonuna döner. "Daha ileri gitmenin" ekrandaki karşılığıdır.
+   */
+  private updateZone(): void {
+    const zone = RangeLadder.zoneIndex(this.body.distance);
+    if (zone === this.zoneIndex) return;
+    this.zoneIndex = zone;
+    this.applyZoneSky();
+
+    const rung = RANGE_LADDER[zone - 1];
+    if (rung) {
+      this.hud.announce(`${rung.name} · ${formatDistance(rung.targetMeters)}`, SEMANTIC.rocketHex);
+      sound.playCoin();
+    }
+  }
+
+  /** Bölgenin gökyüzü tonu; derin uzaydan (5 km) sonra bulut kalmaz */
+  private applyZoneSky(): void {
+    const tone = FLIGHT_SKY_TONES[Math.min(this.zoneIndex, FLIGHT_SKY_TONES.length - 1)];
+    this.cameras.main.setBackgroundColor(tone);
+    const cloudsVisible = this.zoneIndex < CLOUDLESS_ZONE_INDEX;
+    for (const cloud of this.clouds) {
+      cloud.sprite.setVisible(cloudsVisible);
+    }
+  }
+
   /** Zemin teması: Kullanıcı İsteği: Yere düştüğü anda doğrudan patlar (sekme ve kayma kaldırıldı) */
   private handleGroundImpact(_dt: number): void {
     if (this.flightState === 'crashed' || this.flightState === 'finished') return;
-    this.altitude = 0;
+    this.body.altitude = 0;
     this.currentHP = 0;
 
     this.cameras.main.shake(350, 0.016);
@@ -659,14 +587,14 @@ export class FlightScene extends Phaser.Scene {
     // İrtifa arttıkça kamera roketi kademeli olarak ekranın dikey merkezine alır.
     // Asla tavana takılma olmaz; yukarı doğru sonsuz hareket hissi verilir.
     const centerScreenY = h * 0.48;
-    const dynamicLeadY = Phaser.Math.Clamp(this.vy * 0.12, -45, 45);
+    const dynamicLeadY = Phaser.Math.Clamp(this.body.vy * 0.12, -45, 45);
     const targetScreenY = centerScreenY + dynamicLeadY;
 
-    if (this.altitude < 120) {
+    if (this.body.altitude < 120) {
       // Yer seviyesinden kalkış geçişi
-      const progress = this.altitude / 120;
+      const progress = this.body.altitude / 120;
       this.rocketScreenY = Phaser.Math.Linear(baseGroundY - 26, targetScreenY, progress);
-      const groundVisualY = baseGroundY + this.altitude * 0.85;
+      const groundVisualY = baseGroundY + this.body.altitude * 0.85;
       this.groundTileSprite.y = groundVisualY;
       if (this.launchPlatform) this.launchPlatform.y = groundVisualY;
       if (this.launchGantry) this.launchGantry.y = groundVisualY - 5;
@@ -674,7 +602,7 @@ export class FlightScene extends Phaser.Scene {
       // Yüksek irtifada pürüzsüz dinamik takip
       this.rocketScreenY = Phaser.Math.Linear(this.rocketScreenY, targetScreenY, 0.08);
       // Zemin ve rampa ekranın altına kayarak gözden kaybolur
-      const groundVisualY = baseGroundY + (this.altitude - 120) + 102;
+      const groundVisualY = baseGroundY + (this.body.altitude - 120) + 102;
       this.groundTileSprite.y = groundVisualY;
       if (this.launchPlatform) this.launchPlatform.y = groundVisualY;
       if (this.launchGantry) this.launchGantry.y = groundVisualY - 5;
@@ -684,8 +612,8 @@ export class FlightScene extends Phaser.Scene {
 
     // 2. Dikey ve Yatay Sonsuz Gökyüzü / Uzay Döngüsü (TileSprite)
     // Roket yükseldikçe (vy < 0) arka plan aşağı doğru sonsuz loop yapar, sınır/tavan yoktur
-    const speedX = this.vx;
-    const speedY = -this.vy;
+    const speedX = this.body.vx;
+    const speedY = -this.body.vy;
 
 
 
@@ -764,12 +692,12 @@ export class FlightScene extends Phaser.Scene {
   private updateObstacles(dt: number): void {
     const w = this.viewW;
     const h = this.viewH;
-    const speedY = -this.vy;
+    const speedY = -this.body.vy;
 
     // Engel üretimi (Yalnızca havada iken)
-    if (this.altitude > 40) {
+    if (this.body.altitude > 40) {
       this.obstacleSpawnTimer += dt;
-      const interval = Phaser.Math.Clamp(2.0 - (this.distance / 2500), 0.8, 2.0);
+      const interval = Phaser.Math.Clamp(2.0 - (this.body.distance / 2500), 0.8, 2.0);
 
       if (this.obstacleSpawnTimer >= interval) {
         this.obstacleSpawnTimer = 0;
@@ -779,7 +707,7 @@ export class FlightScene extends Phaser.Scene {
 
     for (let i = this.obstacles.length - 1; i >= 0; i--) {
       const obs = this.obstacles[i];
-      obs.x -= (this.vx * obs.speedMultiplier + 40) * dt;
+      obs.x -= (this.body.vx * obs.speedMultiplier + 40) * dt;
       obs.y += speedY * dt;
       obs.sprite.setPosition(obs.x, obs.y);
       obs.sprite.rotation += dt * 0.9;
@@ -833,7 +761,7 @@ export class FlightScene extends Phaser.Scene {
   private updateCollectibles(dt: number): void {
     const w = this.viewW;
     const h = this.viewH;
-    const speedY = -this.vy;
+    const speedY = -this.body.vy;
 
     this.collectibleSpawnTimer += dt;
     if (this.collectibleSpawnTimer >= 1.4) {
@@ -843,7 +771,7 @@ export class FlightScene extends Phaser.Scene {
 
     for (let i = this.collectibles.length - 1; i >= 0; i--) {
       const col = this.collectibles[i];
-      col.x -= (this.vx * 0.9 + 20) * dt;
+      col.x -= (this.body.vx * 0.9 + 20) * dt;
       col.y += speedY * dt;
 
       // Manyetik çekim
@@ -926,12 +854,11 @@ export class FlightScene extends Phaser.Scene {
     } else if (item.type === 'crystal') {
       this.collectedCrystals++;
       this.flightScore += 65;
-      // Hem motor yakıtını hem de nitroyu doldurur!
-      this.currentFuel = Math.min(this.fuelCapacity, this.currentFuel + this.fuelCapacity * 0.25);
-      this.currentBoost = Math.min(this.boostCapacity, this.currentBoost + this.boostCapacity * 0.35);
+      // Sabit miktarda yakıt ve nitro doldurur (seviyeden bağımsız)
+      applyCrystal(this.body, this.stats);
       this.showFloatingNotice(this.rocketScreenX, this.rocketScreenY - 20, 'YAKIT + NİTRO', SEMANTIC.rocketHex);
     } else if (item.type === 'repair') {
-      this.currentHP = Math.min(this.maxHP, this.currentHP + 35);
+      this.currentHP = Math.min(this.stats.maxHp, this.currentHP + 35);
       this.showFloatingNotice(this.rocketScreenX, this.rocketScreenY - 20, '+35 HP', SEMANTIC.primaryHex);
     }
 
@@ -977,7 +904,8 @@ export class FlightScene extends Phaser.Scene {
   }
 
   private takeObstacleDamage(amount: number): void {
-    const damage = Math.max(10, Math.round(amount / (1 + this.hullLevel * 0.3)));
+    // İleri bölgelerde engeller daha sert vurur; gövde seviyesi hasarı böler
+    const damage = obstacleDamage(amount, this.stats, RangeLadder.obstacleDamageMultiplier(this.body.distance));
     this.currentHP -= damage;
     this.invulnerableTimer = 0.8;
 
@@ -1053,28 +981,30 @@ export class FlightScene extends Phaser.Scene {
 
   private refreshHUD(): void {
     this.hud.update({
-      distance: this.distance,
-      altitude: this.altitude * 0.25,
-      speed: Math.sqrt(this.vx * this.vx + this.vy * this.vy) * 0.7,
+      distance: this.body.distance,
+      altitude: this.body.altitude * 0.25,
+      speed: currentSpeedKmH(this.body, this.stats),
       earned: this.calculateTotalEarnedResources(),
       hp: this.currentHP,
-      maxHp: this.maxHP,
-      fuel: this.currentFuel,
-      maxFuel: this.fuelCapacity,
-      boost: this.currentBoost,
-      maxBoost: this.boostCapacity,
-      isBoosting: this.isBoosting,
+      maxHp: this.stats.maxHp,
+      fuel: this.body.fuel,
+      maxFuel: this.stats.fuelCapacity,
+      boost: this.body.boost,
+      maxBoost: this.stats.boostCapacity,
+      isBoosting: this.body.isBoosting,
+      nextTargetMeters: RangeLadder.next(Math.max(this.previousBest, this.body.distance))?.targetMeters ?? null,
     });
   }
 
   private calculateTotalEarnedResources(): number {
     const breakdown = FlightReturnHelper.calculateRewardBreakdown(
       {
-        distanceMeters: this.distance,
-        maxAltitudeMeters: this.maxAltitude,
+        distanceMeters: this.body.distance,
+        maxAltitudeMeters: this.body.maxAltitude,
         gearsCollected: this.collectedGears,
         crystalsCollected: this.collectedCrystals,
         dodgedObstacles: this.dodgedObstacles,
+        rangeScale: this.stats.rangeScale,
       },
       this.factoryEconomy?.getRevenuePerSec(),
     );
@@ -1110,10 +1040,10 @@ export class FlightScene extends Phaser.Scene {
     const currentMultiplier = this.factoryEconomy ? this.factoryEconomy.revenueMultiplier : 1.0;
 
     const view = FlightReturnHelper.buildReportViewModel({
-      distance: this.distance,
-      durationSec: this.flightDuration,
-      maxAltitude: this.maxAltitude,
-      maxSpeedKmH: this.maxSpeed,
+      distance: this.body.distance,
+      durationSec: this.body.duration,
+      maxAltitude: this.body.maxAltitude,
+      maxSpeedKmH: this.body.maxSpeed,
       gears: this.collectedGears,
       crystals: this.collectedCrystals,
       dodgedObstacles: this.dodgedObstacles,
@@ -1122,6 +1052,7 @@ export class FlightScene extends Phaser.Scene {
       previousBestDistance: prevBest,
       currentRevenueMultiplier: currentMultiplier,
       incomePerSec: this.factoryEconomy?.getRevenuePerSec(),
+      rangeScale: this.stats.rangeScale,
     });
 
     if (view.isNewBestDistance || view.unlockedMilestones.length > 0) {
@@ -1147,24 +1078,25 @@ export class FlightScene extends Phaser.Scene {
       // 1. Kilometre taşlarını ve uçuş gelirini fabrika ekonomisine aktar
       this.bridge.processFlightResult(
         {
-          distanceMeters: this.distance,
+          distanceMeters: this.body.distance,
           partsCollected: this.collectedGears,
           crystalsCollected: this.collectedCrystals,
           dodgedObstacles: this.dodgedObstacles,
-          altitudeMeters: this.maxAltitude,
+          altitudeMeters: this.body.maxAltitude,
+          rangeScale: this.stats.rangeScale,
         },
         this.factoryEconomy,
       );
 
       // 2. Mesafe ve skor istatistiklerini kaydet (gelir zaten processFlightResult ile tek seferde eklendi)
       this.economy.recordFlightResult(
-        Math.floor(this.distance),
+        Math.floor(this.body.distance),
         this.flightScore,
         0,
       );
     } else {
       this.economy.recordFlightResult(
-        Math.floor(this.distance),
+        Math.floor(this.body.distance),
         this.flightScore,
         totalResources,
       );
@@ -1175,7 +1107,7 @@ export class FlightScene extends Phaser.Scene {
 
     const gameScene = this.scene.get('GameScene') as any;
     if (gameScene && typeof gameScene.onReturnFromFlight === 'function') {
-      gameScene.onReturnFromFlight(totalResources, Math.floor(this.distance));
+      gameScene.onReturnFromFlight(totalResources, Math.floor(this.body.distance));
     }
   }
 

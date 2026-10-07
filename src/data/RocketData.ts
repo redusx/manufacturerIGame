@@ -94,14 +94,53 @@ export const CRYSTAL_PICKUP_VALUE = 15;
 /** Kaçınılan her engel başına bonus kaynak */
 export const DODGE_BONUS_VALUE = 4;
 
+/* ---- Seviye Ölçeği (Sv.1–10) ---- */
+
+/** Bir roket modülünün ulaşabileceği en yüksek seviye */
+export const MAX_ROCKET_LEVEL = 10;
+
+/**
+ * Sv.3'ten sonraki her seviyenin fizik değerlerine katkısı (Sv.1–3'teki bir seviyeye oranla).
+ * Üst seviyeler uçuşu uzatmak yerine hızlandırır: fizik az, menzil çarpanı çok büyür.
+ */
+const PHYSICS_LEVEL_SLOPE = 0.2;
+
+/** Fizik formüllerinde kullanılan etkin seviye: Sv.3'e kadar kendisi, sonrası sıkıştırılmış */
+export function physicsLevel(level: number): number {
+  return level <= 3 ? level : 3 + (level - 3) * PHYSICS_LEVEL_SLOPE;
+}
+
+/** Roket sınıfı: en düşük modül seviyesi. Bütün modüller Sv.N olunca roket N. sınıftır. */
+export function getRocketClass(levels: { hull: number; engine: number; wings: number; boost: number }): number {
+  return Math.max(1, Math.min(levels.hull, levels.engine, levels.wings, levels.boost));
+}
+
+/**
+ * Sınıfa göre menzil (hız) çarpanı: aynı sürede kat edilen mesafeyi büyütür.
+ * `tools/flight_sim.ts --calibrate` ile ölçülmüştür: nitroyu yalnızca basılı tutan
+ * oyuncu, sınıfının menzil basamağına (RangeLadder) %3 payla ulaşır; nitroyu düşerken
+ * kullanan oyuncu yaklaşık bir basamak ileridedir (docs/M9_PLAN.md §4.2).
+ */
+const RANGE_SCALE_BY_CLASS: readonly number[] = [1, 1, 1.1, 1.5, 2.0, 2.65, 3.5, 4.75, 6.3, 8.55, 11.2];
+
+export function getRangeScale(rocketClass: number): number {
+  const index = Math.max(1, Math.min(MAX_ROCKET_LEVEL, Math.floor(rocketClass)));
+  return RANGE_SCALE_BY_CLASS[index];
+}
+
 /** Geriye dönük uyumluluk taban hızı (piksel/saniye) */
 export function getFlightSpeed(engineLevel: number): number {
-  return 220 + engineLevel * 70;
+  return 220 + physicsLevel(engineLevel) * 70;
 }
 
 /** Maksimum gövde canı (çarpışma ve zemin darbeleri) */
 export function getMaxHullHP(hullLevel: number): number {
   return 100 + hullLevel * 60;
+}
+
+/** Gövdenin engel hasarını bölme katsayısı */
+export function getHullDamageDivisor(hullLevel: number): number {
+  return 1 + hullLevel * 0.3;
 }
 
 /** Gövde zemin sekme katsayısı */
@@ -111,38 +150,52 @@ export function getGroundBounce(hullLevel: number): number {
 
 /** Fırlatma rampasından çıkış başlangıç mancınık hızı (px/s) */
 export function getLaunchVelocity(engineLevel: number): number {
-  return 340 + engineLevel * 65;
+  return 340 + physicsLevel(engineLevel) * 65;
 }
 
 /** Ana itici motor ivmesi (px/s²) */
 export function getMainThrust(engineLevel: number): number {
-  return 370 + engineLevel * 85;
+  return 370 + physicsLevel(engineLevel) * 85;
 }
 
 /** Ana motor yakıt süresi (saniye) */
 export function getFuelCapacity(engineLevel: number): number {
-  return 3.5 + engineLevel * 1.5;
+  return 3.5 + physicsLevel(engineLevel) * 1.5;
 }
 
 /** Kanat yönlendirme hızı (klavye/dokunmatik piksel/sn) */
 export function getSteeringSpeed(wingsLevel: number): number {
-  return 160 + wingsLevel * 50;
+  return 160 + physicsLevel(wingsLevel) * 50;
 }
 
 /** Kanat açısal çevikliği (rad/sn) */
 export function getSteeringAgility(wingsLevel: number): number {
-  return 2.2 + wingsLevel * 0.5;
+  return 2.2 + physicsLevel(wingsLevel) * 0.5;
 }
 
 /** Kanat aerodinamik süzülme / kaldırma (lift) çarpanı */
 export function getLiftEfficiency(wingsLevel: number): number {
-  return 0.38 + wingsLevel * 0.16;
+  return 0.38 + physicsLevel(wingsLevel) * 0.16;
+}
+
+/** Kanadın hava direnci katsayısı (düşük = daha az hız kaybı) */
+export function getDragCoefficient(wingsLevel: number): number {
+  return 0.00018 / (1 + physicsLevel(wingsLevel) * 0.18);
+}
+
+/** Nitro basılıyken burnun yukarı dönme hızı (rad/sn) */
+export function getBoostPitchRate(wingsLevel: number): number {
+  return 2.2 + physicsLevel(wingsLevel) * 0.4;
 }
 
 /** Maksimum boost / nitro süresi (saniye) */
 export function getMaxBoostDuration(boostLevel: number): number {
-  return 2.5 + boostLevel * 1.5;
+  return 2.5 + physicsLevel(boostLevel) * 1.5;
 }
 
 /** Boost hızı ve ivme çarpanı */
 export const BOOST_SPEED_MULTIPLIER = 1.85;
+
+/** Bir kristalin doldurduğu yakıt ve nitro (saniye). Seviyeden bağımsızdır (DEC-028). */
+export const CRYSTAL_FUEL_SECONDS = 0.5;
+export const CRYSTAL_BOOST_SECONDS = 0.35;

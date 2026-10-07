@@ -122,3 +122,15 @@ export function formatDuration(totalSeconds: number): string {
   const h = Math.floor(m / 60);
   return `${h}sa ${m % 60}dk`;
 }
+
+/**
+ * Uçuş mesafesini okunur biçimde yazar: 1 km'nin altı metre ("532 m"),
+ * üstü kilometre ("5.23 km", 10 km'den sonra "12.4 km").
+ */
+export function formatDistance(meters: number): string {
+  const value = Math.max(0, meters);
+  if (value < 1000) return `${Math.floor(value)} m`;
+  const km = value / 1000;
+  return `${km < 10 ? km.toFixed(2) : km.toFixed(1)} km`;
+}
+

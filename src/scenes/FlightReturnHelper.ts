@@ -10,6 +10,7 @@
  * ====================================================================== */
 
 import type { FactoryEconomy } from '../factory/simulation/FactoryEconomy.ts';
+import { formatDistance } from '../utils/format.ts';
 
 export interface FlightRewardParams {
   distanceMeters: number;
@@ -17,6 +18,11 @@ export interface FlightRewardParams {
   gearsCollected: number;
   crystalsCollected: number;
   dodgedObstacles: number;
+  /**
+   * Roket sınıfının menzil çarpanı (varsayılan 1). Prim, çarpansız mesafeden hesaplanır:
+   * üst sınıflar aynı sürede daha uzağa gider ama prim süresi bununla şişmez.
+   */
+  rangeScale?: number;
 }
 
 export interface FlightRewardBreakdown {
@@ -118,7 +124,7 @@ export class FlightReturnHelper {
     params: FlightRewardParams,
     incomePerSec = FLIGHT_REWARD_MIN_INCOME_PER_SEC,
   ): FlightRewardBreakdown {
-    const dist = Math.max(0, Math.floor(params.distanceMeters));
+    const dist = Math.max(0, Math.floor(params.distanceMeters / Math.max(1, params.rangeScale ?? 1)));
     const alt = Math.max(0, Math.floor(params.maxAltitudeMeters));
     const gears = Math.max(0, Math.floor(params.gearsCollected));
     const crystals = Math.max(0, Math.floor(params.crystalsCollected));
@@ -217,6 +223,7 @@ export class FlightReturnHelper {
     previousBestDistance: number;
     currentRevenueMultiplier?: number;
     incomePerSec?: number;
+    rangeScale?: number;
   }): FlightReportViewModel {
     const breakdown = this.calculateRewardBreakdown(
       {
@@ -225,6 +232,7 @@ export class FlightReturnHelper {
         gearsCollected: data.gears,
         crystalsCollected: data.crystals,
         dodgedObstacles: data.dodgedObstacles,
+        rangeScale: data.rangeScale,
       },
       data.incomePerSec,
     );
@@ -251,7 +259,7 @@ export class FlightReturnHelper {
         : 'Standart Çarpan (1.0x)';
 
     return {
-      distanceText: `${Math.floor(data.distance)} m`,
+      distanceText: formatDistance(data.distance),
       durationText: `${data.durationSec.toFixed(1)} sn`,
       maxAltitudeText: `${Math.round(data.maxAltitude)} m`,
       maxSpeedText: `${Math.round(data.maxSpeedKmH)} km/s`,

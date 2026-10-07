@@ -1249,3 +1249,26 @@ Yerleştirme sırasında döndür düğmesine basınca (`RotationPreview`) fabri
 ### [2026-10-08] — Hata: Yakınlaştırma Kendiliğinden Geri Alınıyordu
 
 Yatay ekranda HUD'daki para/gelir yazısı genişleyip hedef şeridinin yeri 6 birimden fazla kayınca `syncObjectiveSlot` bütün yerleşimi yeniden çalıştırıyor, yerleşim de her seferinde `fitToFactory` çağırıyordu. Geç oyunda para sık basamak değiştirdiği için oyuncunun yakınlaştırması sürekli "fabrikayı sığdır" zoom'una (24x24'te en uzak) dönüyordu. `GameScene.layoutAll` artık kamerayı yalnızca görüş alanı gerçekten değişince (pencere boyutu, ekran yönü, arayüz ölçeği) yeniden sığdırır.
+
+### [2026-10-08] — M9-A: Uçuşu Ölç ve Sınırla
+
+**Yapılanlar:** `src/flight/FlightPhysics.ts` (saf fizik: fırlatma, itiş, nitro, süzülme, mesafe, kristal, engel hasarı), `src/flight/RangeLadder.ts` (14 basamaklı menzil merdiveni ve bölge/izin yardımcıları; ödüller M9-C'de bağlanacak), `RocketData.ts` (Sv.10'a kadar formüller, roket sınıfı, menzil çarpanı, sabit kristal değerleri), `FlightScene` (fizik modülünü kullanır; bölge duyurusu ve gökyüzü tonu; HUD'da sıradaki menzil), `FlightReturnHelper` (prim çarpansız mesafeden), `tools/flight_sim.ts` (başsız simülasyon ve kalibrasyon), `utils/format.ts` (`formatDistance`). Karar: DEC-028.
+
+**Ölçülen tablo** (`node --experimental-strip-types tools/flight_sim.ts`, sınıf başına 40 uçuş):
+
+| Sınıf | Çarpan | Hedef | Nitro basılı (kristalsiz) | İyi oyuncu (%25 kristal) | En uzun uçuş |
+|---|---|---|---|---|---|
+| 1 | 1,00 | 1 km | 1,5 km · 20 sn | 1,3 km · 12 sn | 20 sn |
+| 2 | 1,10 | 2,5 km | 2,7 km · 30 sn | 3,0 km · 22 sn | 30 sn |
+| 3 | 1,50 | 5 km | 5,2 km · 43 sn | 7,0 km · 33 sn | 44 sn |
+| 4 | 2,00 | 7 km | 7,3 km · 45 sn | 9,8 km · 35 sn | 46 sn |
+| 5 | 2,65 | 10 km | 10,3 km · 48 sn | 14,3 km · 38 sn | 52 sn |
+| 6 | 3,50 | 14 km | 14,4 km · 51 sn | 20,3 km · 39 sn | 56 sn |
+| 7 | 4,75 | 20 km | 20,7 km · 55 sn | 30,6 km · 44 sn | 60 sn |
+| 8 | 6,30 | 28 km | 28,9 km · 58 sn | 43,1 km · 45 sn | 62 sn |
+| 9 | 8,55 | 40 km | 41,3 km · 61 sn | 63,1 km · 48 sn | 67 sn |
+| 10 | 11,20 | 55 km | 56,9 km · 64 sn | 89,4 km · 52 sn | 73 sn |
+
+Beklenen donanımla uçuş sonunda gövdenin ortalama %40–60'ı kalıyor; gövdeden ölüm 40 uçuşta 0–1.
+
+**Doğrulama:** `npm test` 262/262, `npx tsc --noEmit` temiz. Gerçek oyunda bot uçuşları simülasyonla örtüştü: Sv.1 basılı 1.524 m (sim 1,5 km), Sv.3 basılı 4.470 m (eski çarpanla; sim aynı), Sv.6 basılı 11,7 km (eski çarpanla; sim aynı), Sv.6 iyi oyuncu 16,4 km. Gerçek oyunda ölçülen kristal toplama oranı: nitro basılıyken %0–2, düşerken nitro kullanan botta %19–31; kalibrasyon bu ölçüme göre yeniden yapıldı. Ekranda bölge duyurusu, gökyüzü tonu ve "Hedef 14.0 km" göstergesi görüldü. Sv.4 ve üstü henüz oyunda alınamıyor (M9-B); bot seviyeleri doğrudan ayarlayarak uçtu. Elle (insan) oynayış yapılmadı.

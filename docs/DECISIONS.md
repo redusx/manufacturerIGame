@@ -193,3 +193,15 @@
 * **Karar:**
   1. Farede fabrika sağ (veya orta) tuş basılı tutularak kaydırılır; araç etkinken de çalışır. Sol tuş yalnızca seçim, yerleştirme ve çizim içindir, artık kaydırmaz. Sürüklemeden bırakılan sağ tık etkin aracı iptal eder. Dokunmatikte tek parmakla kaydırma değişmedi.
   2. Dokunmatikte bant döşendikten sonra hayalet, bandın aktığı sıradaki hücreye geçer. Çevresindeki üç yeşil ok o hücreye düz / sola / sağa bakan bant döşeyip bir adım ilerletir; son bandın iki yanındaki mavi oklar o bandı sola / sağa çevirir (`BeltStepper`). Düğmeler 44 birimdir ve arayüz katmanındadır. Sürükleyerek çizim aynen çalışır.
+
+### [DEC-028] Uçuş Modeli: Roket Sınıfı, Menzil Çarpanı, Sabit Kristal (M9-A)
+* **Tarih:** 2026-10-08
+* **Karar:**
+  1. **Roket sınıfı** = en düşük modül seviyesi. Dört modülün dördü de Sv.N olunca roket N. sınıftır. Sınıf, aynı sürede kat edilen mesafeyi büyüten **menzil (hız) çarpanını** belirler: 1 · 1,1 · 1,5 · 2 · 2,65 · 3,5 · 4,75 · 6,3 · 8,55 · 11,2 (Sv.1 … Sv.10).
+  2. Sv.3'ten sonraki seviyeler fizik değerlerini (itiş, yakıt, nitro, kaldırma) Sv.1–3'teki bir seviyenin beşte biri kadar artırır. Üst seviyeler uçuşu uzatmaz, hızlandırır; hiçbir uçuş yaklaşık 75 saniyeyi geçmez.
+  3. **Kristal sabit doldurur:** +0,5 sn yakıt, +0,35 sn nitro (eskiden kapasitenin %25'i ve %35'i). Eski kuralda Sv.4'ten itibaren kristal toplayan oyuncunun uçuşu bitmiyordu.
+  4. **Bölgeler:** her menzil basamağı (`RangeLadder`) bir bölge sınırıdır; geçilince duyurulur ve gökyüzü tonu değişir. 5 km'den itibaren geçilen her basamak engel hasarını %30 artırır; gövde seviyesi hasarı böler.
+  5. **Uçuş primi çarpansız mesafeden hesaplanır;** üst sınıflarda prim süresi kendiliğinden tavana vurmaz.
+  6. Uçuş fiziği saf bir modüldedir (`src/flight/FlightPhysics.ts`); oyun ve `tools/flight_sim.ts` aynı kodu çalıştırır.
+* **Kalibrasyon:** menzil çarpanları, nitroyu yalnızca basılı tutan oyuncu (gerçek oyunda ölçüldü: bu oynayışta kristal toplanmıyor) sınıfının basamağına %3 payla ulaşacak şekilde seçildi. Nitroyu düşerken kullanan oyuncu (kristallerin %20–30'unu toplar) hedefin %140–160'ına, yani yaklaşık bir basamak ileriye gider. 75 ve 100 km basamakları Sv.10'da yalnızca böyle oynayarak geçilir.
+* **Gerekçe:** `M9_PLAN.md` §2.2 ve §4.2. Mesafeyi roket seviyesine bağlamadan "daha ileri" hedefi kurulamıyordu.

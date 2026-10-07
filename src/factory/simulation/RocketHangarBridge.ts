@@ -34,6 +34,8 @@ export interface FlightResultInput {
   crystalsCollected: number;
   dodgedObstacles?: number;
   altitudeMeters?: number;
+  /** Uçuşu yapan roket sınıfının menzil çarpanı (prim çarpansız mesafeden hesaplanır) */
+  rangeScale?: number;
 }
 
 export interface FlightReturnSummary {
@@ -445,6 +447,7 @@ export class RocketHangarBridge {
         gearsCollected: result.partsCollected,
         crystalsCollected: result.crystalsCollected,
         dodgedObstacles: result.dodgedObstacles ?? 0,
+        rangeScale: result.rangeScale,
       },
       economy.getRevenuePerSec(),
     );

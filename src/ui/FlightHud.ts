@@ -8,7 +8,7 @@
  * ====================================================================== */
 
 import Phaser from 'phaser';
-import { formatNumber } from '../utils/format';
+import { formatDistance, formatNumber } from '../utils/format';
 import { SEMANTIC, SPACE, uiIcon } from './theme';
 import type { UiLayer } from './system/UiLayer.ts';
 import { UiProgressBar } from './system/UiWidgets.ts';
@@ -25,6 +25,8 @@ export interface FlightHudState {
   boost: number;
   maxBoost: number;
   isBoosting: boolean;
+  /** Sıradaki menzil hedefi (metre); hepsi geçildiyse null */
+  nextTargetMeters: number | null;
 }
 
 export interface FlightHudCallbacks {
@@ -179,8 +181,13 @@ export class FlightHud {
   }
 
   update(state: FlightHudState): void {
-    this.distanceText.setText(`${Math.floor(state.distance)} m`);
-    this.detailText.setText(`İrtifa ${Math.round(state.altitude)} m · Hız ${Math.round(state.speed)}`);
+    this.distanceText.setText(formatDistance(state.distance));
+    const speed = `Hız ${Math.round(state.speed)}`;
+    this.detailText.setText(
+      state.nextTargetMeters === null
+        ? `İrtifa ${Math.round(state.altitude)} m · ${speed}`
+        : `Hedef ${formatDistance(state.nextTargetMeters)} · ${speed}`,
+    );
     this.earnedText.setText(`+$${formatNumber(state.earned)}`);
     this.coin.setPosition(this.earnedText.x - this.earnedText.width - 16, this.earnedText.y);
 
