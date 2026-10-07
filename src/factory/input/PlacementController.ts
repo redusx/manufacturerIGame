@@ -346,6 +346,24 @@ export class PlacementController {
    * Çizim sırasında tek bir hücreye bant döşer. Sürüklerken dolu hücrelerin üstünden
    * geçmek olağandır; `quiet` iken başarısız yerleşim hata sarsıntısı vermez.
    */
+  /**
+   * Verilen hücreye, verilen yönde bant döşer (adım adım döşeme düğmeleri).
+   * Sürükleme ile aynı yolu kullanır; başarılıysa `onPlaced` tetiklenir.
+   */
+  placeBelt(coord: GridCoord, direction: Direction): void {
+    if (!this._isActive || this.selectedItem?.type !== 'CONVEYOR') return;
+    this.placeBeltAt(coord, direction, false);
+  }
+
+  /** Hayaleti verilen hücreye ve yöne taşır (bir şey döşemez) */
+  previewAt(coord: GridCoord, direction: Direction): void {
+    if (!this._isActive) return;
+    this.currentRotation = direction;
+    this.currentCoord = { x: coord.x, y: coord.y };
+    this.updateGhostPosition();
+    this.updateGhostVisuals();
+  }
+
   private placeBeltAt(coord: GridCoord, direction: Direction, quiet = true): void {
     this.currentRotation = direction;
     this.currentCoord = coord;
@@ -367,11 +385,8 @@ export class PlacementController {
     if (isPointerOverUi(currentlyOver, this.camera)) return;
     if (!isPointerInsideViewport(pointer, this.camera)) return;
 
-    // Sağ tık: İptal
-    if (pointer.button === 2) {
-      this.cancelPlacement();
-      return;
-    }
+    // Sağ tuş kamerayı kaydırır; sürüklemeden bırakılırsa sahne aracı iptal eder
+    if (pointer.button === 2) return;
 
     // Sol tık veya dokunma dışındaki tuşları yoksay
     if (pointer.button !== 0 && pointer.button !== -1) return;

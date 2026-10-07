@@ -237,11 +237,8 @@ export class DemolishTool {
     if (isPointerOverUi(currentlyOver, this.camera)) return;
     if (!isPointerInsideViewport(pointer, this.camera)) return;
 
-    // Sağ tık: Araçtan çık
-    if (pointer.button === 2) {
-      this.cancelTool();
-      return;
-    }
+    // Sağ tuş kamerayı kaydırır; sürüklemeden bırakılırsa sahne aracı iptal eder
+    if (pointer.button === 2) return;
 
     // Sol tık veya dokunma dışındaki tuşları yoksay
     if (pointer.button !== 0 && pointer.button !== -1) return;

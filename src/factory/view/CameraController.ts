@@ -268,14 +268,13 @@ export class CameraController {
     }
     if (!this.enabled || !this.isPointerInViewport(pointer)) return;
 
-    // Eğer sol tık pan devre dışı bırakılmışsa (örn. yerleşim aktif), sadece orta tuşa (button 1) izin ver
-    if (this.canPan && !this.canPan() && pointer.button !== 1) {
-      return;
-    }
+    // Farede kamera sağ (veya orta) tuş basılı tutularak kaydırılır; sol tuş seçim,
+    // yerleştirme ve çizim içindir. Dokunmatikte tek parmak kaydırır (araç etkin değilse).
+    const canDrag = pointer.wasTouch
+      ? !this.canPan || this.canPan()
+      : pointer.button === 2 || pointer.button === 1;
 
-    // Orta tuş (wheel button) veya sol tık ile sürükleme
-    // Sürükleme başlangıcı: sol tık (button 0) veya orta tuş (button 1)
-    if (pointer.button === 0 || pointer.button === 1) {
+    if (canDrag) {
       this.isDragging = true;
       this.dragStartPointerX = pointer.x;
       this.dragStartPointerY = pointer.y;

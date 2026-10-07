@@ -179,6 +179,12 @@ export class UiButton extends Phaser.GameObjects.Container implements UiFocusabl
     return this;
   }
 
+  /** İkonu döndürür (ör. yön oku); radyan */
+  setIconRotation(radians: number): this {
+    this.iconImage?.setRotation(radians);
+    return this;
+  }
+
   setIcon(textureKey: string, tint?: number): this {
     if (this.iconImage) {
       this.iconImage.setTexture(textureKey);

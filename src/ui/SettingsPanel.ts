@@ -28,7 +28,8 @@ const ROW_HEIGHT = 44;
 const SHORTCUT_LINES = [
   'Boşluk / 1: Üret   ·   2: Bant   ·   3 / B: İnşa',
   '4 / X: Sök   ·   5 / H: Hangar   ·   R: Döndür',
-  'WASD / Oklar: Kamera   ·   Tekerlek: Yakınlaştır',
+  'Sağ tuş basılı: Kaydır   ·   Tekerlek: Yakınlaştır',
+  'WASD / Oklar: Kamera   ·   Sağ tık: Aracı iptal et',
   'Esc: Kapat / İptal   ·   Tab, Enter: Düğmeler',
 ];
 

@@ -187,3 +187,9 @@
 * **Karar:** Hammadde girişi yalnızca çıkış okunun (turuncu) gösterdiği kenardaki banda hammadde verir; yanından geçen başka hatlara ve girişe doğru akan banda vermez. Yeni giriş güneye bakar; yerleştirirken ve taşırken R / döndür düğmesiyle yön seçilir. Girişi kendi hücresine "taşımak" yalnızca yönünü değiştirir. Yönü olmayan eski kayıtlarda yön, girişten uzağa akan komşu banda göre (yoksa herhangi bir komşu banda, o da yoksa güneye) bir kez belirlenir.
 * **Gerekçe:** Giriş, dört komşusundaki ilk boş banda hammadde bastığı için yanından geçen hatları ham cevherle doldurup tıkıyordu (PROJECT_STATUS'taki "giriş tuzağı").
 * **Ek:** Kilitli parsel rozeti büyüse de etkin fabrikanın üstüne taşmaz; sol kenarı fabrikanın sağ kenarının dışına sabitlenir ve rozet dışarı doğru büyür.
+
+### [DEC-027] Farede Kaydırma Sağ Tuşta; Dokunmatikte Adım Adım Bant
+* **Tarih:** 2026-10-08
+* **Karar:**
+  1. Farede fabrika sağ (veya orta) tuş basılı tutularak kaydırılır; araç etkinken de çalışır. Sol tuş yalnızca seçim, yerleştirme ve çizim içindir, artık kaydırmaz. Sürüklemeden bırakılan sağ tık etkin aracı iptal eder. Dokunmatikte tek parmakla kaydırma değişmedi.
+  2. Dokunmatikte bant döşendikten sonra hayalet, bandın aktığı sıradaki hücreye geçer. Çevresindeki üç yeşil ok o hücreye düz / sola / sağa bakan bant döşeyip bir adım ilerletir; son bandın iki yanındaki mavi oklar o bandı sola / sağa çevirir (`BeltStepper`). Düğmeler 44 birimdir ve arayüz katmanındadır. Sürükleyerek çizim aynen çalışır.

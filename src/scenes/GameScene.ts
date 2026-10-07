@@ -30,6 +30,8 @@ import { UiLayer } from '../ui/system/UiLayer.ts';
 import { UiToast, type UiToastKind } from '../ui/system/UiWidgets.ts';
 import { UiConfirmDialog } from '../ui/system/UiConfirmDialog.ts';
 import { RotationPreview, type RotationPreviewSubject } from '../ui/RotationPreview.ts';
+import { BeltStepper } from '../ui/BeltStepper.ts';
+import { DIRECTION_VECTORS, type Direction, type GridCoord } from '../factory/types.ts';
 import { ItemPriceModal, MachineInfoModal } from '../ui/CatalogInfoModals.ts';
 import { MACHINE_SPRITE_SHEETS, PORT_ARROW_IMAGES } from '../factory/view/MachineSprites.ts';
 import { GridView } from '../factory/view/GridView.ts';
@@ -99,6 +101,9 @@ export class GameScene extends Phaser.Scene {
   private toast!: UiToast;
   private confirmDialog!: UiConfirmDialog;
   private rotationPreview!: RotationPreview;
+  private beltStepper!: BeltStepper;
+  /** Dokunmatikte son döşenen bant; adım adım döşeme düğmeleri buna göre konumlanır */
+  private beltStep: { coord: GridCoord; direction: Direction } | null = null;
   /** Son uygulanan kamera görüş alanı; değişmedikçe kamera yeniden sığdırılmaz */
   private lastViewportKey = '';
   private machineInfoModal!: MachineInfoModal;
@@ -483,6 +488,7 @@ export class GameScene extends Phaser.Scene {
           } else {
             // Bant sürükleyerek döşenir; her bant için bildirim göstermek ekranı doldurur
             this.conveyorRenderer.rebuild();
+            this.rememberBeltStep(result.coord);
           }
           sound.playUpgrade();
           const worldPos = GridCoordinates.gridToWorldCenter(result.coord, 32);
@@ -676,6 +682,15 @@ export class GameScene extends Phaser.Scene {
       },
     });
     this.rotationPreview = new RotationPreview(this.ui);
+    this.beltStepper = new BeltStepper(this.ui, {
+      onAdvance: (direction) => this.advanceBelt(direction),
+      onTurnLast: (direction) => this.turnLastBelt(direction),
+      cellToUi: (coord) => {
+        const center = GridCoordinates.gridToWorldCenter(coord, 32);
+        const point = this.worldToUi(center.x, center.y);
+        return { ...point, size: (32 * this.factoryCamera.zoom) / this.ui.zoom };
+      },
+    });
     this.toast = new UiToast(this.ui);
     this.confirmDialog = new UiConfirmDialog(this.ui);
 
@@ -704,6 +719,23 @@ export class GameScene extends Phaser.Scene {
 
     /* Klavye kısayolları */
     this.bindShortcuts();
+
+    // Sağ tuş kamerayı kaydırır (CameraController); tarayıcı menüsü açılmasın.
+    // Sürüklemeden bırakılan sağ tık ise etkin aracı iptal eder.
+    this.input.mouse?.disableContextMenu();
+    // Phaser basış konumunu yalnız sol tuş için tuttuğundan sağ tuşunki burada saklanır
+    let rightDown: { x: number; y: number } | null = null;
+    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (!pointer.wasTouch && pointer.button === 2) rightDown = { x: pointer.x, y: pointer.y };
+    });
+    this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+      if (pointer.wasTouch || !pointer.rightButtonReleased() || !rightDown) return;
+      const moved = Phaser.Math.Distance.Between(rightDown.x, rightDown.y, pointer.x, pointer.y);
+      rightDown = null;
+      if (moved <= 8 * this.ui.metrics.renderScale && !this.ui.isModalOpen) {
+        this.cancelActiveTool();
+      }
+    });
 
     /* İlk yerleşim; pencere boyutu veya arayüz ölçeği değişince yeniden */
     this.layoutAll();
@@ -1243,6 +1275,65 @@ export class GameScene extends Phaser.Scene {
     this.demolishTool.activate();
   }
 
+  /* ---------------- Dokunmatikte adım adım bant döşeme ---------------- */
+
+  private nextCellOf(step: { coord: GridCoord; direction: Direction }): GridCoord {
+    const vec = DIRECTION_VECTORS[step.direction];
+    return { x: step.coord.x + vec.dx, y: step.coord.y + vec.dy };
+  }
+
+  /** Bant döşendi: dokunmatikte hayaleti bandın aktığı sıradaki hücreye geçir */
+  private rememberBeltStep(coord: GridCoord): void {
+    const belt = this.logistics.getConveyor(coord.x, coord.y);
+    if (!belt || !this.input.activePointer.wasTouch) {
+      this.beltStep = null;
+      return;
+    }
+    this.beltStep = { coord: { x: coord.x, y: coord.y }, direction: belt.direction };
+    this.placementController.previewAt(this.nextCellOf(this.beltStep), belt.direction);
+  }
+
+  private syncBeltStepper(): void {
+    const step = this.beltStep;
+    const placement = this.placementController;
+    const belt = step ? this.logistics.getConveyor(step.coord.x, step.coord.y) : undefined;
+    if (!step || !belt || placement.currentItem?.type !== 'CONVEYOR' || this.rotationPreview.visible) {
+      if (!belt) this.beltStep = null;
+      if (this.beltStepper.visible) this.beltStepper.hide();
+      return;
+    }
+
+    const next = this.nextCellOf(step);
+    const bounds = this.factoryEconomy.getCurrentFactoryDimensions();
+    const canAdvance =
+      next.x >= 0 && next.y >= 0 && next.x < bounds.width && next.y < bounds.height &&
+      this.gridMap.isCellEmpty(next.x, next.y);
+    this.beltStepper.show({ last: step.coord, lastDirection: step.direction, canAdvance });
+  }
+
+  /** Yeşil ok: sıradaki hücreye o yöne bakan bant döşe ve bir adım ilerle */
+  private advanceBelt(direction: Direction): void {
+    if (!this.beltStep) return;
+    if (!this.factoryEconomy.canAfford(CONVEYOR_BUILD_COST)) {
+      this.notify(`Bant için $${CONVEYOR_BUILD_COST} gerekiyor.`, 'warning');
+      return;
+    }
+    this.placementController.placeBelt(this.nextCellOf(this.beltStep), direction);
+  }
+
+  /** Mavi ok: son döşenen bandı o yöne çevir */
+  private turnLastBelt(direction: Direction): void {
+    const step = this.beltStep;
+    const belt = step ? this.logistics.getConveyor(step.coord.x, step.coord.y) : undefined;
+    if (!step || !belt) return;
+    belt.direction = direction;
+    step.direction = direction;
+    this.conveyorRenderer.rebuild();
+    this.placementController.previewAt(this.nextCellOf(step), direction);
+    sound.playClick();
+    this.saveGame();
+  }
+
   /** Yön önizlemesi olan öğeler: makineler, hammadde girişleri, bant ve akış birimleri */
   private rotationSubjectOf(item: PlacementItem): RotationPreviewSubject | null {
     if ((item.type === 'MACHINE' || item.type === 'MACHINE_MOVE') && item.machineDef) {
@@ -1305,6 +1396,7 @@ export class GameScene extends Phaser.Scene {
       const context = this.buildPlacementContext(placement.currentItem, isTouch);
       // Önizleme açıkken küçük hayalet gizlenir; kapanınca geri gelir
       placement.ghostContainer.setVisible(!this.rotationPreview.visible);
+      this.syncBeltStepper();
       if (this.rotationPreview.visible) {
         // R tuşuyla döndürme de önizlemeye yansır
         this.rotationPreview.sync(placement.rotation);
@@ -1320,6 +1412,8 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     if (this.rotationPreview.visible) this.rotationPreview.hide();
+    this.beltStep = null;
+    if (this.beltStepper.visible) this.beltStepper.hide();
 
     if (demolish.isActive) {
       this.toolbar.setActiveTool('demolish');
