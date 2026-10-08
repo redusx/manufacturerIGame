@@ -13,7 +13,6 @@ import {
   type AdType,
   type AdCallbacks,
 } from './CrazyGamesSDK.ts';
-import { sound } from '../audio/SoundManager.ts';
 
 describe('CrazyGamesSDK Headless Unit Tests', () => {
   beforeEach(() => {
@@ -32,9 +31,10 @@ describe('CrazyGamesSDK Headless Unit Tests', () => {
     assert.doesNotThrow(() => sdk.happytime());
     assert.doesNotThrow(() => sdk.gameplayStop());
 
-    // Reklam mock modda doğrudan true dönmeli
+    // SDK yokken reklam gösterilemez: ödül verilmesin diye false döner
+    assert.strictEqual(sdk.canShowAds(), false);
     const adResult = await sdk.requestAd('rewarded');
-    assert.strictEqual(adResult, true);
+    assert.strictEqual(adResult, false);
   });
 
   it('Should coordinate lifecycle events with underlying raw SDK', async () => {
@@ -83,22 +83,22 @@ describe('CrazyGamesSDK Headless Unit Tests', () => {
     assert.strictEqual(rawStopCalled, true);
   });
 
-  it('Should manage audio muting and unmuting during rewarded ads', async () => {
+  it('Should report the ad start to the caller and wrap the ad in gameplay stop/start', async () => {
     let requestedType: string | null = null;
-    sound.setMuted(false);
+    const events: string[] = [];
 
     const mockRaw: CrazyGamesSDKRaw = {
       init: async () => {},
       game: {
-        gameplayStart: () => {},
-        gameplayStop: () => {},
+        gameplayStart: () => events.push('gameplayStart'),
+        gameplayStop: () => events.push('gameplayStop'),
         happytime: () => {},
       },
       ad: {
         requestAd: async (type: AdType, callbacks?: AdCallbacks) => {
           requestedType = type;
-          // Reklam süresince ses kısılmış olmalı
-          assert.strictEqual(sound.isMuted(), true);
+          // Reklam gelene kadar oyun durdurulmaz
+          assert.deepStrictEqual(events, ['gameplayStart']);
 
           callbacks?.adStarted?.();
           setTimeout(() => {
@@ -109,22 +109,24 @@ describe('CrazyGamesSDK Headless Unit Tests', () => {
     };
 
     const sdk = CrazyGamesSDK.getInstance(mockRaw);
-    const adWatched = await sdk.requestAd('rewarded');
+    sdk.gameplayStart();
+    assert.strictEqual(sdk.canShowAds(), true);
+    const adWatched = await sdk.requestAd('rewarded', { onStarted: () => events.push('adStarted') });
 
     assert.strictEqual(adWatched, true);
     assert.strictEqual(requestedType, 'rewarded');
-    // Reklam bitince ses önceki durumuna (unmuted) dönmeli
-    assert.strictEqual(sound.isMuted(), false);
+    // Oyun reklam başlayınca durur, bitince sürer
+    assert.deepStrictEqual(events, ['gameplayStart', 'gameplayStop', 'adStarted', 'gameplayStart']);
   });
 
-  it('Should handle ad failure gracefully and restore audio', async () => {
-    sound.setMuted(false);
+  it('Should return false without stopping the game when the ad fails to show', async () => {
+    const events: string[] = [];
 
     const mockRaw: CrazyGamesSDKRaw = {
       init: async () => {},
       game: {
-        gameplayStart: () => {},
-        gameplayStop: () => {},
+        gameplayStart: () => events.push('gameplayStart'),
+        gameplayStop: () => events.push('gameplayStop'),
         happytime: () => {},
       },
       ad: {
@@ -135,9 +137,11 @@ describe('CrazyGamesSDK Headless Unit Tests', () => {
     };
 
     const sdk = CrazyGamesSDK.getInstance(mockRaw);
-    const result = await sdk.requestAd('midgame');
+    sdk.gameplayStart();
+    const result = await sdk.requestAd('midgame', { onStarted: () => events.push('adStarted') });
 
     assert.strictEqual(result, false);
-    assert.strictEqual(sound.isMuted(), false);
+    // Reklam hiç başlamadı: oyun durdurulmadı, başlangıç bildirilmedi
+    assert.deepStrictEqual(events, ['gameplayStart']);
   });
 });

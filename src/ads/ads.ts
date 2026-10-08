@@ -1,21 +1,33 @@
 /* ======================================================================
  * src/ads/ads.ts — Reklam servisinin oyundaki tek örneği ve mod seçimi
  *
- * Mod tek yerden seçilir: 'mock' (sahte sağlayıcı), 'crazygames' (gerçek SDK;
- * M9-G'de bağlanacak) veya 'off' (bütün reklam düğmeleri gizlenir).
- * Deneme için adres çubuğundan değiştirilebilir: `?ads=off` veya `?ads=fail`
- * (reklam her seferinde gösterilemez).
+ * Mod kendiliğinden seçilir (DEC-034):
+ *   - CrazyGames SDK reklam gösterebiliyorsa (sitede veya localhost'ta) → 'crazygames'
+ *   - Gösteremiyorsa ve geliştirme sürümüyse → 'mock' (sahte "REKLAM ALANI" katmanı)
+ *   - Gösteremiyorsa ve yayın sürümüyse → 'off' (reklam düğmeleri hiç çizilmez;
+ *     sahte reklamla bedava ödül verilmez)
+ *
+ * Deneme için adres çubuğundan zorlanabilir (yalnız geliştirme sürümünde):
+ *   ?ads=off · ?ads=mock · ?ads=fail (sahte reklam her seferinde gösterilemez)
  * ====================================================================== */
 
 import { sound } from '../audio/SoundManager.ts';
-import { AdService, type AdMode, type AdProvider } from './AdService.ts';
+import { crazyGames } from '../integration/CrazyGamesSDK.ts';
+import { AdService, type AdMode } from './AdService.ts';
+import { CrazyGamesAdProvider } from './CrazyGamesAdProvider.ts';
 import { MockAdProvider } from './MockAdProvider.ts';
 
-/** CrazyGames SDK bağlanana kadar reklamlar yalnızca yerleşim olarak gösterilir */
-export const DEFAULT_AD_MODE: AdMode = 'mock';
+/**
+ * Uçuştan fabrikaya dönüşte geçiş (midgame) reklamı gösterilsin mi? (G1)
+ * Karar verilmedi (M9_PLAN K8); kapalıdır. Açılırsa yalnızca o uçuşta ödüllü reklam
+ * izlenmediyse ve son reklamın üstünden 3 dakika geçtiyse gösterilir.
+ */
+export const MIDGAME_AD_ENABLED = false;
+
+const IS_DEV = import.meta.env?.DEV === true;
 
 function readAdOverride(): string | null {
-  if (typeof window === 'undefined') return null;
+  if (!IS_DEV || typeof window === 'undefined') return null;
   try {
     return new URLSearchParams(window.location.search).get('ads');
   } catch {
@@ -23,17 +35,43 @@ function readAdOverride(): string | null {
   }
 }
 
-function createProvider(mode: AdMode, override: string | null): AdProvider | null {
-  if (mode === 'mock') return new MockAdProvider({ alwaysFail: override === 'fail' });
-  // 'crazygames' sağlayıcısı M9-G'de eklenir; o zamana dek reklam sunulmaz
-  return null;
-}
-
 const override = readAdOverride();
 
-export const adMode: AdMode = override === 'off' ? 'off' : DEFAULT_AD_MODE;
+let currentMode: AdMode = 'off';
 
-export const ads = new AdService(createProvider(adMode, override));
+/** Şu an geçerli reklam modu */
+export function getAdMode(): AdMode {
+  return currentMode;
+}
+
+export const ads = new AdService(null);
+
+function useMock(): void {
+  currentMode = 'mock';
+  ads.setProvider(new MockAdProvider({ alwaysFail: override === 'fail' }));
+}
+
+function useOff(): void {
+  currentMode = 'off';
+  ads.setProvider(null);
+}
+
+if (override === 'off') {
+  useOff();
+} else if (override === 'mock' || override === 'fail') {
+  useMock();
+} else {
+  // SDK başlatılana kadar geliştirme sürümünde sahte sağlayıcı, yayında kapalı
+  if (IS_DEV) useMock();
+  else useOff();
+
+  void crazyGames.init().then(() => {
+    if (crazyGames.canShowAds()) {
+      currentMode = 'crazygames';
+      ads.setProvider(new CrazyGamesAdProvider(crazyGames));
+    }
+  });
+}
 
 // Reklam ekrandayken oyunun sesi kesilir; kapanınca oyuncunun ayarına dönülür
 ads.subscribe({

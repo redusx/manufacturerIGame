@@ -1315,3 +1315,15 @@ Beklenen donanımla uçuş sonunda gövdenin ortalama %40–60'ı kalıyor; göv
 **Bulgular:** M7'deki tempo botu güncel kurallarla 7. aşamada takılıyor (tek yönlü giriş ve hurda kuralları); onarılmadı, yerine model yazıldı. Modelde kademe süresini nakit değil parça üretimi belirliyor; roket nakdi parça toplanırken birikiyor.
 
 **Doğrulama:** `npm test` 262/262, `npx tsc --noEmit` temiz. Tarayıcıda art arda üç demir girişi kuruldu: fiyat 500 → 850 → 1.440, sıradaki 2.460; katalog "Her yeni giriş %70 daha pahalıdır" yazıyor. Makine seviyesi ve parsel fiyatları Node'da okundu (montaj 10→11 $2.023, 11→12 $2.731, 20→21 $40.671). **Tempo sayıları model çıktısıdır; hiçbir kademe baştan sona elle oynanarak ölçülmedi.**
+
+### [2026-10-08] — M9-G: CrazyGames Reklam Sağlayıcısı
+
+**Yapılanlar:** yeni `CrazyGamesAdProvider`; `CrazyGamesSDK` (`environment`, `canShowAds`, reklam engelleyici sorgusu, `requestAd` kancaları, tek seferlik `init`), `AdService` (`showMidgame`, ortak çalıştırma), `ads.ts` (kendiliğinden mod seçimi, `MIDGAME_AD_ENABLED`), `FlightScene.leaveFlight`, `src/vite-env.d.ts`, yeni `docs/RELEASE_CHECKLIST.md`. Karar: DEC-034. Davranışı değişen SDK testleri güncellendi (SDK yokken reklam `false`; ses yerine oyun durdurma sırası).
+
+**Doğrulama:** `npm test` 262/262, `npx tsc --noEmit` temiz, `npm run build` başarılı.
+- localhost (geliştirme): SDK ortamı `local`, mod `crazygames`. Takviye penceresindeki reklam düğmesine tıklanınca SDK'nın kendi deneme katmanı ("A rewarded ad would appear here") göründü; bitince takviye verildi ve 5 dk bekleme başladı.
+- LAN IP (geliştirme): SDK `disabled`, mod `mock`; oyun açıldı, yerleşimler sahte sağlayıcıyla sunuldu.
+- Yayın derlemesi, localhost: reklam düğmesi var. Yayın derlemesi, LAN IP (SDK `disabled`): reklam düğmesi yok, nakit yolu duruyor; `?ads=mock` yok sayıldı.
+- Depoya girmeyen ek denetim (scratch): `disabled` ortam ve reklam engelleyicide `canShowAds` false; sağlayıcı + servis ile ödüllü reklam, bekleme süresi, ödüllüden hemen sonra geçiş reklamının atlanması, 181 sn sonra gösterilmesi, `adError`'da ödül ve bekleme verilmemesi.
+
+**Denenmeyenler:** CrazyGames QA aracı ve gerçek reklam ağı; Basic Launch; gerçek reklam engelleyici; geçiş reklamının oyun içi akışı (bayrak kapalı).

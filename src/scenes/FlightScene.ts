@@ -38,7 +38,7 @@ import { FlightReportModal } from '../ui/FlightReportModal.ts';
 import { sound } from '../audio/SoundManager.ts';
 import { fx } from '../effects/PixelParticleManager.ts';
 import { crazyGames } from '../integration/CrazyGamesSDK.ts';
-import { ads } from '../ads/ads.ts';
+import { MIDGAME_AD_ENABLED, ads } from '../ads/ads.ts';
 
 /** Reklam izlenince uçuş priminin çıktığı kat (M9-E R2) */
 const FLIGHT_AD_BONUS_MULTIPLIER = 3;
@@ -278,7 +278,7 @@ export class FlightScene extends Phaser.Scene {
     });
     this.reportRewardMultiplier = 1;
     // Reklamla prim katlama (R2): reklam sunulamıyorsa düğme çizilmez, izlenemezse prim değişmez
-    this.reportModal = new FlightReportModal(this.ui, () => this.returnToFactory(this.reportTotal), {
+    this.reportModal = new FlightReportModal(this.ui, () => void this.leaveFlight(), {
       multiplier: FLIGHT_AD_BONUS_MULTIPLIER,
       isOffered: () => ads.isOffered('flight_bonus'),
       cooldownRemaining: () => ads.cooldownRemaining('flight_bonus'),
@@ -1091,6 +1091,17 @@ export class FlightScene extends Phaser.Scene {
       crystals: this.collectedCrystals,
       view,
     });
+  }
+
+  /**
+   * Rapordan fabrikaya dönüş. Geçiş reklamı açıksa (G1; varsayılan kapalı) ve bu
+   * uçuşta ödüllü reklam izlenmediyse dönüşten önce bir kez sunulur.
+   */
+  private async leaveFlight(): Promise<void> {
+    if (MIDGAME_AD_ENABLED && this.reportRewardMultiplier === 1) {
+      await ads.showMidgame();
+    }
+    this.returnToFactory(this.reportTotal);
   }
 
   private returnToFactory(totalResources: number): void {

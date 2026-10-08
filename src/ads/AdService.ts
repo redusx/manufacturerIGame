@@ -49,7 +49,12 @@ export interface AdProvider {
   isAvailable(): boolean;
   /** Ödüllü reklamı gösterir; sonuna kadar izlenirse true döner */
   showRewarded(placement: AdPlacementId, hooks: AdProviderHooks): Promise<boolean>;
+  /** Geçiş (midgame) reklamı; ödülü yoktur. Sağlayıcı desteklemiyorsa tanımlanmaz */
+  showMidgame?(hooks: AdProviderHooks): Promise<boolean>;
 }
+
+/** İki geçiş reklamı arasında (ve bir ödüllü reklamdan sonra) geçmesi gereken en az süre (saniye) */
+export const MIDGAME_MIN_INTERVAL_SEC = 180;
 
 /** Bir yerleşimin ödülünden sonra yeniden sunulana dek geçmesi gereken süre (saniye) */
 export const AD_COOLDOWN_SEC: Readonly<Record<AdPlacementId, number>> = {
@@ -80,6 +85,8 @@ export class AdService {
   private readonly listeners = new Set<AdLifecycleListener>();
   private showing = false;
   private playing = false;
+  /** Son reklamın (ödüllü veya geçiş) ekrana geldiği an; geçiş reklamı aralığı buna göre tutulur */
+  private lastAdStartedAt: number | null = null;
 
   constructor(provider: AdProvider | null = null, now: () => number = Date.now) {
     this.provider = provider;
@@ -137,14 +144,38 @@ export class AdService {
     if (this.showing) return 'busy';
     if (this.cooldownRemaining(placement) > 0) return 'cooldown';
 
+    const completed = await this.run((hooks) => provider.showRewarded(placement, hooks));
+    if (!completed) return 'failed';
+    this.lastRewardAt.set(placement, this.now());
+    return 'rewarded';
+  }
+
+  /**
+   * Geçiş (midgame) reklamı gösterir; ödülü yoktur. Yalnızca doğal bir arada
+   * (ör. uçuştan fabrikaya dönüş) çağrılır. Son reklamın üstünden
+   * `MIDGAME_MIN_INTERVAL_SEC` geçmediyse veya sağlayıcı desteklemiyorsa hiçbir şey yapmaz.
+   * Reklam gösterildiyse true döner.
+   */
+  async showMidgame(): Promise<boolean> {
+    const provider = this.provider;
+    if (!provider?.showMidgame || !provider.isAvailable() || this.showing) return false;
+    if (this.lastAdStartedAt !== null && (this.now() - this.lastAdStartedAt) / 1000 < MIDGAME_MIN_INTERVAL_SEC) {
+      return false;
+    }
+    return this.run((hooks) => provider.showMidgame!(hooks));
+  }
+
+  /** Reklamı çalıştırır; başlangıç ve bitişi dinleyicilere bildirir */
+  private async run(showAd: (hooks: AdProviderHooks) => Promise<boolean>): Promise<boolean> {
     this.showing = true;
     let startedAt: number | null = null;
     let completed = false;
     try {
-      completed = await provider.showRewarded(placement, {
+      completed = await showAd({
         onStarted: () => {
           if (startedAt !== null) return;
           startedAt = this.now();
+          this.lastAdStartedAt = startedAt;
           this.playing = true;
           for (const listener of this.listeners) listener.onStarted?.();
         },
@@ -159,10 +190,7 @@ export class AdService {
         for (const listener of this.listeners) listener.onEnded?.(elapsedSec);
       }
     }
-
-    if (!completed) return 'failed';
-    this.lastRewardAt.set(placement, this.now());
-    return 'rewarded';
+    return completed;
   }
 
   serialize(): AdServiceState {

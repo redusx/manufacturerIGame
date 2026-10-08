@@ -261,3 +261,14 @@
 * **Sınır:** Bu bir modeldir, oyuncu ölçümü değildir; mutlak süreler ±%50 oynayabilir. Emek sınırlı senaryoda ayarlar süreyi değiştirmedi (rahat 7,7 · ortalama 4,3 · optimizasyoncu 2,6 saat). Planın 8–10 saatlik hedefi modelde yalnızca "rahat" profilde tutuyor.
 * **Açık karar:** ortalama oyuncu için parça artışını 1,8'den 2,0'a çıkarmak (toplam ≈ 6 saat). Elde oynayış ölçümüne bırakıldı.
 * **Not:** Sv.10'un üstünde eski fiyattan yükseltilmiş makinesi olan kayıtlarda söküm iadesi ödenenden fazla olur (bir kerelik, küçük).
+
+### [DEC-034] CrazyGames Reklam Sağlayıcısı ve Mod Seçimi (M9-G)
+* **Tarih:** 2026-10-08
+* **Karar:**
+  1. **Gerçek sağlayıcı** (`CrazyGamesAdProvider`) `AdService`'e takılır; ödüllü ve geçiş reklamlarını SDK'dan ister.
+  2. **Mod kendiliğinden seçilir** (DEC-032'nin mod maddesini günceller): SDK reklam gösterebiliyorsa `crazygames`; gösteremiyorsa geliştirme sürümünde `mock`, yayın sürümünde `off`. `?ads=` parametreleri yalnızca geliştirme sürümünde geçerlidir; yayında sahte reklamla bedava ödül alınamaz.
+  3. **Gösterilebilirlik:** `CrazyGamesSDK.canShowAds()` SDK hazır, ortam `crazygames` veya `local` ve reklam engelleyici yoksa true döner; false iken reklam düğmeleri çizilmez.
+  4. **SDK sarmalayıcısı:** SDK yokken `requestAd` artık `false` döner (önceden `true` dönüp bedava ödül veriyordu). Oyun `adStarted` anında durur; reklam gelmezse hiçbir şey durmaz. Sesle sarmalayıcı ilgilenmez (`AdService` dinleyicisi `setSuspended` kullanır). `init()` iki kez çağrılsa da SDK bir kez başlatılır.
+  5. **Geçiş reklamı (G1)** `MIDGAME_AD_ENABLED` bayrağının arkasındadır ve **kapalıdır** (K8'de karar verilmedi). Açılırsa: uçuştan fabrikaya dönüşte, o uçuşta ödüllü reklam izlenmediyse ve son reklamın üstünden 180 sn geçtiyse.
+* **Gerekçe:** `M9_PLAN.md` §4.5 ve faz G; CrazyGames reklam gereksinimleri.
+* **Sınır:** Gerçek reklam ağı ve CrazyGames QA aracı bu ortamda denenemedi; `RELEASE_CHECKLIST.md` yayından önce yapılacakları listeler.

@@ -8,12 +8,11 @@
  * Sorumluluklar:
  * - SDK v3 başlatma (init)
  * - Oyun döngüsü takibi: gameplayStart(), gameplayStop(), happytime()
- * - Reklam yönetimi: Midgame ve Rewarded Video (Çift kazanç)
- * - Reklam sırasında sesin (SoundManager) otomatik kısılması ve geri açılması
+ * - Reklam yönetimi: Midgame ve Rewarded Video; reklam başladığında/bitince oyun
+ *   döngüsü bildirimi (ses ve duraklatma AdService dinleyicilerindedir)
+ * - Reklam gösterilebilirlik denetimi (ortam, reklam engelleyici)
  * - SDK'nın bulunmadığı ortamlarda (Localhost / Node.js testleri) sıfır çökme
  * ====================================================================== */
-
-import { sound } from '../audio/SoundManager.ts';
 
 export type AdType = 'midgame' | 'rewarded';
 
@@ -25,6 +24,8 @@ export interface AdCallbacks {
 
 export interface CrazyGamesSDKRaw {
   init(): Promise<void>;
+  /** 'crazygames' (sitede) · 'local' (localhost; deneme reklamı) · 'disabled' (başka alan adı) */
+  environment?: string;
   game: {
     gameplayStart(): void;
     gameplayStop(): void;
@@ -32,8 +33,18 @@ export interface CrazyGamesSDKRaw {
   };
   ad: {
     requestAd(type: AdType, callbacks?: AdCallbacks): Promise<void>;
+    hasAdblock?(): Promise<boolean>;
   };
 }
+
+/** Reklam isteği sırasında çağıranın dinlediği olaylar */
+export interface AdRequestHooks {
+  /** Reklam gerçekten ekrana geldi (ses ve oyun bu anda durdurulur) */
+  onStarted?: () => void;
+}
+
+/** SDK'nın reklam gösterebildiği ortamlar */
+const AD_ENVIRONMENTS: readonly string[] = ['crazygames', 'local'];
 
 export class CrazyGamesSDK {
   private static instance: CrazyGamesSDK | null = null;
@@ -42,7 +53,10 @@ export class CrazyGamesSDK {
   /** Gerçek SDK'nın init()'i tamamlandı mı? Öncesinde SDK'ya dokunmak hata fırlatır. */
   private sdkReady = false;
   private isGameplayRunning = false;
-  private wasSoundMutedBeforeAd = false;
+  /** Sürmekte olan veya tamamlanmış başlatma; init() iki kez çağrılırsa SDK bir kez başlatılır */
+  private initPromise: Promise<boolean> | null = null;
+  /** Reklam engelleyici algılandı mı? (Başlatmadan sonra bir kez sorulur) */
+  private adblockDetected = false;
 
   private constructor(customSdk?: CrazyGamesSDKRaw) {
     if (customSdk) {
@@ -74,9 +88,12 @@ export class CrazyGamesSDK {
   /**
    * CrazyGames SDK v3'ü başlatır.
    */
-  public async init(): Promise<boolean> {
-    if (this.initialized) return true;
+  public init(): Promise<boolean> {
+    if (!this.initPromise) this.initPromise = this.runInit();
+    return this.initPromise;
+  }
 
+  private async runInit(): Promise<boolean> {
     try {
       if (!this.rawSdk && typeof window !== 'undefined') {
         const win = window as unknown as { CrazyGames?: { SDK?: CrazyGamesSDKRaw } };
@@ -93,6 +110,12 @@ export class CrazyGamesSDK {
         if (this.isGameplayRunning) {
           this.isGameplayRunning = false;
           this.gameplayStart();
+        }
+        // Reklam engelleyici varsa ödüllü reklam düğmeleri hiç gösterilmez
+        try {
+          this.adblockDetected = (await this.rawSdk.ad?.hasAdblock?.()) === true;
+        } catch {
+          this.adblockDetected = false;
         }
         return true;
       }
@@ -161,52 +184,77 @@ export class CrazyGamesSDK {
     }
   }
 
+  /** SDK'nın çalıştığı ortam; SDK hazır değilse 'unavailable' */
+  public get environment(): string {
+    const sdk = this.readySdk;
+    if (!sdk) return 'unavailable';
+    try {
+      // Ortam bildirmeyen SDK (testler) reklam gösterebilir sayılır
+      return sdk.environment ?? 'crazygames';
+    } catch {
+      return 'unavailable';
+    }
+  }
+
+  /**
+   * Şu an reklam gösterilebilir mi? SDK hazır, ortam reklam destekliyor ve reklam
+   * engelleyici yoksa true. False iken arayüz reklam düğmelerini hiç çizmez.
+   */
+  public canShowAds(): boolean {
+    const sdk = this.readySdk;
+    if (!sdk || this.adblockDetected) return false;
+    if (!AD_ENVIRONMENTS.includes(this.environment)) return false;
+    try {
+      return typeof sdk.ad?.requestAd === 'function';
+    } catch {
+      return false;
+    }
+  }
+
   /**
    * Reklam gösterimi talep eder (Midgame veya Rewarded).
-   * Reklam boyunca oyun içi sesi kısar, bitince eski haline getirir.
-   * @returns Reklam başarıyla izlendiyse true, hata/iptal durumunda false döner.
+   * Oyun ve ses yalnızca reklam gerçekten başladığında durur (`hooks.onStarted`);
+   * reklam gelmezse hiçbir şey durmaz. SDK yoksa veya reklam gösterilemezse false
+   * döner: çağıran ödül vermez.
+   * @returns Reklam sonuna kadar izlendiyse true, hata/iptal durumunda false döner.
    */
-  public async requestAd(type: AdType): Promise<boolean> {
+  public async requestAd(type: AdType, hooks: AdRequestHooks = {}): Promise<boolean> {
     const sdk = this.readySdk;
-    let hasAds = false;
-    try {
-      hasAds = typeof sdk?.ad?.requestAd === 'function';
-    } catch {
-      hasAds = false;
-    }
-    if (!sdk || !hasAds) {
-      // SDK yoksa (Yerel test / geliştirme ortamı): doğrudan başarılı say
-      return true;
-    }
+    if (!sdk || !this.canShowAds()) return false;
 
     return new Promise<boolean>((resolve) => {
-      this.gameplayStop();
-      this.wasSoundMutedBeforeAd = sound.isMuted();
-      sound.setMuted(true);
+      let started = false;
+      let settled = false;
+      const finish = (completed: boolean): void => {
+        if (settled) return;
+        settled = true;
+        if (started) this.gameplayStart();
+        resolve(completed);
+      };
 
       const callbacks: AdCallbacks = {
         adStarted: () => {
-          // Reklam başladı
+          if (started) return;
+          started = true;
+          this.gameplayStop();
+          hooks.onStarted?.();
         },
-        adFinished: () => {
-          sound.setMuted(this.wasSoundMutedBeforeAd);
-          this.gameplayStart();
-          resolve(true);
-        },
+        adFinished: () => finish(true),
         adError: (error) => {
           console.warn('[CrazyGamesSDK] Reklam hatası:', error);
-          sound.setMuted(this.wasSoundMutedBeforeAd);
-          this.gameplayStart();
-          resolve(false);
+          finish(false);
         },
       };
 
-      sdk.ad.requestAd(type, callbacks).catch((err) => {
-        console.warn('[CrazyGamesSDK] requestAd istisnası:', err);
-        sound.setMuted(this.wasSoundMutedBeforeAd);
-        this.gameplayStart();
-        resolve(false);
-      });
+      try {
+        sdk.ad.requestAd(type, callbacks).catch((err) => {
+          console.warn('[CrazyGamesSDK] requestAd istisnası:', err);
+          finish(false);
+        });
+      } catch (err) {
+        console.warn('[CrazyGamesSDK] requestAd çağrılamadı:', err);
+        finish(false);
+      }
     });
   }
 
@@ -216,6 +264,8 @@ export class CrazyGamesSDK {
     this.sdkReady = false;
     this.isGameplayRunning = false;
     this.rawSdk = null;
+    this.initPromise = null;
+    this.adblockDetected = false;
   }
 }
 
