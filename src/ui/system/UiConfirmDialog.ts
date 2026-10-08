@@ -20,6 +20,14 @@ export interface UiConfirmRequest {
   /** Onay eylemi geri alınamaz/tehlikeli mi? */
   danger?: boolean;
   onConfirm: () => void;
+  /** İki düğmenin üstünde, tam genişlikte isteğe bağlı üçüncü eylem (ör. reklamla indirim) */
+  extraAction?: {
+    label: string;
+    sublabel?: string;
+    icon?: string;
+    /** Pencere kapandıktan sonra çağrılır */
+    onClick: () => void;
+  };
 }
 
 export class UiConfirmDialog extends UiModal {
@@ -51,15 +59,37 @@ export class UiConfirmDialog extends UiModal {
     const gap = SPACE.sm;
     const buttonWidth = (width - gap) / 2;
     const height = 44;
+    let top = 0;
 
-    this.cancelButton = new UiButton(this.layer, buttonWidth / 2, height / 2, {
+    const extra = request.extraAction;
+    if (extra) {
+      const extraHeight = extra.sublabel ? 48 : 44;
+      footer.add(
+        new UiButton(this.layer, width / 2, extraHeight / 2, {
+          width,
+          height: extraHeight,
+          variant: 'gold',
+          label: extra.label,
+          sublabel: extra.sublabel,
+          icon: extra.icon,
+          textVariant: 'buttonSmall',
+          onClick: () => {
+            this.close();
+            extra.onClick();
+          },
+        }),
+      );
+      top = extraHeight + gap;
+    }
+
+    this.cancelButton = new UiButton(this.layer, buttonWidth / 2, top + height / 2, {
       width: buttonWidth,
       height,
       variant: 'secondary',
       label: request.cancelLabel ?? 'VAZGEÇ',
       onClick: () => this.close(),
     });
-    this.confirmButton = new UiButton(this.layer, buttonWidth + gap + buttonWidth / 2, height / 2, {
+    this.confirmButton = new UiButton(this.layer, buttonWidth + gap + buttonWidth / 2, top + height / 2, {
       width: buttonWidth,
       height,
       variant: request.danger ? 'danger' : 'primary',
@@ -71,7 +101,7 @@ export class UiConfirmDialog extends UiModal {
       },
     });
     footer.add([this.cancelButton, this.confirmButton]);
-    return height;
+    return top + height;
   }
 
   /** Tehlikeli onayda Enter güvenli seçeneği (Vazgeç) tetikler */

@@ -51,10 +51,12 @@ export const SaveManager = {
         unlockedPlots: Set<number> | number[];
         revenueMultiplier: number;
         revenuePerSec?: number;
+        discountedPlots?: number[];
       };
       hangar?: { serialize(): any };
       factoryLayout?: FactorySaveData;
       milestones?: UnifiedGameSaveData['milestones'];
+      monetization?: UnifiedGameSaveData['monetization'];
     },
     storage?: StorageLike,
   ): void {
@@ -67,6 +69,7 @@ export const SaveManager = {
         unlockedPlots: Array.from(extra.factoryEconomy.unlockedPlots),
         revenueMultiplier: extra.factoryEconomy.revenueMultiplier,
         revenuePerSec: extra.factoryEconomy.revenuePerSec,
+        discountedPlots: extra.factoryEconomy.discountedPlots,
       };
     }
     if (extra?.hangar) {
@@ -77,6 +80,9 @@ export const SaveManager = {
     }
     if (extra?.milestones) {
       current.milestones = extra.milestones;
+    }
+    if (extra?.monetization) {
+      current.monetization = extra.monetization;
     }
     UnifiedSaveManager.save(current, storage);
   },

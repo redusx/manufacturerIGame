@@ -19,7 +19,12 @@ import {
   getRangeScale,
   type RocketUpgradeDef,
 } from '../data/RocketData';
-import type { RocketHangarBridge, RocketModuleCategory } from '../factory/simulation/RocketHangarBridge';
+import {
+  PARTS_CARGO_SHARE,
+  type RocketHangarBridge,
+  type RocketModuleCategory,
+} from '../factory/simulation/RocketHangarBridge';
+import { formatAdCooldown } from '../ads/AdService.ts';
 import type { FactoryEconomy } from '../factory/simulation/FactoryEconomy';
 import { defaultItemRegistry } from '../factory/simulation/ItemRegistry.ts';
 import { RangeLadder } from '../flight/RangeLadder.ts';
@@ -31,6 +36,16 @@ import { UiModal } from './system/UiModal.ts';
 import { UiChip, UiProgressBar, createCard, createInset } from './system/UiWidgets.ts';
 
 type ModuleState = 'max' | 'locked' | 'ready' | 'quick' | 'missingParts' | 'missingCash';
+
+/** Parça kargosu (M9-E R4): reklam izleyerek hedef modülün eksik parçalarından pay alma */
+export interface HangarCargoConfig {
+  /** Düğme gösterilsin mi? Reklam sunulamıyorsa hiç çizilmez */
+  isOffered: () => boolean;
+  /** Bekleme süresinden kalan (saniye); hazırsa 0 */
+  cooldownRemaining: () => number;
+  /** Reklamı gösterir ve ödülü verir; pencere sonucu kendisi yeniler */
+  onRequest: (category: RocketModuleCategory) => void;
+}
 
 interface ModuleCardRef {
   category: RocketModuleCategory;
@@ -44,6 +59,8 @@ const TARGET_BUTTON_HEIGHT = 26;
 const MODULE_THUMB_WIDTH = 64;
 const RANGES_BUTTON_WIDTH = 140;
 const RANGES_BUTTON_HEIGHT = 36;
+const CARGO_BUTTON_WIDTH = 230;
+const CARGO_BUTTON_HEIGHT = 48;
 
 export class RocketHangarView extends UiModal {
   private readonly economy: EconomyManager;
@@ -55,10 +72,14 @@ export class RocketHangarView extends UiModal {
   private readonly onChanged: () => void;
   /** Seferler (menzil merdiveni) penceresini açar */
   private readonly onOpenRanges: () => void;
+  /** Parça kargosu (reklam ödülü); verilmezse düğme hiç çizilmez */
+  private readonly cargo: HangarCargoConfig | null;
 
   private rocketContainer: Phaser.GameObjects.Container | null = null;
   private launchButton: UiButton | null = null;
   private cardRefs: ModuleCardRef[] = [];
+  /** Bekleme süresindeki kargo düğmesi; sayacı canlı güncellenir */
+  private cargoButton: UiButton | null = null;
   private structureSignature = '';
   private lastLiveRefresh = 0;
   private isLaunching = false;
@@ -72,6 +93,7 @@ export class RocketHangarView extends UiModal {
     onDenied: (message: string) => void = () => undefined,
     onChanged: () => void = () => undefined,
     onOpenRanges: () => void = () => undefined,
+    cargo: HangarCargoConfig | null = null,
   ) {
     super(layer, { title: 'Roket Hangarı', maxWidth: 760, depth: 205, accent: SEMANTIC.rocket });
     this.economy = economy;
@@ -81,6 +103,7 @@ export class RocketHangarView extends UiModal {
     this.onDenied = onDenied;
     this.onChanged = onChanged;
     this.onOpenRanges = onOpenRanges;
+    this.cargo = cargo;
   }
 
   // -------------------------------------------------------------
@@ -109,7 +132,8 @@ export class RocketHangarView extends UiModal {
     const modules = ROCKET_UPGRADES.map(
       (def) => `${def.id}:${this.levelOf(def.id as RocketModuleCategory)}:${this.stateOf(def)}`,
     ).join('|');
-    return `${modules}#${this.hangarBridge.getTargetModule() ?? '-'}#${this.hangarBridge.getLevelCap()}`;
+    const cargoState = this.cargo ? `${this.cargo.isOffered()}:${this.cargo.cooldownRemaining() > 0}` : '-';
+    return `${modules}#${this.hangarBridge.getTargetModule() ?? '-'}#${this.hangarBridge.getLevelCap()}#${cargoState}`;
   }
 
   protected onOpened(): void {
@@ -127,6 +151,9 @@ export class RocketHangarView extends UiModal {
       this.rebuild();
       return;
     }
+    if (this.cargoButton && this.cargo) {
+      this.cargoButton.setSublabel(`${formatAdCooldown(this.cargo.cooldownRemaining())} sonra`);
+    }
     for (const card of this.cardRefs) {
       for (const row of card.partRows) {
         const stock = Math.min(row.required, this.hangarBridge.getPartCount(row.itemId));
@@ -143,6 +170,7 @@ export class RocketHangarView extends UiModal {
   protected buildBody(body: Phaser.GameObjects.Container, width: number): number {
     this.cardRefs = [];
     this.rocketContainer = null;
+    this.cargoButton = null;
     this.structureSignature = this.computeStructureSignature();
 
     // Geniş pencerede roket solda, modüller sağda; darda alt alta
@@ -262,7 +290,55 @@ export class RocketHangarView extends UiModal {
       SEMANTIC.textMuted,
     );
 
+    y = this.buildCargoRow(body, y + SPACE.xs, width, target, targetName);
+
     return y;
+  }
+
+  /**
+   * Parça kargosu: hedef modülün eksik parçalarının bir bölümü reklam izleyerek alınır.
+   * Reklam sunulamıyorsa hiçbir şey çizilmez; hedef seçili değilse yalnızca nasıl
+   * kullanılacağı yazılır (etkisiz düğme bırakılmaz).
+   */
+  private buildCargoRow(
+    body: Phaser.GameObjects.Container,
+    y: number,
+    width: number,
+    target: RocketModuleCategory | null,
+    targetName: string | undefined,
+  ): number {
+    const cargo = this.cargo;
+    if (!cargo || !cargo.isOffered()) return y;
+    const share = Math.round(PARTS_CARGO_SHARE * 100);
+
+    if (!target || !targetName || !this.hangarBridge.canGrantPartsCargo(target)) {
+      const hint = this.layer.text(
+        0,
+        y,
+        `Parça kargosu: eksik parçası olan bir modülü HEDEF seçersen reklam izleyerek eksiklerinin %${share}'ini alabilirsin.`,
+        'caption',
+        { color: SEMANTIC.textMuted, wrapWidth: width },
+      );
+      body.add(hint);
+      return y + hint.height + SPACE.xs;
+    }
+
+    const cooldown = cargo.cooldownRemaining();
+    const button = new UiButton(this.layer, CARGO_BUTTON_WIDTH / 2, y + CARGO_BUTTON_HEIGHT / 2, {
+      width: Math.min(width, CARGO_BUTTON_WIDTH),
+      height: CARGO_BUTTON_HEIGHT,
+      variant: 'gold',
+      icon: uiIcon('video'),
+      label: 'PARÇA KARGOSU',
+      sublabel: cooldown > 0 ? `${formatAdCooldown(cooldown)} sonra` : `${targetName}: eksiklerin %${share}'i`,
+      textVariant: 'buttonSmall',
+      onClick: () => cargo.onRequest(target),
+      onDisabledClick: () => this.onDenied('Parça kargosu biraz sonra yeniden kullanılabilir.'),
+    });
+    button.setEnabled(cooldown === 0);
+    body.add(button);
+    this.cargoButton = cooldown > 0 ? button : null;
+    return y + CARGO_BUTTON_HEIGHT + SPACE.xs;
   }
 
   private buildModuleCards(

@@ -38,6 +38,8 @@ export interface FlightResultInput {
   altitudeMeters?: number;
   /** Uçuşu yapan roket sınıfının menzil çarpanı (prim çarpansız mesafeden hesaplanır) */
   rangeScale?: number;
+  /** Uçuş priminin çarpanı (reklam ödülü ×3; varsayılan 1) */
+  rewardMultiplier?: number;
 }
 
 export interface FlightReturnSummary {
@@ -101,6 +103,8 @@ export const QUICK_BUILD_PRICE_MULTIPLIER = 10;
 
 /** Her parçanın en fazla bu kadarı nakitle tamamlanabilir; gerisi fabrikadan gelmelidir */
 export const QUICK_BUILD_MAX_SHARE = 0.25;
+/** Parça kargosunun (reklam ödülü) getirdiği pay: eksik parçaların bu kadarı */
+export const PARTS_CARGO_SHARE = 0.15;
 
 /**
  * Rekorun tutulduğu uçuş modelinin sürümü. Sürüm 2 (DEC-028) öncesindeki rekorlar eski
@@ -430,6 +434,27 @@ export class RocketHangarBridge {
     return result;
   }
 
+  /**
+   * Parça kargosu (M9-E R4): modülün sıradaki yükseltmesinde eksik olan her
+   * parçanın `PARTS_CARGO_SHARE` kadarını (en az 1) hangara ekler.
+   * Kilitli veya eksiği olmayan modülde boş liste döner.
+   */
+  grantPartsCargo(category: RocketModuleCategory): { itemId: string; itemName: string; count: number }[] {
+    if (this.getUpgradeLock(category)) return [];
+    const granted: { itemId: string; itemName: string; count: number }[] = [];
+    for (const part of this.getMissingParts(category)) {
+      const count = Math.max(1, Math.ceil(part.missingCount * PARTS_CARGO_SHARE));
+      this.inventory.set(part.itemId, this.getPartCount(part.itemId) + count);
+      granted.push({ itemId: part.itemId, itemName: part.itemName, count });
+    }
+    return granted;
+  }
+
+  /** Modül için parça kargosu istenebilir mi? (Kilitli değil ve eksik parçası var) */
+  canGrantPartsCargo(category: RocketModuleCategory): boolean {
+    return !this.getUpgradeLock(category) && this.getMissingParts(category).length > 0;
+  }
+
   /** Eksik parçaların toplam piyasa tedarik maliyeti */
   getMissingPartsTotalCost(category: RocketModuleCategory, revenueMultiplier = 1): number {
     const missing = this.getMissingParts(category, revenueMultiplier);
@@ -635,7 +660,7 @@ export class RocketHangarBridge {
       },
       economy.getRevenuePerSec(),
     );
-    const totalCashGained = breakdown.totalCash;
+    const totalCashGained = Math.floor(breakdown.totalCash * Math.max(1, result.rewardMultiplier ?? 1));
 
     // Fabrika cüzdanına ekle
     if (totalCashGained > 0) {

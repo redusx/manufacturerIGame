@@ -24,6 +24,8 @@ export class SoundManager {
   private static instance: SoundManager | null = null;
   private ctx: AudioContext | null = null;
   private muted = false;
+  /** Reklam ekrandayken geçici sessizlik; ayara ve kayda yansımaz */
+  private suspended = false;
   private masterGain: GainNode | null = null;
 
   private constructor() {
@@ -85,7 +87,7 @@ export class SoundManager {
       if (AudioCtx) {
         this.ctx = new AudioCtx();
         this.masterGain = this.ctx.createGain();
-        this.masterGain.gain.setValueAtTime(this.muted ? 0 : 0.3, this.ctx.currentTime);
+        this.masterGain.gain.setValueAtTime(this.isSilent ? 0 : 0.3, this.ctx.currentTime);
         this.masterGain.connect(this.ctx.destination);
       }
     } catch {
@@ -97,13 +99,29 @@ export class SoundManager {
     return this.muted;
   }
 
+  /**
+   * Sesi geçici olarak keser (reklam ekrandayken). Oyuncunun ses ayarını
+   * değiştirmez ve kayda yazmaz; kapatılınca ayar neyse ona dönülür.
+   */
+  public setSuspended(suspended: boolean): void {
+    this.suspended = suspended;
+    this.applyGain();
+  }
+
+  private get isSilent(): boolean {
+    return this.muted || this.suspended;
+  }
+
+  private applyGain(): void {
+    if (this.masterGain && this.ctx) {
+      this.masterGain.gain.setValueAtTime(this.isSilent ? 0 : 0.3, this.ctx.currentTime);
+    }
+  }
+
   public setMuted(muted: boolean): void {
     this.muted = muted;
     this.saveSettings();
-
-    if (this.masterGain && this.ctx) {
-      this.masterGain.gain.setValueAtTime(this.muted ? 0 : 0.3, this.ctx.currentTime);
-    }
+    this.applyGain();
   }
 
   public toggleMute(): boolean {
@@ -121,7 +139,7 @@ export class SoundManager {
     type: OscillatorType = 'square',
     volume = 0.25,
   ): void {
-    if (this.muted) return;
+    if (this.isSilent) return;
     this.initContext();
     if (!this.ctx || !this.masterGain) return;
 
@@ -151,7 +169,7 @@ export class SoundManager {
    * Basit gürültü sentezleyici (Patlama, iniş, roket gürültüsü)
    */
   private playNoise(durationMs: number, volume = 0.3, lowPassFreq = 800): void {
-    if (this.muted) return;
+    if (this.isSilent) return;
     this.initContext();
     if (!this.ctx || !this.masterGain) return;
 

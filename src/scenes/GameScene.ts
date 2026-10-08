@@ -25,6 +25,10 @@ import { ToolContextBar, type ToolContextState } from '../ui/ToolContextBar.ts';
 import { SettingsPanel } from '../ui/SettingsPanel';
 import { StagesModal } from '../ui/StagesModal.ts';
 import { RangeLadderModal } from '../ui/RangeLadderModal.ts';
+import { BoostModal } from '../ui/BoostModal.ts';
+import { ads } from '../ads/ads.ts';
+import { formatAdCooldown, type AdPlacementId } from '../ads/AdService.ts';
+import { BOOST_GRANT_SECONDS, BOOST_MULTIPLIER, IncomeBoost } from '../economy/IncomeBoost.ts';
 import { RangeLadder } from '../flight/RangeLadder.ts';
 import { OfflineEarningsModal } from '../ui/OfflineEarningsModal';
 import { calculateOfflineReport } from '../ui/OfflineEarningsHelper.ts';
@@ -53,8 +57,13 @@ import { defaultItemRegistry } from '../factory/simulation/ItemRegistry.ts';
 import { FactorySerializer } from '../factory/simulation/FactorySerializer.ts';
 import { GridCoordinates } from '../factory/view/GridCoordinates.ts';
 import { RocketHangarView } from '../ui/RocketHangarView';
-import { RocketHangarBridge } from '../factory/simulation/RocketHangarBridge';
-import { FactoryEconomy, MAX_FACTORY_HEIGHT, MAX_FACTORY_WIDTH } from '../factory/simulation/FactoryEconomy';
+import { RocketHangarBridge, type RocketModuleCategory } from '../factory/simulation/RocketHangarBridge';
+import {
+  FactoryEconomy,
+  MAX_FACTORY_HEIGHT,
+  MAX_FACTORY_WIDTH,
+  PLOT_AD_DISCOUNT,
+} from '../factory/simulation/FactoryEconomy';
 import { PlotExpansionManager } from '../factory/progression/PlotExpansionManager.ts';
 import { MilestoneManager } from '../factory/progression/MilestoneManager.ts';
 import { PlacementController, type PlacementItem } from '../factory/input/PlacementController.ts';
@@ -122,6 +131,9 @@ export class GameScene extends Phaser.Scene {
   private settingsPanel!: SettingsPanel;
   private stagesModal!: StagesModal;
   private rangeLadderModal!: RangeLadderModal;
+  private boostModal!: BoostModal;
+  /** Süreli gelir takviyesi (×2); reklamla veya nakitle alınır */
+  private readonly incomeBoost = new IncomeBoost();
   private offlineEarningsModal!: OfflineEarningsModal;
 
   /* 2D Fabrika Zemin Izgarası ve Kamerası */
@@ -627,7 +639,7 @@ export class GameScene extends Phaser.Scene {
         return {
           index: plot.index,
           name: plot.name,
-          cost: plot.cost,
+          cost: this.plotManager.getPlotCost(plot.index),
           width: plot.targetWidth,
           height: plot.targetHeight,
           permitDistance: permit ? formatDistance(permit.targetMeters) : undefined,
@@ -635,10 +647,10 @@ export class GameScene extends Phaser.Scene {
         };
       },
       getIntakeCost: (itemId) => PlacementMath.getIntakeCost(itemId, this.gridMap),
+      // Parsel pahalı bir alımdır: katalogdan da onay penceresiyle (ve varsa indirim seçeneğiyle) alınır
       onExpandPlot: (plotIndex) => {
-        if (this.requestPlotUnlock(plotIndex)) {
-          this.buildMenuModal.close();
-        }
+        this.buildMenuModal.close();
+        this.confirmPlotUnlock(plotIndex);
       },
       onDenied: (message) => this.notify(message, 'warning'),
       onMachineInfo: (def) => this.machineInfoModal.showFor(def),
@@ -657,10 +669,35 @@ export class GameScene extends Phaser.Scene {
       (message) => this.notify(message, 'warning'),
       () => this.saveGame(),
       () => this.rangeLadderModal.open(),
+      {
+        isOffered: () => ads.isOffered('parts_cargo'),
+        cooldownRemaining: () => ads.cooldownRemaining('parts_cargo'),
+        onRequest: (category) => void this.requestPartsCargo(category),
+      },
     );
 
     /* Ana ekran */
-    this.hud = new HUD(this.ui, () => this.settingsPanel.open());
+    this.hud = new HUD(
+      this.ui,
+      () => this.settingsPanel.open(),
+      () => {
+        this.cancelActiveTool();
+        this.boostModal.open();
+      },
+    );
+    this.boostModal = new BoostModal(this.ui, {
+      getState: () => ({
+        remainingSec: this.incomeBoost.remaining,
+        canAdd: this.incomeBoost.canAdd(),
+        cashPrice: this.getBoostCashPrice(),
+        canAffordCash: this.factoryEconomy.canAfford(this.getBoostCashPrice()),
+        adOffered: ads.isOffered('income_boost'),
+        adCooldownSec: ads.cooldownRemaining('income_boost'),
+      }),
+      onWatchAd: () => void this.requestBoostWithAd(),
+      onBuyWithCash: () => this.buyBoostWithCash(),
+      onDenied: (message) => this.notify(message, 'warning'),
+    });
     this.stagesModal = new StagesModal(this.ui, this.milestones, () =>
       this.milestones.getCurrentProgress(this.factoryEconomy, this.productionEngine),
     );
@@ -730,23 +767,27 @@ export class GameScene extends Phaser.Scene {
 
     /* Çevrimdışı İlerleme Penceresi */
     this.offlineEarningsModal = new OfflineEarningsModal(this.ui, {
-      onClaim: (gained) => {
+      onClaim: (gained, doubled) => {
         this.economy.addResources(gained);
         this.saveGame();
-        this.notify(`+$${formatNumber(gained)} kasana eklendi`, 'reward');
+        this.notify(
+          doubled ? `2X ödül: +$${formatNumber(gained)} kasana eklendi` : `+$${formatNumber(gained)} kasana eklendi`,
+          'reward',
+        );
       },
-      onDoubleClaim: async (gained) => {
-        // CrazyGames Rewarded Video Reklamı
-        const watched = await crazyGames.requestAd('rewarded');
-        if (!watched) {
-          this.notify('Reklam tamamlanamadı, ödül verilemedi.', 'warning');
-          return;
-        }
-        this.economy.addResources(gained);
-        this.saveGame();
-        this.notify(`2X ödül: +$${formatNumber(gained)} kasana eklendi`, 'reward');
+      // Reklam sunulamıyorsa 2X düğmesi hiç çizilmez; izlenemezse normal kazanç toplanabilir
+      canOfferDouble: () => ads.isOffered('offline_double'),
+      requestDouble: () => this.watchAd('offline_double'),
+    });
+
+    // Reklam ekrandayken fabrika durur; kapanınca geçen süre telafi edilir (oyuncu gelir kaybetmez).
+    // Uçuş sırasındaki reklamda sahne zaten duraklamıştır ve uçuş dönüşü telafisi o süreyi kapsar.
+    const unsubscribeAds = ads.subscribe({
+      onEnded: (elapsedSec) => {
+        if (this.scene.isActive()) this.catchUpFactory(elapsedSec);
       },
     });
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, unsubscribeAds);
 
     /* Klavye kısayolları */
     this.bindShortcuts();
@@ -856,6 +897,9 @@ export class GameScene extends Phaser.Scene {
 
   /** Fabrika simülasyonunu bir adım ilerletir (gelir ölçümü, bantlar, makineler) */
   private stepSimulation(dt: number): void {
+    // Süreli gelir takviyesi oyun süresiyle işler (uçuş sonrası telafide de)
+    this.incomeBoost.update(dt);
+    this.factoryEconomy.incomeBoostMultiplier = this.incomeBoost.multiplier;
     this.factoryEconomy.tick(dt);
     this.logistics.tick(dt);
     this.productionEngine.tick(dt);
@@ -880,8 +924,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
-    // Ayarlar açıkken oyun duraklar
-    if (this.settingsPanel.isOpen) return;
+    // Ayarlar açıkken ve reklam ekrandayken oyun duraklar
+    if (this.settingsPanel.isOpen || ads.isPlaying) return;
 
     const dt = delta / 1000;
 
@@ -1046,12 +1090,115 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
+    this.askPlotPurchase(plotIndex);
+  }
+
+  /**
+   * Parsel satın alma onayı. Pahalı parsellerde bir kereliğine reklamla indirim
+   * ("müteahhit indirimi") seçeneği de sunulur; reklam sunulamıyorsa seçenek çizilmez.
+   */
+  private askPlotPurchase(plotIndex: number): void {
+    const plot = this.plotManager.getPlot(plotIndex);
+    if (!plot) return;
+    const cost = this.plotManager.getPlotCost(plotIndex);
+    const discounted = this.factoryEconomy.isPlotDiscounted(plotIndex);
+    const discountPercent = Math.round(PLOT_AD_DISCOUNT * 100);
+    const canOfferDiscount = this.factoryEconomy.canDiscountPlot(plotIndex) && ads.canShow('plot_discount');
+
     this.confirmDialog.ask({
       title: plot.name,
-      message: `Fabrika alanı ${plot.targetWidth}x${plot.targetHeight} hücreye genişler. Bedeli $${plot.cost.toLocaleString('en-US')}.`,
+      message:
+        `Fabrika alanı ${plot.targetWidth}x${plot.targetHeight} hücreye genişler. Bedeli $${cost.toLocaleString('en-US')}` +
+        (discounted ? ` (müteahhit indirimi %${discountPercent} uygulandı).` : '.'),
       confirmLabel: 'SATIN AL',
       onConfirm: () => this.requestPlotUnlock(plotIndex),
+      extraAction: canOfferDiscount
+        ? {
+            label: `REKLAM İZLE: %${discountPercent} İNDİRİM`,
+            sublabel: `$${Math.round(plot.cost * (1 - PLOT_AD_DISCOUNT)).toLocaleString('en-US')}`,
+            icon: uiIcon('video'),
+            onClick: () => void this.requestPlotDiscount(plotIndex),
+          }
+        : undefined,
     });
+  }
+
+  /* ================================================================
+   * ÖDÜLLÜ REKLAM YERLEŞİMLERİ (M9-E; şimdilik sahte sağlayıcı)
+   * ================================================================ */
+
+  /**
+   * Ödüllü reklamı gösterir. Ödülü çağıran verir ve yalnızca true dönerse verir;
+   * reklam gösterilemezse nedeni bildirilir ve ödül verilmez.
+   */
+  private async watchAd(placement: AdPlacementId): Promise<boolean> {
+    const result = await ads.show(placement);
+    if (result === 'rewarded') return true;
+
+    if (result === 'failed') {
+      this.notify('Reklam tamamlanamadı; ödül verilmedi.', 'warning');
+    } else if (result === 'cooldown') {
+      this.notify(`Bu reklam ${formatAdCooldown(ads.cooldownRemaining(placement))} sonra yeniden izlenebilir.`, 'warning');
+    } else if (result === 'unavailable') {
+      this.notify('Şu an reklam sunulamıyor.', 'warning');
+    }
+    return false;
+  }
+
+  /** R5: parselin bedelini bir kereliğine düşürür ve onayı yeni bedelle yeniden sorar */
+  private async requestPlotDiscount(plotIndex: number): Promise<void> {
+    if (!this.factoryEconomy.canDiscountPlot(plotIndex)) return;
+    if (await this.watchAd('plot_discount')) {
+      this.factoryEconomy.applyPlotDiscount(plotIndex);
+      this.gridView.syncLockedPlotAffordability();
+      this.saveGame();
+      this.notify(`Müteahhit indirimi: parsel bedeli %${Math.round(PLOT_AD_DISCOUNT * 100)} düştü`, 'reward');
+    }
+    // İndirim alınsa da alınmasa da karar oyuncunundur: onay yeniden sorulur
+    if (!this.plotManager.isPlotUnlocked(plotIndex)) this.askPlotPurchase(plotIndex);
+  }
+
+  /** R4: hedef modülün eksik parçalarının bir bölümünü hangara ekler */
+  private async requestPartsCargo(category: RocketModuleCategory): Promise<void> {
+    if (!this.hangarBridge.canGrantPartsCargo(category)) return;
+    if (!(await this.watchAd('parts_cargo'))) return;
+    const granted = this.hangarBridge.grantPartsCargo(category);
+    this.saveGame();
+    const list = granted.map((part) => `${part.count} ${part.itemName}`).join(', ');
+    this.notify(`Parça kargosu geldi: ${list}`, 'reward');
+  }
+
+  /** Takviyenin nakit bedeli (takviyesiz gelirden hesaplanır) */
+  private getBoostCashPrice(): number {
+    return this.incomeBoost.cashPrice();
+  }
+
+  /** R3: reklam izleyerek gelir takviyesi süresi ekler */
+  private async requestBoostWithAd(): Promise<void> {
+    if (!this.incomeBoost.canAdd()) return;
+    if (!(await this.watchAd('income_boost'))) return;
+    this.grantBoost();
+  }
+
+  /** R3'ün reklamsız yolu: aynı süre nakitle alınır */
+  private buyBoostWithCash(): void {
+    if (!this.incomeBoost.canAdd()) return;
+    if (!this.factoryEconomy.spendMoney(this.getBoostCashPrice())) {
+      this.notify(`Takviye için $${formatNumber(this.getBoostCashPrice())} gerekiyor.`, 'warning');
+      return;
+    }
+    this.grantBoost();
+  }
+
+  private grantBoost(): void {
+    this.incomeBoost.add(BOOST_GRANT_SECONDS);
+    this.factoryEconomy.incomeBoostMultiplier = this.incomeBoost.multiplier;
+    sound.playUpgrade();
+    this.saveGame();
+    this.notify(
+      `Gelir takviyesi: ×${BOOST_MULTIPLIER} · ${formatAdCooldown(this.incomeBoost.remaining)}`,
+      'reward',
+    );
   }
 
   /** Sıradaki parseli satın almayı dener; başarılıysa true döner */
@@ -1110,10 +1257,12 @@ export class GameScene extends Phaser.Scene {
   private refreshUI(): void {
     /* HUD: saniyelik gelir, fabrikanın son bir dakikada ölçülen ihracat geliridir */
     const revenuePerSec = this.factoryEconomy.getRevenuePerSec();
+    this.incomeBoost.observeRevenue(revenuePerSec);
     this.hud.update(
       this.economy.resources,
       revenuePerSec,
       this.hangarBridge.getFlightStats().bestDistance,
+      this.incomeBoost.isActive ? `×${BOOST_MULTIPLIER} ${formatAdCooldown(this.incomeBoost.remaining)}` : '',
     );
 
     /* Hedef kartı: tamamlanan aşamanın ödülünü ver, sonra sıradaki görevi göster */
@@ -1139,6 +1288,7 @@ export class GameScene extends Phaser.Scene {
     if (this.rocketHangar.isOpen) this.rocketHangar.refresh();
     if (this.stagesModal.isOpen) this.stagesModal.refresh();
     if (this.rangeLadderModal.isOpen) this.rangeLadderModal.refresh();
+    if (this.boostModal.isOpen) this.boostModal.refresh();
 
     /* Sıradaki parsel rozeti: para yetince alınabilir görünüme geçsin */
     this.gridView.syncLockedPlotAffordability();
@@ -1194,6 +1344,7 @@ export class GameScene extends Phaser.Scene {
       hangar: this.hangarBridge,
       factoryLayout,
       milestones: this.milestones.serialize(),
+      monetization: { ads: ads.serialize(), boost: this.incomeBoost.serialize() },
     });
   }
 
@@ -1226,6 +1377,11 @@ export class GameScene extends Phaser.Scene {
     }
 
     // Gösterge sıfırdan başlamasın: kayıt anındaki ölçülmüş gelirle başlat
+    this.factoryEconomy.setDiscountedPlots(data.factoryEconomy?.discountedPlots);
+    ads.deserialize(data.monetization?.ads);
+    this.incomeBoost.deserialize(data.monetization?.boost);
+    this.factoryEconomy.incomeBoostMultiplier = this.incomeBoost.multiplier;
+
     const savedRevenuePerSec = data.factoryEconomy?.revenuePerSec ?? 0;
     this.factoryEconomy.seedRevenueRate(savedRevenuePerSec);
 

@@ -7,6 +7,7 @@
  * ====================================================================== */
 
 import Phaser from 'phaser';
+import { formatAdCooldown } from '../ads/AdService.ts';
 import { RangeLadder } from '../flight/RangeLadder.ts';
 import type { FlightReportViewModel } from '../scenes/FlightReturnHelper.ts';
 import { formatDistance, formatNumber } from '../utils/format.ts';
@@ -25,19 +26,39 @@ export interface FlightReportData {
   view: FlightReportViewModel;
 }
 
+/** Reklamla uçuş primini katlama (M9-E R2) */
+export interface FlightReportAdBonus {
+  /** Primin kaç katına çıkacağı */
+  multiplier: number;
+  /** Düğme gösterilsin mi? Reklam sunulamıyorsa hiç çizilmez */
+  isOffered: () => boolean;
+  /** Bekleme süresinden kalan (saniye); hazırsa 0 */
+  cooldownRemaining: () => number;
+  /** Reklamı gösterir; sonuna kadar izlenirse true döner */
+  request: () => Promise<boolean>;
+  /** Bonus uygulandı: prim artık `totalCash` */
+  onApplied: (totalCash: number) => void;
+}
+
 export class FlightReportModal extends UiModal {
   private data: FlightReportData | null = null;
   private returnButton: UiButton | null = null;
   private readonly onReturn: () => void;
+  private readonly adBonus: FlightReportAdBonus | null;
+  private bonusApplied = false;
+  private bonusPending = false;
 
-  constructor(layer: UiLayer, onReturn: () => void) {
+  constructor(layer: UiLayer, onReturn: () => void, adBonus: FlightReportAdBonus | null = null) {
     // Rapor yalnız "Fabrikaya dön" ile kapanır
     super(layer, { title: '', maxWidth: 400, dismissible: false, accent: SEMANTIC.rocket });
     this.onReturn = onReturn;
+    this.adBonus = adBonus;
   }
 
   showReport(data: FlightReportData): void {
     this.data = data;
+    this.bonusApplied = false;
+    this.bonusPending = false;
     if (data.isCrash) {
       this.setTitle(data.reason);
       this.setAccent(SEMANTIC.danger);
@@ -68,10 +89,13 @@ export class FlightReportModal extends UiModal {
         .text(width / 2, y + 42, `+$${formatNumber(data.totalCash)}`, 'display', { color: SEMANTIC.moneyHex, stroke: true })
         .setOrigin(0.5),
     );
+    const primNote = this.bonusApplied
+      ? `Reklam bonusu: prim ×${this.adBonus?.multiplier ?? 1}`
+      : `Fabrikanın ${view.breakdown.incomeSeconds} saniyelik geliri`;
     body.add(
       layer
-        .text(width / 2, y + 66, `Fabrikanın ${view.breakdown.incomeSeconds} saniyelik geliri`, 'caption', {
-          color: SEMANTIC.textMuted,
+        .text(width / 2, y + 66, primNote, 'caption', {
+          color: this.bonusApplied ? SEMANTIC.moneyHex : SEMANTIC.textMuted,
         })
         .setOrigin(0.5),
     );
@@ -146,9 +170,59 @@ export class FlightReportModal extends UiModal {
     return y;
   }
 
+  /** Reklam izlenirse primi katlar; izlenemezse rapor olduğu gibi kalır */
+  private async requestBonus(): Promise<void> {
+    const bonus = this.adBonus;
+    const data = this.data;
+    if (!bonus || !data || this.bonusApplied || this.bonusPending) return;
+    this.bonusPending = true;
+    const watched = await bonus.request();
+    this.bonusPending = false;
+    if (!watched || !this.isOpen || this.data !== data) return;
+    this.bonusApplied = true;
+    data.totalCash = Math.floor(data.totalCash * bonus.multiplier);
+    bonus.onApplied(data.totalCash);
+    this.rebuild();
+  }
+
   protected buildFooter(footer: Phaser.GameObjects.Container, width: number): number {
     const height = 52;
-    this.returnButton = new UiButton(this.layer, width / 2, height / 2, {
+    let top = 0;
+
+    // Reklam bonusu: ana eylemin üstünde, ayrı renkte; sunulamıyorsa hiç çizilmez
+    const bonus = this.adBonus;
+    const data = this.data;
+    if (bonus && data && !this.bonusApplied && data.totalCash > 0 && bonus.isOffered()) {
+      const cooldown = bonus.cooldownRemaining();
+      if (cooldown > 0) {
+        const wait = this.layer
+          .text(width / 2, 0, `Reklam bonusu ${formatAdCooldown(cooldown)} sonra yeniden kullanılabilir.`, 'caption', {
+            color: SEMANTIC.textMuted,
+            wrapWidth: width,
+            align: 'center',
+          })
+          .setOrigin(0.5, 0);
+        footer.add(wait);
+        top += wait.height + SPACE.sm;
+      } else {
+        const bonusHeight = 48;
+        footer.add(
+          new UiButton(this.layer, width / 2, top + bonusHeight / 2, {
+            width,
+            height: bonusHeight,
+            variant: 'gold',
+            icon: uiIcon('video'),
+            label: `REKLAM İZLE: PRİM ×${bonus.multiplier}`,
+            sublabel: `+$${formatNumber(Math.floor(data.totalCash * bonus.multiplier))}`,
+            textVariant: 'buttonSmall',
+            onClick: () => void this.requestBonus(),
+          }),
+        );
+        top += bonusHeight + SPACE.sm;
+      }
+    }
+
+    this.returnButton = new UiButton(this.layer, width / 2, top + height / 2, {
       width,
       height,
       variant: 'primary',
@@ -161,7 +235,7 @@ export class FlightReportModal extends UiModal {
       },
     });
     footer.add(this.returnButton);
-    return height;
+    return top + height;
   }
 
   protected primaryButton(): UiButton | null {

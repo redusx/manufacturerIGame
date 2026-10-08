@@ -237,3 +237,15 @@
   4. **Bant çizimi artımlıdır:** bant döşenince/sökülünce/dönünce yalnız o hücre ve dört komşusu, kare başına bir kez yeniden çizilir (`ConveyorRenderer.refreshAround`).
 * **Gerekçe:** `M9_PLAN.md` §4.4. Ölçüm: 759 bantlı 32x32 fabrikada bütün ağı yeniden kurmak döşenen her bant için 79 ms sürüyordu; artımlı çizimle 0,2 ms. Ayrıca aynı karede kurulup yıkılan tıklanabilir nesneler Phaser girdi listesinde kalıyordu (sürükleyerek döşemede birikir); kare başına tek çizim bunu önler.
 * **Not:** Fiyatlar başlangıç değeridir; M9-F'de ölçülerek ayarlanır.
+
+### [DEC-032] Ödüllü Reklam Yerleşimleri ve Gelir Takviyesi (M9-E; şimdilik sahte sağlayıcı)
+* **Tarih:** 2026-10-08
+* **Karar:**
+  1. **`AdService`** (saf TypeScript, `src/ads/`) bütün ödüllü reklamların tek istek noktasıdır: yerleşim sunuluyor mu, bekleme süresi, sonuç. Ödülü çağıran verir ve yalnızca sonuç `rewarded` ise verir; bekleme süresi de o zaman başlar ve kayda yazılır.
+  2. **Mod** tek yerden seçilir (`src/ads/ads.ts`): `mock` (varsayılan) · `crazygames` (M9-G) · `off`. Deneme için `?ads=off` (bütün reklam düğmeleri gizlenir) ve `?ads=fail` (reklam her seferinde gösterilemez).
+  3. **Sahte sağlayıcı** tuvalin üstünde "REKLAM ALANI" katmanı gösterir, 3 sn sayar ve ödülü verir; kapatılırsa ödül verilmez. CrazyGames SDK bağlanana kadar reklamlar yalnızca yerleşimdir (ödüller bedavadır).
+  4. **Yerleşimler:** R1 çevrimdışı kazanç ×2 · R2 uçuş primi ×3 (3 dk bekleme) · R3 gelir takviyesi +10 dk (5 dk bekleme) · R4 parça kargosu: hedef modülün eksik parçalarının %15'i (10 dk bekleme) · R5 parsel indirimi %15 (parsel başına bir kez; $30.000 ve üstü parseller).
+  5. **Gelir takviyesi** (`IncomeBoost`): etkinken ihracat geliri ×2; alım başına 10 dk, en fazla 30 dk; süre yalnızca oyun açıkken işler ve çevrimdışı gelire yansımaz. Reklamsız yolu: fabrikanın 5 dakikalık (takviyesiz) geliri karşılığı nakitle aynı süre. HUD'daki para/gelir bölümünden açılır; etkinken rozet "×2 08:41" gösterir.
+  6. **Kurallar (CrazyGames):** reklam düğmeleri yalnızca pencerelerin içindedir ve video simgesi taşır; reklam sunulamıyorsa düğme hiç çizilmez; bekleme süresi sayaçla gösterilir; reklam gösterilemezse ödül verilmez ve oyuncu reklamsız yola devam edebilir; reklam ekrandayken oyun durur (kapanınca geçen süre fabrikaya telafi edilir) ve ses, oyuncunun ses ayarına dokunmadan kesilir.
+* **Gerekçe:** `M9_PLAN.md` §4.5; K8 (yerleşimler R1–R5, geçiş reklamı G1 ayrıca karar).
+* **Düzeltilen açıklar:** çevrimdışı 2X düğmesi reklam gösterilemeyince normal kazancı da yok ediyordu (artık pencere açık kalır); reklam sesi kısarken ses ayarını kayda yazıyordu.

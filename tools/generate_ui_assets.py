@@ -196,6 +196,25 @@ ICON_COLORS = {
 BLANK = "................"
 
 ICONS = {
+    # Ödüllü reklam düğmelerinin simgesi: ekran + oynat üçgeni (M9-E)
+    "video": [
+        BLANK,
+        BLANK,
+        "..oooooooooooo..",
+        ".owwwwwwwwwwwwo.",
+        ".owwwwowwwwwwwo.",
+        ".owwwwoowwwwwwo.",
+        ".owwwwooowwwwwo.",
+        ".owwwwoooowwwwo.",
+        ".owwwwooowwwwwo.",
+        ".owwwwoowwwwwwo.",
+        ".owwwwowwwwwwwo.",
+        ".owwwwwwwwwwwwo.",
+        "..oooooooooooo..",
+        BLANK,
+        BLANK,
+        BLANK,
+    ],
     "lock": [
         BLANK,
         ".....oooooo.....",

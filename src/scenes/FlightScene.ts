@@ -38,6 +38,10 @@ import { FlightReportModal } from '../ui/FlightReportModal.ts';
 import { sound } from '../audio/SoundManager.ts';
 import { fx } from '../effects/PixelParticleManager.ts';
 import { crazyGames } from '../integration/CrazyGamesSDK.ts';
+import { ads } from '../ads/ads.ts';
+
+/** Reklam izlenince uçuş priminin çıktığı kat (M9-E R2) */
+const FLIGHT_AD_BONUS_MULTIPLIER = 3;
 
 interface ObstacleEntity {
   sprite: Phaser.GameObjects.Image;
@@ -136,6 +140,8 @@ export class FlightScene extends Phaser.Scene {
   private pointerHoldingBoost = false;
   /** Uçuş sonunda hesaplanan prim (rapor kapanınca fabrikaya aktarılır) */
   private reportTotal = 0;
+  /** Uçuş primine uygulanan reklam çarpanı (izlenmediyse 1) */
+  private reportRewardMultiplier = 1;
 
   /* Kontroller */
   private keySpace!: Phaser.Input.Keyboard.Key;
@@ -270,7 +276,19 @@ export class FlightScene extends Phaser.Scene {
         this.pointerHoldingBoost = false;
       },
     });
-    this.reportModal = new FlightReportModal(this.ui, () => this.returnToFactory(this.reportTotal));
+    this.reportRewardMultiplier = 1;
+    // Reklamla prim katlama (R2): reklam sunulamıyorsa düğme çizilmez, izlenemezse prim değişmez
+    this.reportModal = new FlightReportModal(this.ui, () => this.returnToFactory(this.reportTotal), {
+      multiplier: FLIGHT_AD_BONUS_MULTIPLIER,
+      isOffered: () => ads.isOffered('flight_bonus'),
+      cooldownRemaining: () => ads.cooldownRemaining('flight_bonus'),
+      request: async () => (await ads.show('flight_bonus')) === 'rewarded',
+      onApplied: (totalCash) => {
+        this.reportTotal = totalCash;
+        this.reportRewardMultiplier = FLIGHT_AD_BONUS_MULTIPLIER;
+        sound.playMilestone();
+      },
+    });
 
     // 6. Kontroller (SPACE, Sol Tık & Tüm Ekran Dokunmatik)
     this.setupControls(w, h);
@@ -1063,6 +1081,7 @@ export class FlightScene extends Phaser.Scene {
     }
 
     this.reportTotal = totalResources;
+    this.reportRewardMultiplier = 1;
     this.hud.setVisible(false);
     this.reportModal.showReport({
       isCrash,
@@ -1085,6 +1104,7 @@ export class FlightScene extends Phaser.Scene {
           dodgedObstacles: this.dodgedObstacles,
           altitudeMeters: this.body.maxAltitude,
           rangeScale: this.stats.rangeScale,
+          rewardMultiplier: this.reportRewardMultiplier,
         },
         this.factoryEconomy,
       );

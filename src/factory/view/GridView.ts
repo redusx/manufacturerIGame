@@ -494,7 +494,8 @@ export class GridView {
       const badgeW = LOCKED_BADGE_WIDTH;
       const permitLabel = this.getPlotPermitLabel?.(plot.index) ?? null;
       // Menzil izni bekleyen parsel, para yetse de satın alınamaz
-      const canAfford = !permitLabel && this.economy.canAfford(plot.cost);
+      const plotCost = this.economy.getPlotCost(plot.index);
+      const canAfford = !permitLabel && this.economy.canAfford(plotCost);
       this.lockedPlotState = this.computeLockedPlotState(plot);
 
       // Parsel Adı
@@ -509,7 +510,8 @@ export class GridView {
       titleText.setOrigin(0.5, 0);
 
       // Boyut ve Maliyet
-      const costStr = plot.cost > 0 ? `$${plot.cost.toLocaleString('en-US')}` : 'Ücretsiz';
+      const discountNote = this.economy.isPlotDiscounted(plot.index) ? ' (indirimli)' : '';
+      const costStr = plotCost > 0 ? `$${plotCost.toLocaleString('en-US')}${discountNote}` : 'Ücretsiz';
       const costText = this.scene.add.text(
         0,
         0,
@@ -597,7 +599,8 @@ export class GridView {
 
   /** Rozetin görünümünü belirleyen durum: para yetiyor mu ve beklenen menzil izni */
   private computeLockedPlotState(plot: PlotDefinition): string {
-    return `${this.economy.canAfford(plot.cost)}|${this.getPlotPermitLabel?.(plot.index) ?? ''}`;
+    const cost = this.economy.getPlotCost(plot.index);
+    return `${this.economy.canAfford(cost)}|${cost}|${this.getPlotPermitLabel?.(plot.index) ?? ''}`;
   }
 
   // -------------------------------------------------------------

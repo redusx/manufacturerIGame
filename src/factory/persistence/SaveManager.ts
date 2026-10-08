@@ -27,6 +27,8 @@ import {
   MAX_OFFLINE_SECONDS,
   OFFLINE_EFFICIENCY,
 } from '../../data/MachineData.ts';
+import type { AdServiceState } from '../../ads/AdService.ts';
+import type { IncomeBoostState } from '../../economy/IncomeBoost.ts';
 
 export const SAVE_KEY = 'manufacturer_unified_save_v4';
 export const LEGACY_SAVE_KEY = 'manufacturer_save';
@@ -62,6 +64,13 @@ export interface UnifiedGameSaveData {
   contracts?: ContractSaveData;
   /** Phase 1-2 Izgara, Bantlar ve Makineler Düzeni */
   factoryLayout?: FactorySaveData;
+  /** M9-E: reklam bekleme süreleri ve süreli gelir takviyesi */
+  monetization?: MonetizationSaveData;
+}
+
+export interface MonetizationSaveData {
+  ads?: AdServiceState;
+  boost?: IncomeBoostState;
 }
 
 export interface LoadResult {

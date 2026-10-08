@@ -168,6 +168,8 @@ export interface EconomyState {
   revenueMultiplier: number;
   /** Kayıt anındaki ölçülmüş ihracat geliri ($/sn); çevrimdışı gelir bununla hesaplanır */
   revenuePerSec?: number;
+  /** Reklam indirimi kazanılmış, henüz satın alınmamış parseller */
+  discountedPlots?: number[];
 }
 
 export interface IntakeCellData {

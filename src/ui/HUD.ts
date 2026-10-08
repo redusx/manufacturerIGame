@@ -30,6 +30,8 @@ export class HUD {
   private readonly recordIcon: Phaser.GameObjects.Image;
   private readonly recordText: Phaser.GameObjects.Text;
   private readonly settingsButton: UiButton;
+  /** Para ve gelir bölümünün tamamı basılabilir: Takviye penceresini açar */
+  private readonly incomeZone: Phaser.GameObjects.Zone;
 
   private barBottom = HUD_BAR_HEIGHT;
   private centerY = HUD_BAR_HEIGHT / 2;
@@ -42,7 +44,11 @@ export class HUD {
   /** Sağ bloğun (rekor + ayarlar) başladığı yer */
   private rightGroupStart = 0;
 
-  constructor(layer: UiLayer, onSettingsClick: () => void) {
+  /**
+   * @param onIncomeClick Para/gelir bölümüne dokununca (Takviye penceresi). Bölüm bir
+   * reklam düğmesi değildir; yalnızca süreli gelir çarpanının durumunu gösterir.
+   */
+  constructor(layer: UiLayer, onSettingsClick: () => void, onIncomeClick?: () => void) {
     this.layer = layer;
     const scene = layer.scene;
     this.root = layer.container(100);
@@ -77,6 +83,15 @@ export class HUD {
     });
     this.root.add(this.settingsButton);
     layer.registerFocusable(this.settingsButton);
+
+    this.incomeZone = scene.add.zone(0, 0, 100, HUD_BAR_HEIGHT).setOrigin(0, 0);
+    this.root.add(this.incomeZone);
+    if (onIncomeClick) {
+      this.incomeZone.setInteractive({ useHandCursor: true });
+      this.incomeZone.on(Phaser.Input.Events.GAMEOBJECT_POINTER_UP, (pointer: Phaser.Input.Pointer) => {
+        if (layer.pointerDragDistance(pointer) <= 10) onIncomeClick();
+      });
+    }
   }
 
   /** Çubuğun alt kenarı (güvenli alan dahil); altındaki içerik buradan başlar */
@@ -106,9 +121,17 @@ export class HUD {
     this.reposition();
   }
 
-  update(resources: DecimalSource, perSecond: DecimalSource, bestDistance = 0): void {
+  /**
+   * @param boostLabel Süreli gelir takviyesi etkinse göstergesi ("×2 08:41"); değilse boş
+   */
+  update(resources: DecimalSource, perSecond: DecimalSource, bestDistance = 0, boostLabel = ''): void {
     this.moneyText.setText(`$${formatNumber(D(resources))}`);
-    this.incomeChip.setChip(`+$${formatRate(D(perSecond))}/sn`, SEMANTIC.primary);
+    const income = `+$${formatRate(D(perSecond))}/sn`;
+    // Takviye etkinken rozet altına döner ve kalan süreyi gösterir
+    this.incomeChip.setChip(
+      boostLabel ? `${income} · ${boostLabel}` : income,
+      boostLabel ? SEMANTIC.money : SEMANTIC.primary,
+    );
     this.bestDistance = bestDistance;
     this.recordText.setText(formatDistance(bestDistance));
     this.reposition();
@@ -135,6 +158,9 @@ export class HUD {
     const chipFits = chipX + this.incomeChip.chipWidth <= rightStart;
     this.incomeChip.setVisible(chipFits).setPosition(chipX, this.centerY - 13);
     this.leftGroupEnd = chipFits ? chipX + this.incomeChip.chipWidth : moneyEnd;
+    this.incomeZone
+      .setPosition(this.leftEdge, this.centerY - HUD_BAR_HEIGHT / 2)
+      .setSize(Math.max(44, this.leftGroupEnd - this.leftEdge), HUD_BAR_HEIGHT);
   }
 
   /** Para kazanıldığında kısa bir vurgu */

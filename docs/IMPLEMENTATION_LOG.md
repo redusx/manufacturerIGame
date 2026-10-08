@@ -1292,3 +1292,18 @@ Beklenen donanımla uçuş sonunda gövdenin ortalama %40–60'ı kalıyor; göv
 **Doğrulama:** `npm test` 262/262, `npx tsc --noEmit` temiz. Tarayıcıda: rekor 5,2 km iken 28x24 parselin rozeti "7.00 km menzil izni gerekli" gösterdi, tıklayınca uyarı verdi; rekor 7,3 km olunca rozet alınabilir oldu, onay penceresinden $250.000'a alındı ve alan 28x24'e büyüdü; sıradaki 28x28 parselin rozeti fabrikanın altında, "14.0 km menzil izni gerekli" ile göründü (masaüstü ve 375x812). Katalogda giriş kartları güncel fiyatı, parsel kartı "İZİN GEREKLİ · 14.0 km menzil · $1.50M" gösterdi. Art arda dört demir girişi kuruldu: fiyat 500 → 750 → 1.130 → 1.690, sıradaki 2.530; bakır 1.000'de kaldı.
 
 **Performans (32x32, masaüstü):** 599 bant + 934 eşya ile kare süresi ortalama 1,6 ms (en kötü 2,9 ms). Bant döşeme: önce 79 ms/bant (759 bantta tam yeniden kurma), sonra 0,2 ms + izleyen kare 4 ms. Gerçek fare sürüklemesiyle tek harekette 8 bant döşendi; girdi listesi tam 8 büyüdü. Söküm ve köşe/birleşme şekilleri artımlı çizimle doğru güncellendi. Telefon veya düşük güçlü cihazda kare hızı ölçülmedi; parsel 7–8 satın alma akışı elle oynanmadı (durum betikle açıldı).
+
+### [2026-10-08] — M9-E: Reklam Altyapısı (yalnızca yerleşim)
+
+**Yapılanlar:** yeni `src/ads/` (`AdService`, `MockAdProvider`, `ads`), yeni `src/economy/IncomeBoost.ts`, yeni `BoostModal`; `FactoryEconomy` (takviye çarpanı, parsel indirimi), `RocketHangarBridge` (`grantPartsCargo`, uçuş primi çarpanı), `OfflineEarningsModal` (R1), `FlightReportModal` + `FlightScene` (R2), `HUD` (takviye göstergesi, dokunma alanı), `RocketHangarView` (R4), `UiConfirmDialog` (üçüncü eylem) + `GameScene` (R5, bağlantılar, kayıt), `SoundManager.setSuspended`, `icon_video` dokusu. Karar: DEC-032. Yeni test eklenmedi.
+
+**Doğrulama:** `npm test` 262/262, `npx tsc --noEmit` temiz. Tarayıcıda sahte sağlayıcıyla, düğmelere tıklayarak:
+- R3: HUD'dan Takviye açıldı; reklam sonrası ×2 · 10:00, ihracat çarpanı 2,25 → 4,5, HUD rozeti "×2 9:58", reklam düğmesi "4:27 sonra" sayacıyla kapandı. Nakitle iki alım daha yapıldı (20 ve 30 dk); dördüncüsü reddedildi. Nakit bedeli takviye öncesi ve sonrası aynı kaldı ($477).
+- R2: 7,32 km uçuş raporunda "REKLAM İZLE: PRİM ×3 +$918" göründü; reklam sonrası prim $306 → $918, düğme kalktı; dönüşte kasaya $918 girdi.
+- R4: hedef modül İtici Motor iken kargo 12 motor + 4 itici blok getirdi (75 ve 25 eksiğin %15'i); düğme "9:59 sonra" oldu.
+- R5: 28x24 parselin onayında indirim seçeneği göründü; reklam sonrası bedel $250.000 → $212.500, seçenek kalktı, parsel bu bedelle alındı.
+- R1: 2X düğmesinde reklam kapatılınca "Reklam tamamlanamadı; ödül verilmedi" çıktı ve pencere açık kaldı; ikinci denemede reklam tamamlandı ve +$360K verildi.
+- `?ads=off`: beş yerleşimin hiçbirinde reklam düğmesi çizilmedi (Takviye'de yalnız nakit). `?ads=fail`: düğme var, reklam gösterilemedi, ödül ve bekleme süresi verilmedi.
+- Reklam sırasında oyunun ses nesnesi geçici sessizdeydi, bitince döndü. Telefon görünümünde (375x812) Takviye penceresi ve HUD rozeti sığdı.
+
+**Denenmeyenler:** bekleme sürelerinin sayfa yenilemesinden sonra korunması yalnızca `serialize()` çıktısıyla kontrol edildi (denemelerde kayıt kapalıydı); bekleme süresi dolana kadar beklenmedi; gerçek reklam ağıyla hiçbir şey denenmedi.

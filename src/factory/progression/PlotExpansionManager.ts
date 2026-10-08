@@ -141,7 +141,18 @@ export class PlotExpansionManager {
   canAffordPlot(plotIndex: number): boolean {
     const plot = this.getPlot(plotIndex);
     if (!plot) return false;
-    return this.economy.canAfford(plot.cost);
+    return this.economy.canAfford(this.getCost(plot));
+  }
+
+  /** Parselin güncel bedeli (varsa reklam indirimi düşülmüş) */
+  getPlotCost(plotIndex: number): number {
+    const plot = this.getPlot(plotIndex);
+    return plot ? this.getCost(plot) : Infinity;
+  }
+
+  /** Varsayılan parsel listesinde bedel ekonomiden okunur; özel listede tanımdaki bedel geçerlidir */
+  private getCost(plot: PlotDefinition): number {
+    return this.plots === FACTORY_PLOTS ? this.economy.getPlotCost(plot.index) : plot.cost;
   }
 
   /** Mevcut aktif fabrika sınırlarını döner ({ width, height }) */
@@ -198,14 +209,15 @@ export class PlotExpansionManager {
           ? 'AVAILABLE'
           : 'LOCKED';
 
-      const canAfford = this.economy.canAfford(plot.cost);
+      const cost = this.getCost(plot);
+      const canAfford = this.economy.canAfford(cost);
       const isNext = nextPlot !== null && nextPlot.index === plot.index;
       const deltaCoords = this.computeDeltaCoords(plot.index);
 
       return {
         plot,
         status,
-        cost: plot.cost,
+        cost,
         canAfford,
         isNext,
         deltaCoordsCount: deltaCoords.length,
@@ -235,12 +247,14 @@ export class PlotExpansionManager {
       };
     }
 
+    const cost = this.getCost(plot);
+
     if (this.isPlotUnlocked(plotIndex)) {
       return {
         success: false,
         plotIndex,
         plotName: plot.name,
-        cost: plot.cost,
+        cost,
         oldBounds: this.getCurrentBounds(),
         newBounds: this.getCurrentBounds(),
         newlyUnlockedCoords: [],
@@ -253,7 +267,7 @@ export class PlotExpansionManager {
         success: false,
         plotIndex,
         plotName: plot.name,
-        cost: plot.cost,
+        cost,
         oldBounds: this.getCurrentBounds(),
         newBounds: this.getCurrentBounds(),
         newlyUnlockedCoords: [],
@@ -267,7 +281,7 @@ export class PlotExpansionManager {
         success: false,
         plotIndex,
         plotName: plot.name,
-        cost: plot.cost,
+        cost,
         oldBounds: this.getCurrentBounds(),
         newBounds: this.getCurrentBounds(),
         newlyUnlockedCoords: [],
@@ -281,7 +295,7 @@ export class PlotExpansionManager {
         success: false,
         plotIndex,
         plotName: plot.name,
-        cost: plot.cost,
+        cost,
         oldBounds: this.getCurrentBounds(),
         newBounds: this.getCurrentBounds(),
         newlyUnlockedCoords: [],
@@ -299,7 +313,7 @@ export class PlotExpansionManager {
         success: false,
         plotIndex,
         plotName: plot.name,
-        cost: plot.cost,
+        cost,
         oldBounds,
         newBounds: oldBounds,
         newlyUnlockedCoords: [],
@@ -313,7 +327,7 @@ export class PlotExpansionManager {
       success: true,
       plotIndex,
       plotName: plot.name,
-      cost: plot.cost,
+      cost,
       oldBounds,
       newBounds,
       newlyUnlockedCoords,

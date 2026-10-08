@@ -17,14 +17,19 @@ import { UiModal } from './system/UiModal.ts';
 import { createInset } from './system/UiWidgets.ts';
 
 export interface OfflineEarningsModalConfig {
-  onClaim: (gained: Decimal) => void;
-  onDoubleClaim?: (gained: Decimal) => void;
+  /** Kazanç toplandı; `doubled` reklamla ikiye katlandıysa true */
+  onClaim: (gained: Decimal, doubled: boolean) => void;
+  /** 2X düğmesi gösterilsin mi? Reklam sunulamıyorsa düğme hiç çizilmez */
+  canOfferDouble?: () => boolean;
+  /** Reklamı gösterir; sonuna kadar izlenirse true döner (ödül yalnızca o zaman katlanır) */
+  requestDouble?: () => Promise<boolean>;
 }
 
 export class OfflineEarningsModal extends UiModal {
   private readonly callbacks: OfflineEarningsModalConfig;
   private report: OfflineEarningsReport | null = null;
   private claimButton: UiButton | null = null;
+  private doublePending = false;
 
   constructor(layer: UiLayer, config: OfflineEarningsModalConfig) {
     super(layer, { title: 'Fabrika Raporu', maxWidth: 380, depth: 260, accent: SEMANTIC.money });
@@ -52,11 +57,16 @@ export class OfflineEarningsModal extends UiModal {
     }
     this.report = null;
     this.close();
-    if (doubled && this.callbacks.onDoubleClaim) {
-      this.callbacks.onDoubleClaim(report.doubledEarnings);
-    } else {
-      this.callbacks.onClaim(report.baseEarnings);
-    }
+    this.callbacks.onClaim(doubled ? report.doubledEarnings : report.baseEarnings, doubled);
+  }
+
+  /** Reklam izlenirse kazancı ikiye katlar; izlenemezse pencere açık kalır ve normal kazanç toplanabilir */
+  private async claimDoubled(): Promise<void> {
+    if (this.doublePending || !this.report || !this.callbacks.requestDouble) return;
+    this.doublePending = true;
+    const watched = await this.callbacks.requestDouble();
+    this.doublePending = false;
+    if (watched && this.report) this.claim(true);
   }
 
   protected buildBody(body: Phaser.GameObjects.Container, width: number): number {
@@ -130,15 +140,16 @@ export class OfflineEarningsModal extends UiModal {
     footer.add(this.claimButton);
     y += height;
 
-    if (this.callbacks.onDoubleClaim) {
+    if (this.callbacks.requestDouble && (this.callbacks.canOfferDouble?.() ?? true)) {
       y += SPACE.sm;
       const doubleButton = new UiButton(this.layer, width / 2, y + height / 2, {
         width,
         height,
         variant: 'gold',
-        label: `2X İÇİN REKLAM İZLE  +$${report.formattedDoubledEarnings}`,
+        icon: uiIcon('video'),
+        label: `REKLAM İZLE: 2X  +$${report.formattedDoubledEarnings}`,
         textVariant: 'buttonSmall',
-        onClick: () => this.claim(true),
+        onClick: () => void this.claimDoubled(),
       });
       footer.add(doubleButton);
       y += height;

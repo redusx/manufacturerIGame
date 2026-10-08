@@ -34,6 +34,11 @@ export const FACTORY_PLOTS: PlotDefinition[] = [
   { index: 8, name: 'Derin Uzay Giga Fabrikası', cost: 40000000, targetWidth: 32, targetHeight: 32 },
 ];
 
+/** Reklam izleyerek kazanılan parsel ("müteahhit") indirimi (M9-E R5) */
+export const PLOT_AD_DISCOUNT = 0.15;
+/** İndirim yalnızca bu bedelden pahalı parsellere sunulur */
+export const PLOT_AD_DISCOUNT_MIN_COST = 30000;
+
 /** Tanımlı en büyük fabrika alanı; ızgara bu boyutta kurulur */
 export const MAX_FACTORY_WIDTH = Math.max(...FACTORY_PLOTS.map((plot) => plot.targetWidth));
 export const MAX_FACTORY_HEIGHT = Math.max(...FACTORY_PLOTS.map((plot) => plot.targetHeight));
@@ -72,6 +77,12 @@ export class FactoryEconomy {
 
   /** Global gelir çarpanı (roket ve prestij ödülleriyle artar) */
   revenueMultiplier = 1.0;
+
+  /** Süreli gelir takviyesinin çarpanı (IncomeBoost; etkin değilken 1) */
+  incomeBoostMultiplier = 1;
+
+  /** Reklam indirimi kazanılmış, henüz satın alınmamış parseller (M9-E R5) */
+  private discountedPlots = new Set<number>();
 
   /** Temel tıklama taban değeri ($) */
   baseClickValue = 1;
@@ -181,7 +192,7 @@ export class FactoryEconomy {
 
   /** İhracat gelirine uygulanan çarpan (uçuş kilometre taşları ve aşama ödülleriyle artar) */
   getExportMultiplier(): number {
-    return this.revenueMultiplier;
+    return this.revenueMultiplier * this.incomeBoostMultiplier;
   }
 
   /**
@@ -313,10 +324,42 @@ export class FactoryEconomy {
     return this.unlockedPlots.has(plotIndex);
   }
 
-  /** Belirtilen parselin satın alma bedeli */
+  /** Belirtilen parselin satın alma bedeli (varsa reklam indirimi düşülmüş) */
   getPlotCost(plotIndex: number): number {
     const plot = FACTORY_PLOTS.find((p) => p.index === plotIndex);
-    return plot ? plot.cost : Infinity;
+    if (!plot) return Infinity;
+    return this.discountedPlots.has(plotIndex) ? Math.round(plot.cost * (1 - PLOT_AD_DISCOUNT)) : plot.cost;
+  }
+
+  /** Parselde reklam indirimi var mı? */
+  isPlotDiscounted(plotIndex: number): boolean {
+    return this.discountedPlots.has(plotIndex);
+  }
+
+  /** Parsele reklam indirimi sunulabilir mi? (Yeterince pahalı, açılmamış ve henüz indirimsiz) */
+  canDiscountPlot(plotIndex: number): boolean {
+    const plot = FACTORY_PLOTS.find((p) => p.index === plotIndex);
+    return (
+      !!plot &&
+      plot.cost >= PLOT_AD_DISCOUNT_MIN_COST &&
+      !this.isPlotUnlocked(plotIndex) &&
+      !this.discountedPlots.has(plotIndex)
+    );
+  }
+
+  /** Parsele bir kereliğine reklam indirimi uygular */
+  applyPlotDiscount(plotIndex: number): boolean {
+    if (!this.canDiscountPlot(plotIndex)) return false;
+    this.discountedPlots.add(plotIndex);
+    return true;
+  }
+
+  getDiscountedPlots(): number[] {
+    return Array.from(this.discountedPlots);
+  }
+
+  setDiscountedPlots(plots: readonly number[] | undefined): void {
+    this.discountedPlots = new Set((plots ?? []).filter((index) => !this.isPlotUnlocked(index)));
   }
 
   /**
@@ -329,6 +372,7 @@ export class FactoryEconomy {
     if (!this.spendMoney(cost)) return false;
 
     this.unlockedPlots.add(plotIndex);
+    this.discountedPlots.delete(plotIndex);
     return true;
   }
 
@@ -391,7 +435,9 @@ export class FactoryEconomy {
       totalEarned: this.totalEarned,
       unlockedPlots: Array.from(this.unlockedPlots),
       revenueMultiplier: this.revenueMultiplier,
-      revenuePerSec: this.getRevenuePerSec(),
+      // Çevrimdışı gelir bu hızla hesaplanır; süreli takviye ona yansımaz
+      revenuePerSec: this.getRevenuePerSec() / Math.max(1, this.incomeBoostMultiplier),
+      discountedPlots: this.getDiscountedPlots(),
     };
   }
 
@@ -400,6 +446,7 @@ export class FactoryEconomy {
     this.totalEarned = state.totalEarned;
     this.revenueMultiplier = state.revenueMultiplier || 1.0;
     this.unlockedPlots = new Set(state.unlockedPlots || [0]);
+    this.setDiscountedPlots(state.discountedPlots);
     this.seedRevenueRate(state.revenuePerSec ?? 0);
   }
 }
