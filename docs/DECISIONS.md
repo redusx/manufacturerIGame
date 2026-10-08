@@ -249,3 +249,15 @@
   6. **Kurallar (CrazyGames):** reklam düğmeleri yalnızca pencerelerin içindedir ve video simgesi taşır; reklam sunulamıyorsa düğme hiç çizilmez; bekleme süresi sayaçla gösterilir; reklam gösterilemezse ödül verilmez ve oyuncu reklamsız yola devam edebilir; reklam ekrandayken oyun durur (kapanınca geçen süre fabrikaya telafi edilir) ve ses, oyuncunun ses ayarına dokunmadan kesilir.
 * **Gerekçe:** `M9_PLAN.md` §4.5; K8 (yerleşimler R1–R5, geçiş reklamı G1 ayrıca karar).
 * **Düzeltilen açıklar:** çevrimdışı 2X düğmesi reklam gösterilemeyince normal kazancı da yok ediyordu (artık pencere açık kalır); reklam sesi kısarken ses ayarını kayda yazıyordu.
+
+### [DEC-033] Denge Geçişi: Giriş Artışı, Makine Seviyesi Eğrisi, Parsel Fiyatları (M9-F)
+* **Tarih:** 2026-10-08
+* **Karar:**
+  1. Hammadde girişi artışı **×1,5 → ×1,7** (DEC-031'i günceller): demir 500 · 850 · 1.440 · 2.460 … 13.'sü 291.000.
+  2. Makine yükseltme bedeli Sv.10'a kadar ×1,15 (değişmedi), **Sv.10'dan sonra seviye başına ×1,35** (`machineUpgradeFactor`). Hız etkisi aynı (+%20/seviye).
+  3. Son iki parsel ucuzladı: 32x28 **8 M → 6 M**, 32x32 **40 M → 25 M**.
+  4. Roket nakdi (×2,4) ve parça artışı (×1,8) değişmedi.
+* **Dayanak:** `tools/economy_model.ts` (oyunun kendi tablolarını okuyan kapasite/tempo modeli; `ECONOMY.md` §9 ve §11). Üst zincirler hammadde başına ≈ $48 getiriyor; ortalama oyuncunun geliri Sv.4'te ≈ $460/sn, Sv.10'da ≈ $13.000/sn. Bu ölçekte ×1,5'lik giriş artışı ve sınırsız ×1,15 makine seviyesi neredeyse bedavaydı ve parselleri gereksiz kılıyordu; emek sınırı olmayan senaryoda ortalama oyuncu Sv.10'a 1,8 saatte varıyordu (ayarla 3,1 saat). Son iki parselin geri ödeme süresi saatleri buluyordu.
+* **Sınır:** Bu bir modeldir, oyuncu ölçümü değildir; mutlak süreler ±%50 oynayabilir. Emek sınırlı senaryoda ayarlar süreyi değiştirmedi (rahat 7,7 · ortalama 4,3 · optimizasyoncu 2,6 saat). Planın 8–10 saatlik hedefi modelde yalnızca "rahat" profilde tutuyor.
+* **Açık karar:** ortalama oyuncu için parça artışını 1,8'den 2,0'a çıkarmak (toplam ≈ 6 saat). Elde oynayış ölçümüne bırakıldı.
+* **Not:** Sv.10'un üstünde eski fiyattan yükseltilmiş makinesi olan kayıtlarda söküm iadesi ödenenden fazla olur (bir kerelik, küçük).

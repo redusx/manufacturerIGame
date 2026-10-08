@@ -2,7 +2,7 @@
  * src/factory/simulation/FactoryEconomy.ts — İncremental Ekonomi Motoru
  *
  * Nakit sermaye ($), saniyelik ihracat geliri (revenue/sec), tıklama geliri
- * (clickValue), makine seviye yükseltme maliyetleri ($Base * 1.15^lvl),
+ * (clickValue), makine seviye yükseltme maliyetleri ($Base * 1.15^lvl; Sv.10'dan sonra ×1,35),
  * fabrika parseli genişletme maliyetleri ve roket fırlatma ödüllerini
  * yöneten saf TypeScript ekonomi sınıfı.
  * Phaser bağımlılığı yoktur.
@@ -30,9 +30,26 @@ export const FACTORY_PLOTS: PlotDefinition[] = [
   // M9-D: bu parseller ayrıca bir menzil izni ister (RangeLadder.unlocksPlotIndex)
   { index: 5, name: 'Yörünge Lojistik Parseli', cost: 250000, targetWidth: 28, targetHeight: 24 },
   { index: 6, name: 'Ay Tedarik Kompleksi', cost: 1500000, targetWidth: 28, targetHeight: 28 },
-  { index: 7, name: 'Mars Sanayi Bölgesi', cost: 8000000, targetWidth: 32, targetHeight: 28 },
-  { index: 8, name: 'Derin Uzay Giga Fabrikası', cost: 40000000, targetWidth: 32, targetHeight: 32 },
+  { index: 7, name: 'Mars Sanayi Bölgesi', cost: 6000000, targetWidth: 32, targetHeight: 28 },
+  { index: 8, name: 'Derin Uzay Giga Fabrikası', cost: 25000000, targetWidth: 32, targetHeight: 32 },
 ];
+
+/** Makine yükseltme bedelinin seviye başına büyümesi */
+export const MACHINE_UPGRADE_GROWTH = 1.15;
+/** Bu seviyeden sonra yükseltme bedeli daha dik büyür (M9-F) */
+export const MACHINE_UPGRADE_STEEP_FROM_LEVEL = 10;
+export const MACHINE_UPGRADE_STEEP_GROWTH = 1.35;
+
+/**
+ * `currentLevel` seviyesindeki makineyi bir seviye yükseltmenin taban bedele oranı.
+ * Sv.10'a kadar ×1,15, sonrasında ×1,35 büyür: yüksek seviyede aynı alana daha çok
+ * iş sığdırmak pahalılaşır ve yeni parsel almak seçenek olarak değer kazanır.
+ */
+export function machineUpgradeFactor(currentLevel: number): number {
+  const gentle = Math.min(currentLevel, MACHINE_UPGRADE_STEEP_FROM_LEVEL);
+  const steep = Math.max(0, currentLevel - MACHINE_UPGRADE_STEEP_FROM_LEVEL);
+  return Math.pow(MACHINE_UPGRADE_GROWTH, gentle) * Math.pow(MACHINE_UPGRADE_STEEP_GROWTH, steep);
+}
 
 /** Reklam izleyerek kazanılan parsel ("müteahhit") indirimi (M9-E R5) */
 export const PLOT_AD_DISCOUNT = 0.15;
@@ -290,7 +307,7 @@ export class FactoryEconomy {
    * Maliyet = round(baseCost * (1.15)^currentLevel)
    */
   getMachineUpgradeCost(baseCost: number, currentLevel: number): number {
-    return Math.max(1, Math.round(baseCost * Math.pow(1.15, currentLevel)));
+    return Math.max(1, Math.round(baseCost * machineUpgradeFactor(currentLevel)));
   }
 
   /**

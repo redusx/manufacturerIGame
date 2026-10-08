@@ -1307,3 +1307,11 @@ Beklenen donanımla uçuş sonunda gövdenin ortalama %40–60'ı kalıyor; göv
 - Reklam sırasında oyunun ses nesnesi geçici sessizdeydi, bitince döndü. Telefon görünümünde (375x812) Takviye penceresi ve HUD rozeti sığdı.
 
 **Denenmeyenler:** bekleme sürelerinin sayfa yenilemesinden sonra korunması yalnızca `serialize()` çıktısıyla kontrol edildi (denemelerde kayıt kapalıydı); bekleme süresi dolana kadar beklenmedi; gerçek reklam ağıyla hiçbir şey denenmedi.
+
+### [2026-10-08] — M9-F: Denge Geçişi
+
+**Yapılanlar:** yeni `tools/economy_model.ts` (eşya tablosu, roket tablosu, üç oyuncu profiliyle büyüme simülasyonu; `--tables`, `--no-effort`); `PlacementMath` (`INTAKE_COST_GROWTH` 1,7, `getIntakeCostForCount`), `FactoryEconomy` (`machineUpgradeFactor`: Sv.10 üstü ×1,35; son iki parsel 6 M ve 25 M); `ECONOMY.md` M9 değerleriyle yeniden yazıldı (§5, §7–§11). Karar: DEC-033.
+
+**Bulgular:** M7'deki tempo botu güncel kurallarla 7. aşamada takılıyor (tek yönlü giriş ve hurda kuralları); onarılmadı, yerine model yazıldı. Modelde kademe süresini nakit değil parça üretimi belirliyor; roket nakdi parça toplanırken birikiyor.
+
+**Doğrulama:** `npm test` 262/262, `npx tsc --noEmit` temiz. Tarayıcıda art arda üç demir girişi kuruldu: fiyat 500 → 850 → 1.440, sıradaki 2.460; katalog "Her yeni giriş %70 daha pahalıdır" yazıyor. Makine seviyesi ve parsel fiyatları Node'da okundu (montaj 10→11 $2.023, 11→12 $2.731, 20→21 $40.671). **Tempo sayıları model çıktısıdır; hiçbir kademe baştan sona elle oynanarak ölçülmedi.**

@@ -46,11 +46,12 @@ export const INTAKE_BUILD_COSTS: Readonly<Record<string, number>> = {
 };
 
 /**
- * Aynı hammaddenin her yeni girişi bir öncekinden bu kat pahalıdır (M9-D):
- * demir 500 · 750 · 1.125 … Üretimi büyütmek gittikçe pahalılaşır; mevcut hattı
- * verimli kurmak ve makineleri yükseltmek değer kazanır.
+ * Aynı hammaddenin her yeni girişi bir öncekinden bu kat pahalıdır (M9-D; M9-F'de
+ * 1,5'ten 1,7'ye çıkarıldı): demir 500 · 850 · 1.450 … 12.'si 171.000. Üretimi
+ * büyütmek gittikçe pahalılaşır; mevcut hattı verimli kurmak ve makineleri yükseltmek
+ * değer kazanır.
  */
-export const INTAKE_COST_GROWTH = 1.5;
+export const INTAKE_COST_GROWTH = 1.7;
 
 /** Oyunun başında bedelsiz verilen girişler; fiyat artışında sayılmaz */
 const FREE_INTAKE_COUNTS: Readonly<Record<string, number>> = {
@@ -294,7 +295,14 @@ export class PlacementMath {
     if (!grid) return base;
 
     const owned = grid.getIntakeCells().filter((cell) => cell.intakeData?.itemId === intakeItemId).length;
-    const paid = Math.max(0, owned - (FREE_INTAKE_COUNTS[intakeItemId] ?? 0));
+    return this.getIntakeCostForCount(intakeItemId, owned);
+  }
+
+  /** Bu hammaddeden `ownedCount` giriş kuruluyken sıradaki girişin bedeli */
+  static getIntakeCostForCount(intakeItemId: string, ownedCount: number): number {
+    const base = INTAKE_BUILD_COSTS[intakeItemId];
+    if (base === undefined) return Infinity;
+    const paid = Math.max(0, ownedCount - (FREE_INTAKE_COUNTS[intakeItemId] ?? 0));
     return roundCost(base * Math.pow(INTAKE_COST_GROWTH, paid));
   }
 
