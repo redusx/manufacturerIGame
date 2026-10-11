@@ -211,6 +211,8 @@ export class MachineInspectorModal extends UiModal {
     this.statusChip = null;
     this.statusHint = null;
     this.cycleBar = null;
+    // Önceki kurulumun düğmesi yok edildi; yenisi buildFooter'da kurulana dek kimse ona dokunmasın
+    this.upgradeButton = null;
     if (!data || !this.targetMachine) return 0;
     this.structureSignature = this.signatureOf(data);
 

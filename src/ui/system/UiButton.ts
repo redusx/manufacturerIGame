@@ -163,7 +163,7 @@ export class UiButton extends Phaser.GameObjects.Container implements UiFocusabl
   }
 
   setLabel(label: string): this {
-    if (this.labelText && this.labelFull !== label) {
+    if (this.scene && this.labelText && this.labelFull !== label) {
       this.labelFull = label;
       this.labelText.setText(label);
       this.layoutContent();
@@ -172,7 +172,7 @@ export class UiButton extends Phaser.GameObjects.Container implements UiFocusabl
   }
 
   setSublabel(sublabel: string): this {
-    if (this.sublabelText && this.sublabelText.text !== sublabel) {
+    if (this.scene && this.sublabelText && this.sublabelText.text !== sublabel) {
       this.sublabelText.setText(sublabel);
       this.layoutContent();
     }
@@ -186,7 +186,7 @@ export class UiButton extends Phaser.GameObjects.Container implements UiFocusabl
   }
 
   setIcon(textureKey: string, tint?: number): this {
-    if (this.iconImage) {
+    if (this.scene && this.iconImage) {
       this.iconImage.setTexture(textureKey);
       if (tint !== undefined) {
         this.iconImage.setTint(tint);
@@ -206,7 +206,7 @@ export class UiButton extends Phaser.GameObjects.Container implements UiFocusabl
 
   /** Düğmenin görsel boyutunu değiştirir (yerleşim yeniden hesaplanırken) */
   resize(width: number, height: number): this {
-    if (width === this.buttonWidth && height === this.buttonHeight) return this;
+    if (!this.scene || (width === this.buttonWidth && height === this.buttonHeight)) return this;
     this.buttonWidth = width;
     this.buttonHeight = height;
     this.bg.setSize(width, height);
@@ -326,6 +326,8 @@ export class UiButton extends Phaser.GameObjects.Container implements UiFocusabl
   }
 
   private refreshVisual(): void {
+    // Yok edilmiş düğmenin (pencere yeniden kurulurken elde kalan başvuru) dokuları da yoktur
+    if (!this.scene) return;
     const pressed = this.isPressed && this.isEnabled;
     const state = pressed ? 'pressed' : this.isHovered ? 'hover' : 'normal';
     this.bg.setTexture(this.textureFor(state));
@@ -339,6 +341,7 @@ export class UiButton extends Phaser.GameObjects.Container implements UiFocusabl
 
   /** İkon, etiket ve alt etiketi düğmenin içine ortalar; taşan etiketi küçültür */
   private layoutContent(): void {
+    if (!this.scene) return;
     // Dikey (ikon üstte) düğmeler dardır; etikete olabildiğince yer bırakılır
     const padding = this.config.layout === 'column' ? 2 : 8;
     const innerWidth = this.buttonWidth - padding * 2;
