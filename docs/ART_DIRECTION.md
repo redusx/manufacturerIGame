@@ -23,11 +23,12 @@ Tüm arayüz ve oyun nesneleri bu merkezi renk ailesini kullanır (`src/ui/theme
 
 | Rol / Görev | HEX Kodu | Sayısal (0x) | Kullanım Alanı |
 |---|---|---|---|
-| **Derin Arka Plan** | `#070913` | `0x070913` | Oyun zemini, sahne tabanı, uzay derinliği |
-| **Panel Zemin Koyu** | `#0e1220` | `0x0e1220` | HUD paneli, makine listesi zemin dolgusu |
-| **Kart & Modal Zemin** | `#141a2e` | `0x141a2e` | Kart dolgusu, dialog arka planı, taban |
-| **Panel Çerçevesi (Koyu)** | `#242f4c` | `0x242f4c` | Kart ve panel dış hatları, ayırıcı çizgiler |
-| **Panel Çerçevesi (Açık)** | `#3d4e7a` | `0x3d4e7a` | 1px piksel iç kenar vurgusu (bevel highlight) |
+| **Derin Arka Plan** | `#0a1330` | `0x0a1330` | Sahne tabanı; fabrikanın çevresi bu tonda teknik çizim ızgarasıyla dokunur |
+| **Panel Zemin** | `#14244a` | `0x14244a` | Üst çubuk, araç çubuğu tablası, pencere dolgusu |
+| **Kart Zemin** | `#1a2d58` | `0x1a2d58` | Kart dolgusu (iç bölmeler bir ton koyu: `#0f1b3a`) |
+| **Panel Çerçevesi (Koyu)** | `#2b4380` | `0x2b4380` | Kart ve panel dış hatları, ayırıcı çizgiler |
+| **Panel Çerçevesi (Açık)** | `#4a6bbd` | `0x4a6bbd` | 1px piksel iç kenar vurgusu (bevel highlight) |
+| **Pirinç Şerit / Perçin** | `#ffd166` / `#c98f1a` | — | Çubukların kenar şeridi, pencere köşelerindeki perçinler (tema motifi) |
 | **Ana Metin (Primary)** | `#f5f6fa` | `0xf5f6fa` | Başlıklar, sayılar, kart isimleri (yüksek kontrast) |
 | **İkincil Metin (Muted)** | `#8c9bb3` | `0x8c9bb3` | Açıklamalar, birimler, stat etiketleri |
 | **Kaynak / Para Vurgusu** | `#ffd166` | `0xffd166` | Parça miktarı, altın paralar, fiyatlar |
@@ -37,6 +38,12 @@ Tüm arayüz ve oyun nesneleri bu merkezi renk ailesini kullanır (`src/ui/theme
 | **Uyarı / Kilitli** | `#f39c12` | `0xf39c12` | Hedef eşiği, kilitli makine uyarısı |
 | **Tehlike / Hasar / Kaza** | `#e74c3c` | `0xe74c3c` | Darbe flaşı, düşük HP, kayıt sıfırlama butonu |
 | **Devre Dışı / Yetersiz** | `#22293e` | `0x22293e` | Satın alınamayan buton zemini, sönük sınır |
+
+---
+
+**Tema (DEC-042, "atölye mavisi + pirinç"):** lacivert ailesi donuk olmasın diye bir kademe açık ve doygundur. Aynı üç motif her yerde tekrar eder: çubukların kenarında pirinç şerit, pencere köşelerinde pirinç perçin ve zeminlerde ince teknik çizim ızgarası (üst çubuk, araç çubuğu, pencereler ve fabrikanın çevresi).
+
+**Yakınlaştırma istisnası (DEC-043):** fabrika haritasının + / − düğmeleri %6,25'lik adımlarla çalışır; ara kademelerde pikseller tam katlara oturmaz. Hassas ayar için bilerek kabul edilmiştir; tekerlek, iki parmak ve otomatik sığdırma tam kademelerde kalır.
 
 ---
 
@@ -154,7 +161,9 @@ Tüm arayüz ve oyun nesneleri bu merkezi renk ailesini kullanır (`src/ui/theme
 | `rocket_engine_*.png` (1-3) | 16×16 | Seviyeye göre roket motoru | Yeni motor tipleri |
 | `rocket_wings_*.png` (1-3) | 16×20 | Seviyeye göre yön kanatları | Özel aerodinamik parçalar |
 | `rocket_tank_*.png` (1-3) | 16×16 | Harici nitro yakıt tankı | Kimyasal yakıt tankları |
-| `launch_pad.png` | 48×48 | Gantry fırlatma kulesi ve rampası | Rampa yükseltmeleri |
+| `launch_pad.png` | 48×48 | Eski tek rampa çizimi; artık yüklenmiyor | — |
+| `launch_pads/launch_pad_1..10.png` | 48×48 | Rampanın her seviyesinin görünümü (sarı kule → tank → çelik → ikinci kule → anten → enerji rayı → plazma → altın); `tools/generate_launch_pad.py` | — |
+| `ui/bar_bg.png`, `ui/dock_bg.png`, `ui/pattern.png`, `factory_backdrop.png` | 32×32 / 64×64 | Tema dokuları: pirinç şeritli çubuklar, panellerin ince ızgarası, fabrikanın çevresindeki teknik çizim zemini; `tools/generate_theme_assets.py` (kart, iç bölme, pencere, bildirim ve zemin karosunu da üretir) | — |
 | `obstacle_asteroid.png` | 24×24 | Kırık kraterli uzay asteroiti | Parçalanabilir asteroitler |
 | `obstacle_drone.png` | 24×24 | Kırmızı gözlü devriye dronu | Ateş eden düşman dronları |
 | `obstacle_debris.png` | 24×24 | Uydu hurda enkazı | Manyetik hurda madenciliği |

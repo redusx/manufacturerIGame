@@ -1356,3 +1356,33 @@ Kullanıcının oynayarak çıkardığı 10 maddelik liste. Kararlar: DEC-035 �
 
 **Denenmeyenler:** fiziksel telefon (özellikle iOS Safari'de döndürme ve adres çubuğu davranışı); rampanın Sv.3–5 bedelleri ve bölge genişliklerinin elde oynanışı; bütün yüzeylerin oyun içi görünümü (çayır, çöl, Mars ve Satürn oyunda, diğerleri önizleme görselinde görüldü); 3 girdili reçete makinelerinde (çok reçeteli montaj) makine penceresi.
 
+### [2026-10-12] — Ek Liste (12 madde)
+
+Kullanıcının ikinci listesi. Kararlar: DEC-040 … DEC-043.
+
+**Yapılanlar**
+- **Yakınlaştırma düğmeleri (1):** yeni `ZoomControls`; `CameraController.zoomFine` (%6,25 adım), `UiButton.onHold` (basılı tutunca yineleme).
+- **Ses seviyesi (2):** `SoundManager.getVolume/setVolume` (saklanır), Ayarlar'da eksi/artı + çubuk.
+- **Öğretici (3):** yeni `src/tutorial/TutorialGuide.ts` (saf, durum tabanlı 16 adım), `src/ui/TutorialCoach.ts`; kayıt alanı `tutorial`; Ayarlar'da aç/kapa.
+- **Simgeler (4):** `hangar` simgesi; yeni `src/ui/RocketIcon.ts` (modüllerin o anki çiziminden birleşik doku).
+- **Rampa (5, 6, 7):** `LaunchPad.ts` 10 seviye ve yeni bedeller, `pad_discount` reklam yerleşimi, hangar kartında indirim düğmesi, yeni `tools/generate_launch_pad.py` (10 çizim).
+- **Kontrol şeması (8):** yeni `src/ui/ControlsModal.ts`; masaüstünde ilk açılışta, sonra Ayarlar > Kontroller.
+- **Tema (9):** yeni `tools/generate_theme_assets.py`; `PALETTE` lacivert ailesi; üst çubuk ve araç çubuğu için ayrı dokular, pencerelerde ve çubuklarda ızgara dokusu, fabrikanın çevresinde `factory_backdrop`.
+- **Takviye reklam düğmesi (10):** HUD'da gelir rozetinin yanında; dar ekranda para yazısı bir kademe küçülür.
+- **İrtifa (11):** uçuş üst çubuğunda hızın yanında.
+- **Bant simgeleri (12):** `conveyor`, `splitter`, `merger`.
+- **Düzeltme:** kamera, alttaki şeridin (etkin araç çubuğu, öğretici kutusu) üstüne kadar kaydırılabiliyor; önceden kaydırma sınırı fabrikanın son satırlarını şeridin altında bırakıyordu.
+
+**Testler:** Yeni test eklenmedi; mevcut testlerin davranışı değişmedi. `npm test` 262/262, `npx tsc --noEmit` temiz, `npm run build` başarılı.
+
+**Tarayıcıda doğrulananlar** (uygulama içi tarayıcı; düğmelere gerçek tıklamayla basıldı, durumlar betikle ilerletildi):
+- Yakınlaştırma: tıklamayla %175 → %181 → %188; eksi 1 sn basılı tutulunca 10 adım; %50 ve %250'de düğme pasif.
+- Ses: eksi/artı %5, çubuğa dokununca %30; değer saklandı.
+- Öğretici: sıfır kayıtla karşılama → ÜRET (3 tık) → hedef kartı → kırıcıyı yükselt (vurgulanan makineye tıklanıp pencereden yükseltildi) → fırın (katalog + gerçek yerleştirme) → … → hangar → gerçek bir uçuş → son adım → bitiş. "Atla" onayı ve Ayarlar'daki anahtar çalıştı. Telefon boyutunda (390x664, Büyük) kutu fabrikayı örtmedi.
+- Kontrol şeması: masaüstünde ilk açılışta göründü, ikinci açılışta görünmedi, Ayarlar'dan açıldı.
+- Rampa: 55K parayla "Yükselt 60K" pasif, "%20 indirim 48K" etkin; reklam (CrazyGames SDK'nın yerel deneme reklamı) sonrası Sv.3 ve 48.000 düştü; sıradaki seviyede iki düğme de pasif ama görünür. Sv.10'da çubuğun tamamı yeşil; uçuş alanında 10. seviye kule.
+- Tema: masaüstü ve telefon boyutunda ana ekran, hangar penceresi.
+- Katalog simgeleri, hangar simgesi, "Uçuşu başlat"taki roket, HUD takviye düğmesi (Takviye penceresini açtı), uçuşta irtifa.
+
+**Denenmeyenler:** fiziksel telefon; dokunmatikte basılı tutarak yakınlaştırma; ses seviyesinin kulakla denetimi (yalnız değer ve saklama doğrulandı); öğreticinin baştan sona elde, beklemeli oynanışı (adımlar durum ilerletilerek geçildi); rampanın 4–10. seviyelerinin satın alınması; dokunmatik kontrol şeması içeriği; yeni temanın bütün pencerelerde tek tek görünümü (katalog, makine, ayarlar, uçuş raporu ayrıca çekilmedi).
+

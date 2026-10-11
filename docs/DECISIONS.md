@@ -308,3 +308,38 @@
 * **Kök neden:** eski sınırlar telefonlarda yalnız "Normal"e izin veriyordu: 390x664'lük dikey ekranda "Çok Büyük", 750x342'lik yatay ekranda "Büyük" ve "Çok Büyük" "Normal"le aynı sonucu veriyordu.
 * **Sınır:** iPhone'da Safari tam ekran API'sini desteklemediği için Ayarlar'da "Tam ekran" satırı görünmez. Fiziksel cihazda denenmedi.
 
+### [DEC-040] Fırlatma Rampası: 10 Seviye, Yeni Bedeller, Reklam İndirimi, Seviye Görünümleri
+* **Tarih:** 2026-10-12
+* **Karar (DEC-037'nin sayılarını günceller):**
+  1. **10 seviye.** Mükemmel bölge çubuğun %8 · 12 · 17 · 23 · 30 · 38 · 48 · 60 · 78 · **100**'üdür; son seviyede her fırlatma mükemmeldir.
+  2. **Bedeller** (Sv.2–10, yalnız nakit): 10K · 60K · 400K · 2,5M · 15M · 90M · 500M · 2,5B · 10B. Üst seviyeler bilerek ulaşılması çok uzak hedeflerdir.
+  3. **Reklamla indirim (R6):** "Yükselt" düğmesinin altında ikinci bir düğme, reklam izlenince sıradaki seviyeyi **%20 indirimli** satın alır. Reklam sunulabiliyorsa her zaman görünür; indirimli bedele para yetiyorsa etkin, yetmiyorsa pasiftir. Bekleme süresi yoktur (her seviye bir kez alınır).
+  4. **Görünüm:** her seviyenin kendi rampa çizimi vardır (hangar önizlemesi, rampa kartı ve fırlatma alanı).
+* **Gerekçe:** Kullanıcı isteği (2026-10-12).
+* **Varsayım:** bedeller, bölge genişlikleri ve indirim oranı başlangıç değerleridir. Eski bedelle alınmış seviyeler korunur.
+
+### [DEC-041] Öğretici ve Kontrol Şeması Ekranı
+* **Tarih:** 2026-10-12
+* **Karar:**
+  1. **Öğretici** oyunun başından ilk uçuşun sonuna kadar sürer (16 adım). Araç çubuğunun üstündeki küçük kutu sıradaki adımı yazar; nabız gibi atan altın çerçeve basılacak öğeyi gösterir (araç çubuğu düğmeleri, hedef kartı, ilk makine, parsel rozeti).
+  2. **Adımlar tıklama sırasına değil oyunun durumuna bakar** (`src/tutorial/TutorialGuide.ts`): oyuncu bir adımı kendi yoluyla tamamladıysa adım geçilir; yüklenen kayıt doğru adımdan devam eder. Yalnızca bilgi veren üç adım "Tamam" ister.
+  3. Pencere açıkken kutu gizlenir. "Atla" onayla kapatır; Ayarlar > Öğretici yeniden açar. Öğretici eklenmeden önce uçuş yapmış kayıtlarda hiç gösterilmez.
+  4. Öğretici sürerken kamera, kutunun kapladığı şeridi boş bırakacak biçimde sığdırılır ve reklam düğmeleri HUD'da gösterilmez.
+  5. **Kontrol şeması:** masaüstünde (birincil girdi fare) ilk açılışta bir kez gösterilir; Ayarlar > Kontroller ile her cihazda yeniden açılır (dokunmatikte dokunma hareketlerini listeler).
+* **Gerekçe:** Kullanıcı isteği (2026-10-12).
+
+### [DEC-042] Görsel Tema: Atölye Mavisi + Pirinç
+* **Tarih:** 2026-10-12
+* **Karar:** Koyu lacivert zeminler bir kademe açık ve doygun çelik mavisine çekildi (`PALETTE`: `bgDeep` `#0a1330`, `panelBg` `#14244a`, `cardBg` `#1a2d58`, çerçeveler `#2b4380` / `#4a6bbd`). Tekrar eden üç motif eklendi: çubukların kenarında pirinç şerit, pencere köşelerinde pirinç perçin, zeminlerde ince teknik çizim ızgarası. Fabrikanın çevresi düz renk yerine hücrelerle hizalı teknik çizim zeminidir. Dokular `tools/generate_theme_assets.py` ile üretilir. Metin, düğme ve vurgu renkleri değişmedi.
+* **Gerekçe:** Kullanıcı isteği (2026-10-12): üst çubuk, haritanın çevresi ve düğme kapsayıcıları donuk duruyordu.
+* **Sınır:** Beğeni meselesidir; ton ve doku yoğunluğu kullanıcıyla birlikte ayarlanmalıdır.
+
+### [DEC-043] Hassas Yakınlaştırma, Ses Seviyesi, HUD Reklam Düğmesi ve Küçük Arayüz Ekleri
+* **Tarih:** 2026-10-12
+* **Karar:**
+  1. **Yakınlaştırma düğmeleri:** fabrika görüş alanının sağ üstünde + / − ve oran göstergesi. Adım %6,25'tir (%50–%250 arası 33 kademe), basılı tutunca yinelenir. Ara kademelerde piksel tam katı kuralından bilerek sapılır; tekerlek, iki parmak ve otomatik sığdırma tam kademelerde kalır.
+  2. **Ses seviyesi:** Ayarlar'da %5'lik adımlarla (düğmeler, çubuğa dokunma veya sürükleme); sessize alma ayrı kalır.
+  3. **HUD takviye düğmesi:** gelir takviyesi reklamla artırılabiliyorken gelir rozetinin yanında nabız gibi atan video simgeli düğme belirir. Reklamı kendisi başlatmaz, Takviye penceresini açar (reklam yalnızca pencere içindeki düğmeyle başlar: DEC-032/6).
+  4. Uçuşta hızın yanında irtifa gösterilir. Katalogda bant, ayırıcı ve birleştiricinin ayrı simgeleri vardır. Hangar düğmesi hangar simgesi, "Uçuşu başlat" düğmesi oyuncunun kendi roketini (modüllerin o anki çizimi) gösterir.
+* **Gerekçe:** Kullanıcı isteği (2026-10-12).
+

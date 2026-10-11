@@ -293,3 +293,14 @@ Gerçek tarayıcıda, cihaz piksel oranı 2 ile; dokunma akışları dokunmatik 
 - Güvenli alan boşlukları kodda uygulanır ama çentikli gerçek cihazda sınanmadı.
 - Ekran okuyucu desteği yoktur (arayüz tuval üzerinde çizilir).
 - Arayüz metinleri yalnızca Türkçedir.
+
+---
+
+## Ek (2026-10-12): Yeni Arayüz Öğeleri
+
+- **Yakınlaştırma düğmeleri** (`ZoomControls`): fabrika görüş alanının sağ üstünde; %6,25 adım, basılı tutunca yinelenir (DEC-043).
+- **Öğretici kutusu** (`TutorialCoach`): araç çubuğunun üstünde, en çok 360 birim genişlikte; başlık satırında "Tamam" ve "Atla". Pencere açıkken gizlenir. Vurgu çerçevesi HUD'ın üstünde, pencerelerin altındadır (DEC-041).
+- **Kontrol şeması** (`ControlsModal`): tuşlar tuş kapağı kutularında; dar ekranda açıklama tuşların altına iner.
+- **Ses seviyesi satırı** (Ayarlar): eksi, çubuk, artı; çubuk dokunma ve sürüklemeyle de ayarlanır.
+- **Tema dokuları:** üst çubuk `ui2_bar_bg`, araç çubuğu `ui2_dock_bg`, panellerin üstünde `ui2_pattern` (DEC-042).
+

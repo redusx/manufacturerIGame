@@ -54,7 +54,7 @@ Diğerleri: cam blok 3 · çerçeve 4 · plastik 3 (2 pelet) · kart tabanı 4 �
 | Parseller | 12x8: 500 · 16x12: 2.500 · 20x16: 10.000 · 24x24: 30.000 · 28x24: 250.000 (7 km izni) · 28x28: 1,5 M (14 km) · 32x28: 6 M (28 km) · 32x32: 25 M (40 km) |
 | Roket modülü | Sv.2–3: nakit (400–3.500) + parça. Sv.4–10: §8 |
 | Hızlı inşa | Her parçanın en fazla %25'i; birim fiyat güncel satış değerinin 10 katı. Onay penceresi neyin kaça alındığını gösterir |
-| Fırlatma rampası | Sv.2–5: 1.500 · 12.000 · 90.000 · 600.000 (yalnız nakit). Mükemmel fırlatma bölgesi: çubuğun %8 · %12 · %16 · %21 · %27'si |
+| Fırlatma rampası | Sv.2–10 (yalnız nakit): 10K · 60K · 400K · 2,5M · 15M · 90M · 500M · 2,5B · 10B. Mükemmel fırlatma bölgesi: çubuğun %8 · 12 · 17 · 23 · 30 · 38 · 48 · 60 · 78 · 100'ü. Reklam izleyerek %20 indirimli alınabilir (R6) |
 | Gelir takviyesi (nakit) | Fabrikanın 5 dakikalık takviyesiz geliri (en az $100) → +10 dk |
 
 Söküm iadesi %100'dür. Hammadde girişi de sökülebilir: iade, o hammaddenin en son kurulan girişinin bedelidir (bedelsiz verilen ilk demir girişinin iadesi yoktur, yenisi yine bedelsizdir).
@@ -136,6 +136,7 @@ En değerli iki ürün hammadde başına ≈ $48 getirir; 1 hammadde/sn'lik hat 
 | R3 | Takviye penceresi | +10 dk gelir ×2 | 5 dk | Nakitle al |
 | R4 | Hangar | Parçası toplanan modüllerden en düşük seviyelisinin eksiklerinin %15'i | 10 dk | Üret veya hızlı inşa |
 | R5 | Parsel satın alma onayı | O parselde %15 indirim ($30.000 ve üstü) | Parsel başına 1 | Tam fiyat |
+| R6 | Hangar, rampa kartı | Rampanın sıradaki seviyesi %20 indirimli alınır (reklam bitince hemen satın alınır) | Yok | Tam fiyat |
 
 ## 11. Tempo Tahmini (model; ölçüm değildir)
 
