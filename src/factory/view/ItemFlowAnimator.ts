@@ -111,21 +111,11 @@ export class ItemFlowAnimator {
           }
         }
 
-        // Konum ve rotasyon güncelle
-        this.itemPool.updatePosition(
-          visual,
-          target.worldX,
-          target.worldY,
-          target.angleRad,
-        );
+        // Eşya çizimleri diktir (yığın, külçe, damla); bant dönse de eşya döndürülmez
+        this.itemPool.updatePosition(visual, target.worldX, target.worldY);
       } else {
         // Yeni bir görsel eşya edin
-        const visual = this.itemPool.spawn(
-          target.itemId,
-          target.worldX,
-          target.worldY,
-          target.angleRad,
-        );
+        const visual = this.itemPool.spawn(target.itemId, target.worldX, target.worldY);
         if (visual) {
           this.activeSprites.push(visual);
         }

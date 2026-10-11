@@ -36,6 +36,13 @@ import {
   launchMarkerPosition,
   type LaunchResult,
 } from '../flight/LaunchPad.ts';
+import {
+  GROUND_SURFACE_ROW,
+  GROUND_TILE_HEIGHT,
+  groundTextureKey,
+  groundThemeForZone,
+  type GroundTheme,
+} from '../flight/GroundThemes.ts';
 import { MAX_ROCKET_LEVEL } from '../data/RocketData.ts';
 import { PALETTE, FONT_FAMILY, SEMANTIC, FLIGHT_SKY_TONES } from '../ui/theme';
 import { formatDistance } from '../utils/format';
@@ -72,6 +79,11 @@ interface CollectibleEntity {
   value: number;
   isCollected: boolean;
 }
+
+/** Zeminin ekranın altında kapladığı yükseklik (dünya birimi); zemin çizgisi bunun üst kenarıdır */
+const GROUND_HEIGHT = 45;
+/** Zemin görüş alanından iki yana bu kadar taşar: kamera sarsılınca kenarda boşluk görünmesin */
+const GROUND_OVERSCAN = 64;
 
 /** Bu bölgeden (5 km, Derin Uzay) itibaren gökyüzünde bulut çizilmez */
 const CLOUDLESS_ZONE_INDEX = 5;
@@ -120,6 +132,8 @@ export class FlightScene extends Phaser.Scene {
 
   /* Zemin ve Parallaks */
   private groundTileSprite!: Phaser.GameObjects.TileSprite;
+  /** Zeminde görünen gezegen yüzeyi; bölge değişince zemin ekran dışındayken yenilenir */
+  private groundTheme: GroundTheme = 'field';
   private stars: Array<{ sprite: Phaser.GameObjects.Image; speed: number }> = [];
   private mountains: Array<{ sprite: Phaser.GameObjects.Image; speed: number }> = [];
   private clouds: Array<{ sprite: Phaser.GameObjects.Image; speed: number }> = [];
@@ -253,9 +267,18 @@ export class FlightScene extends Phaser.Scene {
     // 2. Parallaks Katmanları
     this.createParallaxLayers(w, h);
 
-    // 3. Fırlatma Pisti ve Zemin
-    const groundH = 45;
-    this.groundTileSprite = this.add.tileSprite(0, h - groundH, w, groundH, 'flight_ground')
+    // 3. Zemin: bulunulan bölgenin gezegen yüzeyi. Dokunun zemin çizgisi (GROUND_SURFACE_ROW)
+    //    roketin çarptığı seviyeye oturur; tümsekler ve kayalar çizginin üstüne taşar.
+    const groundH = GROUND_HEIGHT;
+    this.groundTheme = groundThemeForZone(0);
+    this.groundTileSprite = this.add
+      .tileSprite(
+        -GROUND_OVERSCAN,
+        h - groundH - GROUND_SURFACE_ROW,
+        w + GROUND_OVERSCAN * 2,
+        GROUND_TILE_HEIGHT,
+        groundTextureKey(this.groundTheme),
+      )
       .setOrigin(0, 0)
       .setDepth(8);
 
@@ -583,6 +606,7 @@ export class FlightScene extends Phaser.Scene {
     if (zone === this.zoneIndex) return;
     this.zoneIndex = zone;
     this.applyZoneSky();
+    this.syncGroundTheme();
 
     const rung = RANGE_LADDER[zone - 1];
     if (rung) {
@@ -599,6 +623,17 @@ export class FlightScene extends Phaser.Scene {
     for (const cloud of this.clouds) {
       cloud.sprite.setVisible(cloudsVisible);
     }
+  }
+
+  /**
+   * Zemini bulunulan bölgenin yüzeyine çevirir. Zemin ekrandayken doku değişmez (göz önünde
+   * birden değişmesin); roket yükselip zemin görüş alanından çıkınca yenilenir.
+   */
+  private syncGroundTheme(): void {
+    const theme = groundThemeForZone(this.zoneIndex);
+    if (theme === this.groundTheme || this.groundTileSprite.y < this.viewH) return;
+    this.groundTheme = theme;
+    this.groundTileSprite.setTexture(groundTextureKey(theme));
   }
 
   /** Zemin teması: Kullanıcı İsteği: Yere düştüğü anda doğrudan patlar (sekme ve kayma kaldırıldı) */
@@ -619,7 +654,7 @@ export class FlightScene extends Phaser.Scene {
   private updateParallaxAndCamera(dt: number): void {
     const w = this.viewW;
     const h = this.viewH;
-    const groundH = 45;
+    const groundH = GROUND_HEIGHT;
     const baseGroundY = h - groundH;
 
     // 1. Dikey Kamera ve Roket Ekran Pozisyonu:
@@ -635,7 +670,7 @@ export class FlightScene extends Phaser.Scene {
       const progress = this.body.altitude / 120;
       this.rocketScreenY = Phaser.Math.Linear(baseGroundY - 26, targetScreenY, progress);
       const groundVisualY = baseGroundY + this.body.altitude * 0.85;
-      this.groundTileSprite.y = groundVisualY;
+      this.groundTileSprite.y = groundVisualY - GROUND_SURFACE_ROW;
       if (this.launchPlatform) this.launchPlatform.y = groundVisualY;
       if (this.launchGantry) this.launchGantry.y = groundVisualY - 5;
     } else {
@@ -643,7 +678,9 @@ export class FlightScene extends Phaser.Scene {
       this.rocketScreenY = Phaser.Math.Linear(this.rocketScreenY, targetScreenY, 0.08);
       // Zemin ve rampa ekranın altına kayarak gözden kaybolur
       const groundVisualY = baseGroundY + (this.body.altitude - 120) + 102;
-      this.groundTileSprite.y = groundVisualY;
+      this.groundTileSprite.y = groundVisualY - GROUND_SURFACE_ROW;
+      // Bölge değiştiyse yeni yüzey, zemin görüş alanının dışındayken yerine konur
+      this.syncGroundTheme();
       if (this.launchPlatform) this.launchPlatform.y = groundVisualY;
       if (this.launchGantry) this.launchGantry.y = groundVisualY - 5;
     }
@@ -1170,7 +1207,7 @@ export class FlightScene extends Phaser.Scene {
   /** Pencere boyutu veya arayüz ölçeği değişince dünya kamerasını ve arayüzü yeniden yerleştirir */
   private handleResize(): void {
     this.applyWorldCamera();
-    this.groundTileSprite.setSize(this.viewW, 45);
+    this.groundTileSprite.setSize(this.viewW + GROUND_OVERSCAN * 2, GROUND_TILE_HEIGHT);
     this.hud.layout();
   }
 }

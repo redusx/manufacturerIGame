@@ -30,6 +30,7 @@ import { ads } from '../ads/ads.ts';
 import { formatAdCooldown, type AdPlacementId } from '../ads/AdService.ts';
 import { BOOST_GRANT_SECONDS, BOOST_MULTIPLIER, IncomeBoost } from '../economy/IncomeBoost.ts';
 import { RangeLadder } from '../flight/RangeLadder.ts';
+import { GROUND_THEMES, groundTextureKey, groundTexturePath } from '../flight/GroundThemes.ts';
 import { OfflineEarningsModal } from '../ui/OfflineEarningsModal';
 import { calculateOfflineReport } from '../ui/OfflineEarningsHelper.ts';
 import { UiLayer } from '../ui/system/UiLayer.ts';
@@ -192,6 +193,11 @@ export class GameScene extends Phaser.Scene {
     this.load.image('pickup_crystal', 'assets/pickup_crystal.png');
     this.load.image('pickup_repair', 'assets/pickup_repair.png');
 
+    // Eşyalar: her birinin biçimini anlatan kendi çizimi vardır (tools/generate_item_assets.py)
+    for (const item of defaultItemRegistry.getAll()) {
+      this.load.image(item.spriteKey, `assets/items/${item.id}.png`);
+    }
+
     // Engeller
     this.load.image('obstacle_asteroid', 'assets/obstacle_asteroid.png');
     this.load.image('obstacle_drone', 'assets/obstacle_drone.png');
@@ -219,8 +225,10 @@ export class GameScene extends Phaser.Scene {
       this.load.image(arrow.key, arrow.path);
     }
 
-    // Uçuş & Pist & Uzay Dokuları
-    this.load.image('flight_ground', 'assets/flight_ground.png');
+    // Uçuş: her menzil bölgesinin kendi gezegen yüzeyi (tools/generate_flight_ground.py)
+    for (const theme of GROUND_THEMES) {
+      this.load.image(groundTextureKey(theme), groundTexturePath(theme));
+    }
     this.load.image('launch_platform', 'assets/launch_platform.png');
 
     // UI Panelleri & Kartlar (Raster 9-Slice)

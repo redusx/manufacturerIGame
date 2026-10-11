@@ -8,6 +8,11 @@
 
 import type { ItemDefinition } from '../types.ts';
 
+/** Eşyanın kendi çizimi (tools/generate_item_assets.py → public/assets/items/<id>.png) */
+export function itemSpriteKey(itemId: string): string {
+  return `item_${itemId}`;
+}
+
 export class ItemRegistry {
   private items = new Map<string, ItemDefinition>();
 
@@ -73,8 +78,7 @@ export class ItemRegistry {
       name: 'Demir Cevheri',
       tier: 0,
       baseValue: 1,
-      spriteKey: 'pickup_gear',
-      colorTint: 0x7f8c8d,
+      spriteKey: itemSpriteKey('iron_ore'),
     });
 
     this.register({
@@ -82,8 +86,7 @@ export class ItemRegistry {
       name: 'Bakır Cevheri',
       tier: 0,
       baseValue: 1.2,
-      spriteKey: 'pickup_gear',
-      colorTint: 0xd35400,
+      spriteKey: itemSpriteKey('copper_ore'),
     });
 
     this.register({
@@ -91,8 +94,7 @@ export class ItemRegistry {
       name: 'Silikat Kumu',
       tier: 0,
       baseValue: 1.5,
-      spriteKey: 'pickup_crystal',
-      colorTint: 0xf1c40f,
+      spriteKey: itemSpriteKey('silica_sand'),
     });
 
     this.register({
@@ -100,8 +102,7 @@ export class ItemRegistry {
       name: 'Ham Polimer',
       tier: 0,
       baseValue: 2,
-      spriteKey: 'pickup_crystal',
-      colorTint: 0x8e44ad,
+      spriteKey: itemSpriteKey('crude_polymer'),
     });
 
     // -------------------------------------------------------------
@@ -112,8 +113,7 @@ export class ItemRegistry {
       name: 'Demir Tozu',
       tier: 1,
       baseValue: 2.5,
-      spriteKey: 'pickup_gear',
-      colorTint: 0x95a5a6,
+      spriteKey: itemSpriteKey('iron_powder'),
     });
 
     this.register({
@@ -121,8 +121,7 @@ export class ItemRegistry {
       name: 'Bakır Tozu',
       tier: 1,
       baseValue: 3,
-      spriteKey: 'pickup_gear',
-      colorTint: 0xe67e22,
+      spriteKey: itemSpriteKey('copper_powder'),
     });
 
     this.register({
@@ -130,8 +129,7 @@ export class ItemRegistry {
       name: 'Demir Külçe',
       tier: 1,
       baseValue: 6,
-      spriteKey: 'pickup_gear',
-      colorTint: 0xbdc3c7,
+      spriteKey: itemSpriteKey('iron_ingot'),
     });
 
     this.register({
@@ -139,8 +137,7 @@ export class ItemRegistry {
       name: 'Bakır Külçe',
       tier: 1,
       baseValue: 7,
-      spriteKey: 'pickup_gear',
-      colorTint: 0xf39c12,
+      spriteKey: itemSpriteKey('copper_ingot'),
     });
 
     this.register({
@@ -148,8 +145,7 @@ export class ItemRegistry {
       name: 'Hassas Cam Blok',
       tier: 1,
       baseValue: 8,
-      spriteKey: 'pickup_crystal',
-      colorTint: 0x00d2d3,
+      spriteKey: itemSpriteKey('optical_glass'),
     });
 
     this.register({
@@ -157,8 +153,7 @@ export class ItemRegistry {
       name: 'Plastik Pelet',
       tier: 1,
       baseValue: 5,
-      spriteKey: 'pickup_crystal',
-      colorTint: 0x9b59b6,
+      spriteKey: itemSpriteKey('plastic_pellet'),
     });
 
     this.register({
@@ -166,8 +161,7 @@ export class ItemRegistry {
       name: 'Hurda Talaş (Yan Ürün)',
       tier: 1,
       baseValue: 0.5,
-      spriteKey: 'pickup_gear',
-      colorTint: 0x34495e,
+      spriteKey: itemSpriteKey('metal_scrap'),
     });
 
     // -------------------------------------------------------------
@@ -178,8 +172,7 @@ export class ItemRegistry {
       name: 'Çelik Levha',
       tier: 2,
       baseValue: 12,
-      spriteKey: 'pickup_gear',
-      colorTint: 0xecf0f1,
+      spriteKey: itemSpriteKey('iron_plate'),
     });
 
     this.register({
@@ -187,8 +180,7 @@ export class ItemRegistry {
       name: 'Bakır Tel Bobini',
       tier: 2,
       baseValue: 6,
-      spriteKey: 'pickup_gear',
-      colorTint: 0xe74c3c,
+      spriteKey: itemSpriteKey('copper_wire'),
     });
 
     this.register({
@@ -196,8 +188,7 @@ export class ItemRegistry {
       name: 'Hassas Dişli',
       tier: 2,
       baseValue: 18,
-      spriteKey: 'pickup_gear',
-      colorTint: 0xf1c40f,
+      spriteKey: itemSpriteKey('steel_gear'),
     });
 
     this.register({
@@ -205,8 +196,7 @@ export class ItemRegistry {
       name: 'Yalıtkan Kart Tabanı',
       tier: 2,
       baseValue: 20,
-      spriteKey: 'pickup_crystal',
-      colorTint: 0x27ae60,
+      spriteKey: itemSpriteKey('circuit_substrate'),
     });
 
     // -------------------------------------------------------------
@@ -217,8 +207,7 @@ export class ItemRegistry {
       name: 'Elektrik Motoru',
       tier: 3,
       baseValue: 50,
-      spriteKey: 'pickup_gear',
-      colorTint: 0x2980b9,
+      spriteKey: itemSpriteKey('electric_motor'),
     });
 
     this.register({
@@ -226,8 +215,7 @@ export class ItemRegistry {
       name: 'Optik Tarayıcı Sensör',
       tier: 3,
       baseValue: 50,
-      spriteKey: 'pickup_crystal',
-      colorTint: 0x1abc9c,
+      spriteKey: itemSpriteKey('optical_sensor'),
     });
 
     this.register({
@@ -235,8 +223,7 @@ export class ItemRegistry {
       name: 'Aviyonik Mikroçip',
       tier: 3,
       baseValue: 60,
-      spriteKey: 'pickup_crystal',
-      colorTint: 0x2ecc71,
+      spriteKey: itemSpriteKey('microchip'),
     });
 
     this.register({
@@ -244,8 +231,7 @@ export class ItemRegistry {
       name: 'Güçlendirilmiş Gövde Çerçevesi',
       tier: 3,
       baseValue: 40,
-      spriteKey: 'pickup_gear',
-      colorTint: 0xffffff,
+      spriteKey: itemSpriteKey('reinforced_frame'),
     });
 
     // -------------------------------------------------------------
@@ -256,8 +242,7 @@ export class ItemRegistry {
       name: 'Güdüm & Navigasyon Bilgisayarı',
       tier: 4,
       baseValue: 320,
-      spriteKey: 'coin_gold',
-      colorTint: 0x00d2d3,
+      spriteKey: itemSpriteKey('guidance_computer'),
     });
 
     this.register({
@@ -265,8 +250,7 @@ export class ItemRegistry {
       name: 'Güdümlü Roket İtici Blok',
       tier: 4,
       baseValue: 400,
-      spriteKey: 'coin_gold',
-      colorTint: 0xe74c3c,
+      spriteKey: itemSpriteKey('rocket_thruster_block'),
     });
 
     this.register({
@@ -274,8 +258,7 @@ export class ItemRegistry {
       name: 'Aerodinamik Titanyum Kompozit Panel',
       tier: 4,
       baseValue: 45,
-      spriteKey: 'coin_gold',
-      colorTint: 0xf39c12,
+      spriteKey: itemSpriteKey('aero_hull_plate'),
     });
   }
 }
