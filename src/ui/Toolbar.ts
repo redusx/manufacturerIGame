@@ -96,7 +96,7 @@ export class Toolbar {
     this.demolishButton = make('SÖK', uiIcon('trash'), 'secondary', callbacks.onDemolish, {
       iconTint: SEMANTIC.danger,
     });
-    this.hangarButton = make('HANGAR', 'icon_rocket', 'rocket', callbacks.onHangar, {
+    this.hangarButton = make('HANGAR', uiIcon('hangar'), 'rocket', callbacks.onHangar, {
       onDisabledClick: callbacks.onHangarLocked,
     });
 
@@ -189,7 +189,7 @@ export class Toolbar {
     this.hangarUnlocked = unlocked;
     this.hangarButton.setEnabled(unlocked);
     if (unlocked) {
-      this.hangarButton.setIcon('icon_rocket');
+      this.hangarButton.setIcon(uiIcon('hangar'));
     } else {
       this.hangarButton.setIcon(uiIcon('lock'), SEMANTIC.warning);
     }

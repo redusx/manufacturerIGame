@@ -213,14 +213,17 @@ export class FlightHud {
 
   update(state: FlightHudState): void {
     this.distanceText.setText(formatDistance(state.distance));
-    const speed = `Hız ${Math.round(state.speed)}`;
-    this.detailText.setText(
-      state.nextTargetMeters === null
-        ? `İrtifa ${Math.round(state.altitude)} m · ${speed}`
-        : `Hedef ${formatDistance(state.nextTargetMeters)} · ${speed}`,
-    );
     this.earnedText.setText(`+$${formatNumber(state.earned)}`);
     this.coin.setPosition(this.earnedText.x - this.earnedText.width - 16, this.earnedText.y);
+
+    // Hız ve yerden yükseklik her zaman görünür; sıradaki hedef yalnız yer varsa eklenir
+    const flight = `Hız ${Math.round(state.speed)} · İrtifa ${formatDistance(state.altitude)}`;
+    this.detailText.setText(
+      state.nextTargetMeters === null ? flight : `Hedef ${formatDistance(state.nextTargetMeters)} · ${flight}`,
+    );
+    if (this.detailText.x + this.detailText.width > this.coin.x - 16) {
+      this.detailText.setText(flight);
+    }
 
     const hpRatio = state.maxHp > 0 ? state.hp / state.maxHp : 0;
     this.hpBar.setProgress(hpRatio).setColor(hpRatio <= 0.35 ? 'red' : 'green');

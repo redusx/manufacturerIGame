@@ -14,6 +14,10 @@
  * ====================================================================== */
 
 export const AUDIO_STORAGE_KEY = 'manufacturer_audio_muted';
+export const AUDIO_VOLUME_STORAGE_KEY = 'manufacturer_audio_volume';
+
+/** Ses seviyesi tam açıkken ana kazanç (efektler birbirinin üstüne binince kırpılmasın) */
+const MASTER_GAIN = 0.3;
 
 export interface SoundOptions {
   volume?: number;
@@ -24,6 +28,8 @@ export class SoundManager {
   private static instance: SoundManager | null = null;
   private ctx: AudioContext | null = null;
   private muted = false;
+  /** Oyuncunun seçtiği ses seviyesi (0..1) */
+  private volume = 1;
   /** Reklam ekrandayken geçici sessizlik; ayara ve kayda yansımaz */
   private suspended = false;
   private masterGain: GainNode | null = null;
@@ -49,6 +55,10 @@ export class SoundManager {
         if (saved !== null) {
           this.muted = saved === 'true';
         }
+        const savedVolume = Number(localStorage.getItem(AUDIO_VOLUME_STORAGE_KEY));
+        if (localStorage.getItem(AUDIO_VOLUME_STORAGE_KEY) !== null && Number.isFinite(savedVolume)) {
+          this.volume = Math.min(1, Math.max(0, savedVolume));
+        }
       }
     } catch {
       // Depolama erişilemezse varsayılan açık (false)
@@ -62,6 +72,7 @@ export class SoundManager {
     try {
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem(AUDIO_STORAGE_KEY, String(this.muted));
+        localStorage.setItem(AUDIO_VOLUME_STORAGE_KEY, String(this.volume));
       }
     } catch {
       // Depolama erişilemezse yoksay
@@ -87,7 +98,7 @@ export class SoundManager {
       if (AudioCtx) {
         this.ctx = new AudioCtx();
         this.masterGain = this.ctx.createGain();
-        this.masterGain.gain.setValueAtTime(this.isSilent ? 0 : 0.3, this.ctx.currentTime);
+        this.masterGain.gain.setValueAtTime(this.currentGain, this.ctx.currentTime);
         this.masterGain.connect(this.ctx.destination);
       }
     } catch {
@@ -112,10 +123,26 @@ export class SoundManager {
     return this.muted || this.suspended;
   }
 
+  private get currentGain(): number {
+    return this.isSilent ? 0 : MASTER_GAIN * this.volume;
+  }
+
   private applyGain(): void {
     if (this.masterGain && this.ctx) {
-      this.masterGain.gain.setValueAtTime(this.isSilent ? 0 : 0.3, this.ctx.currentTime);
+      this.masterGain.gain.setValueAtTime(this.currentGain, this.ctx.currentTime);
     }
+  }
+
+  /** Ses seviyesi (0..1) */
+  public getVolume(): number {
+    return this.volume;
+  }
+
+  /** Ses seviyesini ayarlar (0..1) ve saklar; sessize alma ayarına dokunmaz */
+  public setVolume(volume: number): void {
+    this.volume = Math.round(Math.min(1, Math.max(0, volume)) * 100) / 100;
+    this.saveSettings();
+    this.applyGain();
   }
 
   public setMuted(muted: boolean): void {

@@ -40,10 +40,18 @@ export interface UiButtonConfig {
   onDisabledClick?: () => void;
   /** Tıklama sesi çalınmasın (eylemin kendi sesi varsa) */
   silent?: boolean;
+  /**
+   * Düğme basılı tutulunca kısa bir beklemeden sonra art arda çağrılır (ör. yakınlaştırma).
+   * Basılı tutma en az bir kez tetiklendiyse bırakış ayrıca tıklama sayılmaz.
+   */
+  onHold?: () => void;
 }
 
 /** Bu kadar arayüz biriminden fazla sürüklenen basış tıklama sayılmaz */
 const DRAG_CANCEL_DISTANCE = 10;
+/** Basılı tutmanın tekrara başlaması ve tekrar aralığı (ms) */
+const HOLD_DELAY_MS = 350;
+const HOLD_REPEAT_MS = 70;
 const PRESS_OFFSET = 2;
 /** Sığmayan etiket en çok bu puntoya kadar küçülür (ART_DIRECTION §5: 9'un altına inilmez) */
 const MIN_LABEL_SIZE = 10;
@@ -70,6 +78,8 @@ export class UiButton extends Phaser.GameObjects.Container implements UiFocusabl
   private isSelected = false;
   /** Kaydırılan bir listede görünür alanın dışına çıkınca basılamaz olur */
   private isClipped = false;
+  private holdTimer: Phaser.Time.TimerEvent | null = null;
+  private holdFired = false;
   private readonly labelBaseSize: number;
   /** Etiketin kısaltılmamış tam hâli */
   private labelFull = '';
@@ -292,13 +302,16 @@ export class UiButton extends Phaser.GameObjects.Container implements UiFocusabl
       .on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () => {
         this.isPressed = true;
         this.refreshVisual();
+        this.startHold();
       })
       .on(Phaser.Input.Events.GAMEOBJECT_POINTER_UP, (pointer: Phaser.Input.Pointer) => {
+        const held = this.holdFired;
+        this.stopHold();
         if (!this.isPressed) return;
         this.isPressed = false;
         this.refreshVisual();
         // Parmağı kaydırarak bırakmak (liste kaydırma) tıklama değildir
-        if (this.layer.pointerDragDistance(pointer) > DRAG_CANCEL_DISTANCE) return;
+        if (held || this.layer.pointerDragDistance(pointer) > DRAG_CANCEL_DISTANCE) return;
         this.fire();
       })
       .on(Phaser.Input.Events.GAMEOBJECT_POINTER_OVER, () => {
@@ -306,10 +319,37 @@ export class UiButton extends Phaser.GameObjects.Container implements UiFocusabl
         this.refreshVisual();
       })
       .on(Phaser.Input.Events.GAMEOBJECT_POINTER_OUT, () => {
+        this.stopHold();
         this.isHovered = false;
         this.isPressed = false;
         this.refreshVisual();
       });
+    this.once(Phaser.GameObjects.Events.DESTROY, () => this.stopHold());
+  }
+
+  private startHold(): void {
+    const onHold = this.config.onHold;
+    if (!onHold || !this.isEnabled) return;
+    this.stopHold();
+    this.holdTimer = this.scene.time.addEvent({
+      delay: HOLD_REPEAT_MS,
+      startAt: HOLD_REPEAT_MS - HOLD_DELAY_MS,
+      loop: true,
+      callback: () => {
+        if (!this.isPressed || !this.isEnabled) {
+          this.stopHold();
+          return;
+        }
+        this.holdFired = true;
+        onHold();
+      },
+    });
+  }
+
+  private stopHold(): void {
+    this.holdTimer?.remove();
+    this.holdTimer = null;
+    this.holdFired = false;
   }
 
   private fire(): void {

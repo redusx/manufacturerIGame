@@ -343,6 +343,11 @@ export abstract class UiModal implements UiModalHandle {
     return this.panelY + HEADER_HEIGHT + BODY_TOP_GAP;
   }
 
+  /** Arayüz birimi cinsinden verilen Y, kaydırılan içeriğin görünen alanının içinde mi? */
+  protected isInsideViewport(uiY: number): boolean {
+    return uiY >= this.viewportTop && uiY <= this.viewportTop + this.viewportH;
+  }
+
   private get maxScroll(): number {
     return Math.max(0, this.bodyHeight - this.viewportH);
   }

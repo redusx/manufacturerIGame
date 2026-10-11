@@ -181,9 +181,9 @@ const UI_BUTTON_STATES: ReadonlyArray<[string, readonly string[]]> = [
 ];
 
 const UI_ICON_NAMES = [
-  'arrow_right', 'belt', 'chevron_down', 'clock', 'crate', 'drop', 'expand', 'fullscreen', 'hand',
-  'info', 'intake', 'lock', 'plus', 'rotate', 'sound_off', 'sound_on', 'star', 'textsize', 'trash',
-  'up', 'video', 'warning', 'wrench',
+  'arrow_right', 'belt', 'chevron_down', 'clock', 'conveyor', 'crate', 'drop', 'expand', 'fullscreen',
+  'hand', 'hangar', 'info', 'intake', 'lock', 'merger', 'minus', 'mouse', 'plus', 'rotate', 'sound_off',
+  'sound_on', 'splitter', 'star', 'textsize', 'touch', 'trash', 'up', 'video', 'warning', 'wrench',
 ] as const;
 
 export type UiIconName = (typeof UI_ICON_NAMES)[number];

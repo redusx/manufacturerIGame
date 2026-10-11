@@ -38,6 +38,7 @@ import { UiToast, type UiToastKind } from '../ui/system/UiWidgets.ts';
 import { UiConfirmDialog } from '../ui/system/UiConfirmDialog.ts';
 import { RotationPreview, type RotationPreviewSubject } from '../ui/RotationPreview.ts';
 import { BeltStepper } from '../ui/BeltStepper.ts';
+import { ZoomControls } from '../ui/ZoomControls.ts';
 import { DIRECTION_VECTORS, type Direction, type GridCoord } from '../factory/types.ts';
 import { ItemPriceModal, MachineInfoModal } from '../ui/CatalogInfoModals.ts';
 import { MACHINE_SPRITE_SHEETS, PORT_ARROW_IMAGES } from '../factory/view/MachineSprites.ts';
@@ -119,6 +120,7 @@ export class GameScene extends Phaser.Scene {
   /** Son bilinen roket sınıfı; yükseltmede sınıf atlandıysa kutlanır */
   private lastRocketClass = 1;
   private beltStepper!: BeltStepper;
+  private zoomControls!: ZoomControls;
   /** Dokunmatikte son döşenen bant; adım adım döşeme düğmeleri buna göre konumlanır */
   private beltStep: { coord: GridCoord; direction: Direction } | null = null;
   /** Son uygulanan kamera görüş alanı; değişmedikçe kamera yeniden sığdırılmaz */
@@ -793,6 +795,10 @@ export class GameScene extends Phaser.Scene {
         return { ...point, size: (32 * this.factoryCamera.zoom) / this.ui.zoom };
       },
     });
+    this.zoomControls = new ZoomControls(this.ui, {
+      onZoomIn: () => this.zoomFactory(1),
+      onZoomOut: () => this.zoomFactory(-1),
+    });
     this.toast = new UiToast(this.ui);
     this.confirmDialog = new UiConfirmDialog(this.ui);
 
@@ -1311,6 +1317,8 @@ export class GameScene extends Phaser.Scene {
       revenuePerSec,
       this.hangarBridge.getFlightStats().bestDistance,
       this.incomeBoost.isActive ? `×${BOOST_MULTIPLIER} ${formatAdCooldown(this.incomeBoost.remaining)}` : '',
+      // Takviye reklamla artırılabiliyorsa gelir rozetinin yanında küçük bir düğme belirir
+      this.incomeBoost.canAdd() && ads.isOffered('income_boost') && ads.cooldownRemaining('income_boost') === 0,
     );
 
     /* Hedef kartı: tamamlanan aşamanın ödülünü ver, sonra sıradaki görevi göster */
@@ -1329,6 +1337,13 @@ export class GameScene extends Phaser.Scene {
     /* Araç çubuğu ve etkin araç çubuğu */
     this.toolbar.setHangarUnlocked(this.milestones.isFeatureUnlocked(HANGAR_FEATURE));
     this.syncToolUi();
+
+    /* Yakınlaştırma düğmeleri: geçerli oran ve sınırlar */
+    this.zoomControls.update(
+      this.cameraController.zoomPercent,
+      this.cameraController.canZoomIn,
+      this.cameraController.canZoomOut,
+    );
 
     /* Açık pencerelerin canlı değerleri */
     if (this.buildMenuModal.isOpen) this.buildMenuModal.refresh();
@@ -1623,6 +1638,12 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  /** Yakınlaştırma düğmesi: bir ince adım; dünyadaki yazılar yeni oranda yeniden üretilir */
+  private zoomFactory(direction: 1 | -1): void {
+    this.cameraController.zoomFine(direction);
+    this.syncWorldTextResolution();
+  }
+
   private cancelActiveTool(): void {
     this.rotationPreview?.hide();
     if (this.placementController?.isActive) {
@@ -1741,9 +1762,9 @@ export class GameScene extends Phaser.Scene {
         };
       }
       case 'SPLITTER':
-        return { ...base, icon: uiIcon('belt'), title: `Akış Ayırıcı · $${SPLITTER_BUILD_COST}`, hint: isTouch ? stepHint : 'Bir hücreye tıkla · R: döndür', canRotate: true };
+        return { ...base, icon: uiIcon('splitter'), title: `Akış Ayırıcı · $${SPLITTER_BUILD_COST}`, hint: isTouch ? stepHint : 'Bir hücreye tıkla · R: döndür', canRotate: true };
       case 'MERGER':
-        return { ...base, icon: uiIcon('belt'), title: `Akış Birleştirici · $${MERGER_BUILD_COST}`, hint: isTouch ? stepHint : 'Bir hücreye tıkla · R: döndür', canRotate: true };
+        return { ...base, icon: uiIcon('merger'), title: `Akış Birleştirici · $${MERGER_BUILD_COST}`, hint: isTouch ? stepHint : 'Bir hücreye tıkla · R: döndür', canRotate: true };
       case 'CONVEYOR':
       default:
         return {
@@ -1874,6 +1895,11 @@ export class GameScene extends Phaser.Scene {
       viewWidth - m.safe.left - SPACE.md * 2,
     );
     this.rotationPreview.layout(contentTop, barBottom - ToolContextBar.height - SPACE.sm);
+    // Yakınlaştırma düğmeleri fabrika görüş alanının sağ üst köşesinde durur
+    this.zoomControls.layout(
+      viewRight - ZoomControls.width - SPACE.sm - (this.toolbar.isVertical ? 0 : m.safe.right),
+      contentTop + SPACE.sm,
+    );
 
     this.toast.setAnchor(contentTop + SPACE.sm);
 

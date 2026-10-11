@@ -32,6 +32,7 @@ import { RangeLadder } from '../flight/RangeLadder.ts';
 import { MAX_LAUNCH_PAD_LEVEL, PERFECT_LAUNCH_BONUS_SECONDS, getPerfectZoneWidth } from '../flight/LaunchPad.ts';
 import { formatDistance, formatNumber } from '../utils/format';
 import { SEMANTIC, SPACE, uiIcon } from './theme';
+import { refreshRocketIcon } from './RocketIcon.ts';
 import { UiButton } from './system/UiButton.ts';
 import { UiConfirmDialog } from './system/UiConfirmDialog.ts';
 import { UiLayer } from './system/UiLayer.ts';
@@ -635,12 +636,14 @@ export class RocketHangarView extends UiModal {
   protected buildFooter(footer: Phaser.GameObjects.Container, width: number): number {
     const height = 52;
     const buttonWidth = Math.min(width, 360);
+    // Düğmedeki simge oyuncunun kendi roketidir (modüllerin o anki görünümü)
+    const rocketIcon = refreshRocketIcon(this.scene, this.hangarBridge.getAllModuleLevels());
     this.launchButton = new UiButton(this.layer, width / 2, height / 2, {
       width: buttonWidth,
       height,
       variant: 'rocket',
       label: 'UÇUŞU BAŞLAT',
-      icon: 'icon_rocket',
+      icon: rocketIcon,
       iconScale: 1.5,
       silent: true,
       onClick: () => this.launch(),

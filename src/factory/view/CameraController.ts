@@ -26,6 +26,9 @@ export interface CameraControllerConfig {
   keyboardPanSpeed?: number;
 }
 
+/** Yakınlaştırma düğmelerinin bir adımı (CSS pikseli başına zoom) */
+const FINE_ZOOM_STEP = 0.0625;
+
 export class CameraController {
   /** Sığdırmada fabrikanın çevresinde bırakılan ekran pikseli boşluk */
   private static readonly FIT_MARGIN_PX = 12;
@@ -360,6 +363,36 @@ export class CameraController {
     const clamped = CameraMath.clampZoom(zoom, this.minZoom, this.maxZoom);
     this.camera.setZoom(clamped);
     this.clampCurrentPosition();
+  }
+
+  /**
+   * Yakınlaştırma düğmelerinin adımı (tuval pikseli). Tekerlek adımından incedir:
+   * oyuncu oranı küçük aralıklarla ayarlayabilsin. Ara kademelerde pikseller tam
+   * katlara oturmaz; bu, hassasiyet karşılığında bilerek kabul edilir.
+   */
+  get fineZoomStep(): number {
+    // Her cihazda aynı his: bir adım, bire bir oranın %6,25'i
+    return FINE_ZOOM_STEP * Math.max(1, Math.round(this.pixelScale));
+  }
+
+  /** Görüş alanının ortasını sabit tutarak bir ince adım yakınlaşır veya uzaklaşır */
+  zoomFine(direction: 1 | -1): void {
+    this.setZoom(
+      CameraMath.getNextDiscreteZoom(this.camera.zoom, direction, this.fineZoomStep, this.minZoom, this.maxZoom),
+    );
+  }
+
+  /** Yakınlaştırma oranı (100 = bir dünya pikseli bir CSS pikseli) */
+  get zoomPercent(): number {
+    return Math.round((this.camera.zoom / this.pixelScale) * 100);
+  }
+
+  get canZoomIn(): boolean {
+    return this.camera.zoom < this.maxZoom - 1e-6;
+  }
+
+  get canZoomOut(): boolean {
+    return this.camera.zoom > this.minZoom + 1e-6;
   }
 
   // -------------------------------------------------------------

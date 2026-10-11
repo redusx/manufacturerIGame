@@ -20,9 +20,11 @@ import {
   type UiScalePreset,
 } from './system/UiMetrics.ts';
 import { UiModal } from './system/UiModal.ts';
-import { createDivider } from './system/UiWidgets.ts';
+import { UiProgressBar, createDivider } from './system/UiWidgets.ts';
 
 const ROW_HEIGHT = 44;
+/** Ses seviyesinin bir adımı */
+const VOLUME_STEP = 0.05;
 
 /** Masaüstünde gösterilen klavye kısayolları */
 const SHORTCUT_LINES = [
@@ -104,6 +106,7 @@ export class SettingsPanel extends UiModal {
         this.rebuild();
       },
     });
+    y = this.addVolumeRow(body, width, y);
 
     // --- Tam ekran (tarayıcı destekliyorsa) -------------------------------
     if (typeof document !== 'undefined' && document.fullscreenEnabled) {
@@ -187,6 +190,82 @@ export class SettingsPanel extends UiModal {
     });
     body.add([icon, label, button]);
     return y + ROW_HEIGHT + SPACE.sm;
+  }
+
+  /**
+   * Ses seviyesi: eksi/artı düğmeleri %5'lik adımlarla, çubuğa dokunmak veya çubukta
+   * sürüklemek doğrudan ayarlar. Değer anında uygulanır ve saklanır.
+   */
+  private addVolumeRow(body: Phaser.GameObjects.Container, width: number, y: number): number {
+    const scene = this.scene;
+    const layer = this.layer;
+    const labelY = y + 10;
+    body.add(scene.add.image(8, labelY, uiIcon('sound_on')).setOrigin(0.5));
+    body.add(layer.text(24, labelY, 'Ses seviyesi', 'bodyBold').setOrigin(0, 0.5));
+    const percentText = layer
+      .text(width, labelY, '', 'bodyBold', { color: SEMANTIC.moneyHex })
+      .setOrigin(1, 0.5);
+    body.add(percentText);
+
+    const rowY = y + 20 + SPACE.xs;
+    const buttonSize = 40;
+    const barX = buttonSize + SPACE.sm;
+    const barWidth = width - (buttonSize + SPACE.sm) * 2;
+    const barHeight = 14;
+    const barY = rowY + (buttonSize - barHeight) / 2;
+    const bar = new UiProgressBar(scene, barX, barY, barWidth, barHeight, 'green');
+    body.add(bar);
+
+    const show = (): void => {
+      const volume = sound.getVolume();
+      bar.setProgress(volume);
+      percentText.setText(`%${Math.round(volume * 100)}`);
+    };
+    const apply = (volume: number): void => {
+      const snapped = Math.round(Phaser.Math.Clamp(volume, 0, 1) / VOLUME_STEP) * VOLUME_STEP;
+      if (Math.abs(snapped - sound.getVolume()) < 1e-6) return;
+      sound.setVolume(snapped);
+      sound.playClick();
+      show();
+    };
+
+    body.add(
+      new UiButton(layer, buttonSize / 2, rowY + buttonSize / 2, {
+        width: buttonSize,
+        height: buttonSize,
+        variant: 'secondary',
+        icon: uiIcon('minus'),
+        silent: true,
+        onClick: () => apply(sound.getVolume() - VOLUME_STEP),
+      }),
+    );
+    body.add(
+      new UiButton(layer, width - buttonSize / 2, rowY + buttonSize / 2, {
+        width: buttonSize,
+        height: buttonSize,
+        variant: 'secondary',
+        icon: uiIcon('plus'),
+        silent: true,
+        onClick: () => apply(sound.getVolume() + VOLUME_STEP),
+      }),
+    );
+
+    // Çubuğa dokunma / sürükleme: dokunma hedefi çubuktan yüksektir
+    const zone = scene.add.zone(barX, rowY, barWidth, buttonSize).setOrigin(0, 0).setInteractive({ useHandCursor: true });
+    const setFromPointer = (pointer: Phaser.Input.Pointer): void => {
+      const point = layer.pointerPosition(pointer);
+      // Kaydırılıp görünen alanın dışına çıkmış çubuk dokunuş almaz
+      if (!this.isInsideViewport(point.y)) return;
+      apply((point.x - zone.getWorldTransformMatrix().tx) / barWidth);
+    };
+    zone.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, setFromPointer);
+    zone.on(Phaser.Input.Events.GAMEOBJECT_POINTER_MOVE, (pointer: Phaser.Input.Pointer) => {
+      if (pointer.isDown) setFromPointer(pointer);
+    });
+    body.add(zone);
+
+    show();
+    return rowY + buttonSize + SPACE.sm;
   }
 
   private selectScale(preset: UiScalePreset): void {

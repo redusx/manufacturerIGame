@@ -11,13 +11,15 @@ import Phaser from 'phaser';
 import type { DecimalSource } from 'break_eternity.js';
 import { D } from '../utils/decimal';
 import { formatDistance, formatNumber, formatRate } from '../utils/format';
-import { SEMANTIC, SPACE } from './theme';
+import { SEMANTIC, SPACE, TYPE_SCALE, uiIcon } from './theme';
 import { UiButton } from './system/UiButton.ts';
 import { UiChip } from './system/UiWidgets.ts';
 import type { UiLayer } from './system/UiLayer.ts';
 
 /** Çubuğun güvenli alan hariç yüksekliği (arayüz birimi) */
 export const HUD_BAR_HEIGHT = 48;
+/** Gelir rozetinin yanındaki takviye reklamı düğmesinin kenarı */
+const BOOST_AD_BUTTON_SIZE = 26;
 
 export class HUD {
   private readonly layer: UiLayer;
@@ -32,6 +34,15 @@ export class HUD {
   private readonly settingsButton: UiButton;
   /** Para ve gelir bölümünün tamamı basılabilir: Takviye penceresini açar */
   private readonly incomeZone: Phaser.GameObjects.Zone;
+  /**
+   * Gelir takviyesi reklamla artırılabiliyorken gelir rozetinin yanında beliren küçük,
+   * nabız gibi atan düğme. Reklamı kendisi başlatmaz; Takviye penceresini açar.
+   */
+  private readonly boostAdButton: UiButton;
+  private boostAdAvailable = false;
+  private boostAdPulse: Phaser.Tweens.Tween | null = null;
+  /** Dar ekranda para yazısı bir kademe küçülür ki rozet ve düğme sığsın */
+  private moneyCompact = false;
 
   private barBottom = HUD_BAR_HEIGHT;
   private centerY = HUD_BAR_HEIGHT / 2;
@@ -86,6 +97,16 @@ export class HUD {
 
     this.incomeZone = scene.add.zone(0, 0, 100, HUD_BAR_HEIGHT).setOrigin(0, 0);
     this.root.add(this.incomeZone);
+
+    this.boostAdButton = new UiButton(layer, 0, 0, {
+      width: BOOST_AD_BUTTON_SIZE,
+      height: BOOST_AD_BUTTON_SIZE,
+      variant: 'gold',
+      icon: uiIcon('video'),
+      onClick: () => onIncomeClick?.(),
+    });
+    this.boostAdButton.setVisible(false);
+    this.root.add(this.boostAdButton);
     if (onIncomeClick) {
       this.incomeZone.setInteractive({ useHandCursor: true });
       this.incomeZone.on(Phaser.Input.Events.GAMEOBJECT_POINTER_UP, (pointer: Phaser.Input.Pointer) => {
@@ -123,8 +144,16 @@ export class HUD {
 
   /**
    * @param boostLabel Süreli gelir takviyesi etkinse göstergesi ("×2 08:41"); değilse boş
+   * @param boostAdAvailable Takviye şu an reklam izleyerek artırılabiliyor mu?
    */
-  update(resources: DecimalSource, perSecond: DecimalSource, bestDistance = 0, boostLabel = ''): void {
+  update(
+    resources: DecimalSource,
+    perSecond: DecimalSource,
+    bestDistance = 0,
+    boostLabel = '',
+    boostAdAvailable = false,
+  ): void {
+    this.boostAdAvailable = boostAdAvailable;
     this.moneyText.setText(`$${formatNumber(D(resources))}`);
     const income = `+$${formatRate(D(perSecond))}/sn`;
     // Takviye etkinken rozet altına döner ve kalan süreyi gösterir
@@ -153,14 +182,63 @@ export class HUD {
     }
     this.rightGroupStart = rightStart;
 
+    const adWidth = this.boostAdAvailable ? BOOST_AD_BUTTON_SIZE + SPACE.xs : 0;
+    this.fitMoneyText(rightStart - this.moneyText.x - SPACE.sm - this.incomeChip.chipWidth - adWidth);
+
     const moneyEnd = this.moneyText.x + this.moneyText.width;
     const chipX = moneyEnd + SPACE.sm;
     const chipFits = chipX + this.incomeChip.chipWidth <= rightStart;
     this.incomeChip.setVisible(chipFits).setPosition(chipX, this.centerY - 13);
     this.leftGroupEnd = chipFits ? chipX + this.incomeChip.chipWidth : moneyEnd;
+
+    // Reklam düğmesi rozetin hemen sağında; rozetle birlikte sığmıyorsa gösterilmez
+    const adX = this.leftGroupEnd + SPACE.xs + BOOST_AD_BUTTON_SIZE / 2;
+    const adFits = this.boostAdAvailable && chipFits && adX + BOOST_AD_BUTTON_SIZE / 2 <= rightStart;
+    this.setBoostAdVisible(adFits);
+    if (adFits) {
+      this.boostAdButton.setPosition(adX, this.centerY);
+      this.leftGroupEnd = adX + BOOST_AD_BUTTON_SIZE / 2;
+    }
     this.incomeZone
       .setPosition(this.leftEdge, this.centerY - HUD_BAR_HEIGHT / 2)
       .setSize(Math.max(44, this.leftGroupEnd - this.leftEdge), HUD_BAR_HEIGHT);
+  }
+
+  /**
+   * Para yazısını, rozet ve düğmeye `available` kadar yer kalacak biçimde bir kademe
+   * küçültür veya eski boyutuna döndürür. Her karede yazıyı yeniden üretmemek için
+   * genişlik orandan kestirilir.
+   */
+  private fitMoneyText(available: number): void {
+    const large = TYPE_SCALE.display.size;
+    const small = TYPE_SCALE.title.size;
+    const width = this.moneyText.width;
+    if (!this.moneyCompact && width > available) {
+      this.moneyCompact = true;
+      this.moneyText.setFontSize(small);
+    } else if (this.moneyCompact && (width * large) / small + SPACE.sm <= available) {
+      this.moneyCompact = false;
+      this.moneyText.setFontSize(large);
+    }
+  }
+
+  private setBoostAdVisible(visible: boolean): void {
+    if (this.boostAdButton.visible === visible) return;
+    this.boostAdButton.setVisible(visible);
+    this.boostAdPulse?.stop();
+    this.boostAdPulse = null;
+    this.boostAdButton.setScale(1);
+    if (visible) {
+      // Dikkat çekmek için hafifçe büyüyüp küçülür
+      this.boostAdPulse = this.layer.scene.tweens.add({
+        targets: this.boostAdButton,
+        scale: 1.14,
+        duration: 650,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    }
   }
 
   /** Para kazanıldığında kısa bir vurgu */
