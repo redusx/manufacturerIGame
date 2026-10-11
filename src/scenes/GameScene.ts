@@ -694,6 +694,12 @@ export class GameScene extends Phaser.Scene {
         cooldownRemaining: () => ads.cooldownRemaining('parts_cargo'),
         onRequest: (category) => void this.requestPartsCargo(category),
       },
+      (level) => {
+        sound.playUpgrade();
+        fx.emitSparkles(this, this.ui.width / 2, this.ui.height / 2, 20, PALETTE.rocketCyan, 'ui');
+        this.notify(`Fırlatma Rampası Seviye ${level} oldu: mükemmel bölge genişledi`, 'success');
+        this.saveGame();
+      },
     );
 
     /* Ana ekran */

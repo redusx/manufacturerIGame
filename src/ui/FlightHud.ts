@@ -9,7 +9,7 @@
 
 import Phaser from 'phaser';
 import { formatDistance, formatNumber } from '../utils/format';
-import { SEMANTIC, SPACE, uiIcon } from './theme';
+import { PALETTE, SEMANTIC, SPACE, uiIcon } from './theme';
 import type { UiLayer } from './system/UiLayer.ts';
 import { UiProgressBar } from './system/UiWidgets.ts';
 
@@ -65,12 +65,16 @@ export class FlightHud {
   private nitroWidth = 220;
   private nitroPressed = false;
 
-  // Fırlatma gücü göstergesi
+  // Fırlatma göstergesi: imleç çubukta gidip gelir, ortadaki yeşil bölge mükemmel fırlatmadır
   private readonly meter: Phaser.GameObjects.Container;
-  private readonly meterBar: UiProgressBar;
+  private readonly meterGoodZone: Phaser.GameObjects.Image;
+  private readonly meterPerfectZone: Phaser.GameObjects.Image;
+  private readonly meterMarker: Phaser.GameObjects.Container;
   private readonly meterPercent: Phaser.GameObjects.Text;
+  private readonly meterPadLabel: Phaser.GameObjects.Text;
   private static readonly METER_WIDTH = 280;
-  private static readonly METER_HEIGHT = 148;
+  private static readonly METER_HEIGHT = 166;
+  private static readonly TRACK_HEIGHT = 22;
 
   constructor(layer: UiLayer, callbacks: FlightHudCallbacks) {
     this.layer = layer;
@@ -125,12 +129,33 @@ export class FlightHud {
     this.meter = scene.add.container(0, 0);
     this.meter.add(scene.add.nineslice(0, 0, 'ui_modal_bg', 0, mw, mh, 8, 8, 8, 8).setOrigin(0.5));
     this.meter.add(
-      layer.text(0, -mh / 2 + 24, 'FIRLATMA GÜCÜ', 'heading', { color: SEMANTIC.moneyHex }).setOrigin(0.5),
+      layer
+        .text(-mw / 2 + SPACE.lg, -mh / 2 + 24, 'FIRLATMA GÜCÜ', 'heading', { color: SEMANTIC.moneyHex })
+        .setOrigin(0, 0.5),
     );
-    this.meterBar = new UiProgressBar(scene, -mw / 2 + SPACE.lg, -mh / 2 + 44, mw - SPACE.lg * 2, 22, 'gold');
-    this.meter.add(this.meterBar);
-    this.meterPercent = layer.text(0, -mh / 2 + 55, '%50', 'bodyBold', { stroke: true }).setOrigin(0.5);
+    // Çubuk: koyu yuva, içinde "iyi" (altın) ve "mükemmel" (yeşil) bölgeler, üstünde imleç
+    const trackW = FlightHud.trackWidth;
+    const trackH = FlightHud.TRACK_HEIGHT;
+    const trackY = -mh / 2 + 44 + trackH / 2;
+    this.meter.add(scene.add.nineslice(0, trackY, 'ui_bar_slot', 0, trackW, trackH, 4, 4, 4, 4).setOrigin(0.5));
+    this.meterGoodZone = scene.add.image(0, trackY, 'ui2_px').setOrigin(0.5).setTint(SEMANTIC.money).setAlpha(0.45);
+    this.meterPerfectZone = scene.add.image(0, trackY, 'ui2_px').setOrigin(0.5).setTint(SEMANTIC.primary);
+    this.meter.add([this.meterGoodZone, this.meterPerfectZone]);
+
+    this.meterMarker = scene.add.container(0, trackY);
+    this.meterMarker.add(
+      scene.add.image(0, 0, 'ui2_px').setOrigin(0.5).setDisplaySize(6, trackH + 10).setTint(PALETTE.bgDeep),
+    );
+    this.meterMarker.add(scene.add.image(0, 0, 'ui2_px').setOrigin(0.5).setDisplaySize(2, trackH + 6));
+    this.meter.add(this.meterMarker);
+
+    this.meterPercent = layer.text(0, trackY + trackH / 2 + 14, '%50', 'bodyBold', { stroke: true }).setOrigin(0.5);
     this.meter.add(this.meterPercent);
+    this.meterPadLabel = layer
+      .text(0, -mh / 2 + 24, '', 'caption', { color: SEMANTIC.textMuted })
+      .setOrigin(0, 0.5);
+    this.meter.add(this.meterPadLabel);
+    this.configureLaunchMeter(0.4, 0.1, 1);
     // Düğme görünümlü çağrı; tüm ekran dokunuşu fırlatır
     this.meter.add(
       scene.add
@@ -142,7 +167,7 @@ export class FlightHud {
     );
     this.meter.add(
       layer
-        .text(0, mh / 2 - 14, 'Çubuk doluyken dokun veya Boşluk', 'caption', { color: SEMANTIC.textMuted })
+        .text(0, mh / 2 - 14, 'İmleç yeşil bölgedeyken dokun veya Boşluk', 'caption', { color: SEMANTIC.textMuted })
         .setOrigin(0.5),
     );
     this.root.add(this.meter);
@@ -211,11 +236,31 @@ export class FlightHud {
     this.nitroHint.setVisible(boostRatio > 0);
   }
 
-  /** Fırlatma gücü göstergesi: 0..1 */
-  setLaunchPower(power: number): void {
-    const percent = Math.round(power * 100);
-    this.meterBar.setProgress(power).setColor(percent >= 85 ? 'green' : 'gold');
-    this.meterPercent.setText(`%${percent}`);
+  private static get trackWidth(): number {
+    return FlightHud.METER_WIDTH - SPACE.lg * 2;
+  }
+
+  /**
+   * Göstergenin bölgelerini rampa seviyesine göre kurar.
+   * @param goodWidth "İyi" bölgenin çubuğa oranı (0..1)
+   * @param perfectWidth "Mükemmel" bölgenin çubuğa oranı (0..1); rampa yükseldikçe genişler
+   */
+  configureLaunchMeter(goodWidth: number, perfectWidth: number, padLevel: number): void {
+    const inner = FlightHud.trackWidth - 4;
+    const height = FlightHud.TRACK_HEIGHT - 6;
+    this.meterGoodZone.setDisplaySize(Math.round(inner * goodWidth), height);
+    this.meterPerfectZone.setDisplaySize(Math.max(4, Math.round(inner * perfectWidth)), height);
+    this.meterPadLabel.setText(`Rampa Sv.${padLevel}`);
+    this.meterPadLabel.setX(FlightHud.METER_WIDTH / 2 - SPACE.lg - this.meterPadLabel.width);
+  }
+
+  /** İmlecin konumu (0..1) ve o anda ateşlenirse elde edilecek güç (0..1) */
+  setLaunchMarker(position: number, power: number, perfect: boolean): void {
+    const inner = FlightHud.trackWidth - 4;
+    this.meterMarker.x = Math.round((position - 0.5) * inner);
+    this.meterPercent
+      .setText(perfect ? 'MÜKEMMEL' : `%${Math.round(power * 100)}`)
+      .setColor(perfect ? SEMANTIC.primaryHex : SEMANTIC.textPrimary);
   }
 
   /** Kalkışla birlikte fırlatma göstergesi kapanır, nitro düğmesi belirir */

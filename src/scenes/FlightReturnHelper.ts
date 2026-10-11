@@ -24,6 +24,8 @@ export interface FlightRewardParams {
    * üst sınıflar aynı sürede daha uzağa gider ama prim süresi bununla şişmez.
    */
   rangeScale?: number;
+  /** Mükemmel fırlatmanın eklediği gelir süresi (saniye; varsayılan 0) */
+  launchBonusSeconds?: number;
 }
 
 export interface FlightRewardBreakdown {
@@ -32,6 +34,8 @@ export interface FlightRewardBreakdown {
   gearsCash: number;
   crystalsCash: number;
   dodgesCash: number;
+  /** Mükemmel fırlatma primi */
+  launchCash: number;
   totalCash: number;
   /** Ödülün karşılık geldiği fabrika geliri süresi (saniye) */
   incomeSeconds: number;
@@ -88,6 +92,7 @@ export class FlightReturnHelper {
    * - Hurda dişli: adet başına 1 sn
    * - Enerji kristali: adet başına 3 sn
    * - Kaçınılan engel: adet başına 0.5 sn
+   * - Mükemmel fırlatma: sabit süre (LaunchPad.PERFECT_LAUNCH_BONUS_SECONDS)
    * Toplam süre `FLIGHT_REWARD_MAX_SECONDS` ile sınırlıdır.
    */
   static calculateRewardBreakdown(
@@ -100,7 +105,9 @@ export class FlightReturnHelper {
     const crystals = Math.max(0, Math.floor(params.crystalsCollected));
     const dodges = Math.max(0, Math.floor(params.dodgedObstacles));
 
-    const seconds = [dist / 40, alt / 100, gears, crystals * 3, dodges * 0.5];
+    const launchBonus = Math.max(0, params.launchBonusSeconds ?? 0);
+
+    const seconds = [dist / 40, alt / 100, gears, crystals * 3, dodges * 0.5, launchBonus];
     const rawSeconds = seconds.reduce((sum, s) => sum + s, 0);
     const incomeSeconds = Math.min(FLIGHT_REWARD_MAX_SECONDS, rawSeconds);
     // Sınır aşılırsa kalemler aynı oranda küçülür; döküm toplamla tutarlı kalır
@@ -114,8 +121,9 @@ export class FlightReturnHelper {
     const gearsCash = toCash(seconds[2]);
     const crystalsCash = toCash(seconds[3]);
     const dodgesCash = toCash(seconds[4]);
+    const launchCash = toCash(seconds[5]);
 
-    const totalCash = distanceCash + altitudeCash + gearsCash + crystalsCash + dodgesCash;
+    const totalCash = distanceCash + altitudeCash + gearsCash + crystalsCash + dodgesCash + launchCash;
 
     return {
       distanceCash,
@@ -123,6 +131,7 @@ export class FlightReturnHelper {
       gearsCash,
       crystalsCash,
       dodgesCash,
+      launchCash,
       totalCash,
       incomeSeconds: Math.round(incomeSeconds),
     };
@@ -189,6 +198,7 @@ export class FlightReturnHelper {
     currentRevenueMultiplier?: number;
     incomePerSec?: number;
     rangeScale?: number;
+    launchBonusSeconds?: number;
   }): FlightReportViewModel {
     const breakdown = this.calculateRewardBreakdown(
       {
@@ -198,6 +208,7 @@ export class FlightReturnHelper {
         crystalsCollected: data.crystals,
         dodgedObstacles: data.dodgedObstacles,
         rangeScale: data.rangeScale,
+        launchBonusSeconds: data.launchBonusSeconds,
       },
       data.incomePerSec,
     );

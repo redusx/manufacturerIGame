@@ -21,6 +21,7 @@ import {
 } from '../data/RocketData';
 import {
   PARTS_CARGO_SHARE,
+  QUICK_BUILD_MAX_SHARE,
   type RocketHangarBridge,
   type RocketModuleCategory,
 } from '../factory/simulation/RocketHangarBridge';
@@ -28,16 +29,18 @@ import { formatAdCooldown } from '../ads/AdService.ts';
 import type { FactoryEconomy } from '../factory/simulation/FactoryEconomy';
 import { defaultItemRegistry } from '../factory/simulation/ItemRegistry.ts';
 import { RangeLadder } from '../flight/RangeLadder.ts';
+import { MAX_LAUNCH_PAD_LEVEL, PERFECT_LAUNCH_BONUS_SECONDS, getPerfectZoneWidth } from '../flight/LaunchPad.ts';
 import { formatDistance, formatNumber } from '../utils/format';
 import { SEMANTIC, SPACE, uiIcon } from './theme';
 import { UiButton } from './system/UiButton.ts';
+import { UiConfirmDialog } from './system/UiConfirmDialog.ts';
 import { UiLayer } from './system/UiLayer.ts';
 import { UiModal } from './system/UiModal.ts';
 import { UiChip, UiProgressBar, createCard, createInset } from './system/UiWidgets.ts';
 
 type ModuleState = 'max' | 'locked' | 'ready' | 'quick' | 'missingParts' | 'missingCash';
 
-/** Parça kargosu (M9-E R4): reklam izleyerek hedef modülün eksik parçalarından pay alma */
+/** Parça kargosu (M9-E R4): reklam izleyerek parçası toplanan bir modülün eksiklerinden pay alma */
 export interface HangarCargoConfig {
   /** Düğme gösterilsin mi? Reklam sunulamıyorsa hiç çizilmez */
   isOffered: () => boolean;
@@ -54,8 +57,8 @@ interface ModuleCardRef {
 
 const LIVE_REFRESH_INTERVAL_MS = 150;
 const PREVIEW_HEIGHT = 128;
-const TARGET_BUTTON_HEIGHT = 26;
-/** Kartın sol sütunu: modül görseli ve altındaki hedef düğmesi */
+const COLLECT_BUTTON_HEIGHT = 26;
+/** Kartın sol sütunu: modül görseli ve altındaki "topla" düğmesi */
 const MODULE_THUMB_WIDTH = 64;
 const RANGES_BUTTON_WIDTH = 140;
 const RANGES_BUTTON_HEIGHT = 36;
@@ -68,12 +71,14 @@ export class RocketHangarView extends UiModal {
   private readonly hangarBridge: RocketHangarBridge;
   private readonly factoryEconomy: FactoryEconomy;
   private readonly onDenied: (message: string) => void;
-  /** Kayda yazılması gereken bir seçim değişti (hedef modül) */
+  /** Kayda yazılması gereken bir seçim değişti (parçası toplanan modüller) */
   private readonly onChanged: () => void;
   /** Seferler (menzil merdiveni) penceresini açar */
   private readonly onOpenRanges: () => void;
   /** Parça kargosu (reklam ödülü); verilmezse düğme hiç çizilmez */
   private readonly cargo: HangarCargoConfig | null;
+  /** Rampa yükseltildi (ses, efekt ve kayıt sahnenin işidir) */
+  private readonly onPadUpgraded: (level: number) => void;
 
   private rocketContainer: Phaser.GameObjects.Container | null = null;
   private launchButton: UiButton | null = null;
@@ -83,6 +88,8 @@ export class RocketHangarView extends UiModal {
   private structureSignature = '';
   private lastLiveRefresh = 0;
   private isLaunching = false;
+  /** Hızlı inşa pahalı bir kestirmedir; ne satın alındığı onayda yazılır */
+  private readonly confirmDialog: UiConfirmDialog;
 
   constructor(
     layer: UiLayer,
@@ -94,6 +101,7 @@ export class RocketHangarView extends UiModal {
     onChanged: () => void = () => undefined,
     onOpenRanges: () => void = () => undefined,
     cargo: HangarCargoConfig | null = null,
+    onPadUpgraded: (level: number) => void = () => undefined,
   ) {
     super(layer, { title: 'Roket Hangarı', maxWidth: 760, depth: 205, accent: SEMANTIC.rocket });
     this.economy = economy;
@@ -104,6 +112,8 @@ export class RocketHangarView extends UiModal {
     this.onChanged = onChanged;
     this.onOpenRanges = onOpenRanges;
     this.cargo = cargo;
+    this.onPadUpgraded = onPadUpgraded;
+    this.confirmDialog = new UiConfirmDialog(layer);
   }
 
   // -------------------------------------------------------------
@@ -133,7 +143,10 @@ export class RocketHangarView extends UiModal {
       (def) => `${def.id}:${this.levelOf(def.id as RocketModuleCategory)}:${this.stateOf(def)}`,
     ).join('|');
     const cargoState = this.cargo ? `${this.cargo.isOffered()}:${this.cargo.cooldownRemaining() > 0}` : '-';
-    return `${modules}#${this.hangarBridge.getTargetModule() ?? '-'}#${this.hangarBridge.getLevelCap()}#${cargoState}`;
+    const collecting = this.hangarBridge.getCollectingModules().join(',');
+    const padCost = this.hangarBridge.getLaunchPadUpgradeCost();
+    const pad = `${this.hangarBridge.getLaunchPadLevel()}:${padCost !== null && this.factoryEconomy.canAfford(padCost)}`;
+    return `${modules}#${pad}#${collecting}#${this.hangarBridge.getCargoModule() ?? '-'}#${this.hangarBridge.getLevelCap()}#${cargoState}`;
   }
 
   protected onOpened(): void {
@@ -280,25 +293,29 @@ export class RocketHangarView extends UiModal {
     body.add(rangesButton);
     y += RANGES_BUTTON_HEIGHT + SPACE.sm;
 
-    // Parçaların hangi modül için ayrıldığı
-    const target = this.hangarBridge.getTargetModule();
-    const targetName = ROCKET_UPGRADES.find((def) => def.id === target)?.name;
+    // Parçaların hangi modüller için ayrıldığı (birden çok modül işaretlenebilir)
+    const nameOf = (category: RocketModuleCategory | null): string | undefined =>
+      ROCKET_UPGRADES.find((def) => def.id === category)?.name;
+    const collecting = this.hangarBridge.getCollectingModules();
     line(
-      targetName
-        ? `Parçalar yalnızca hedef modül (${targetName}) için ayrılıyor; diğer ürünler satılıyor.`
-        : 'Parçalar bütün modüller için ayrılıyor. Bir modülü HEDEF seçersen yalnızca onunkiler ayrılır.',
+      collecting.length === ROCKET_UPGRADES.length
+        ? 'Sevkiyata ulaşan parçalar bütün modüller için ayrılıyor. Bir modülün TOPLA düğmesini kapatırsan onun parçaları satılır.'
+        : collecting.length === 0
+          ? 'Hiçbir modül işaretli değil: bütün ürünler satılıyor. Parça biriktirmek için modüllerin TOPLA düğmesini aç.'
+          : `Parçaları ayrılan modüller: ${collecting.map(nameOf).join(', ')}. Diğer modüllerin ürünleri satılıyor.`,
       SEMANTIC.textMuted,
     );
 
-    y = this.buildCargoRow(body, y + SPACE.xs, width, target, targetName);
+    const cargoModule = this.hangarBridge.getCargoModule();
+    y = this.buildCargoRow(body, y + SPACE.xs, width, cargoModule, nameOf(cargoModule));
 
     return y;
   }
 
   /**
-   * Parça kargosu: hedef modülün eksik parçalarının bir bölümü reklam izleyerek alınır.
-   * Reklam sunulamıyorsa hiçbir şey çizilmez; hedef seçili değilse yalnızca nasıl
-   * kullanılacağı yazılır (etkisiz düğme bırakılmaz).
+   * Parça kargosu: parçası toplanan modüllerden en düşük seviyelisinin eksiklerinin bir
+   * bölümü reklam izleyerek alınır. Reklam sunulamıyorsa hiçbir şey çizilmez; uygun modül
+   * yoksa yalnızca nasıl kullanılacağı yazılır (etkisiz düğme bırakılmaz).
    */
   private buildCargoRow(
     body: Phaser.GameObjects.Container,
@@ -315,7 +332,7 @@ export class RocketHangarView extends UiModal {
       const hint = this.layer.text(
         0,
         y,
-        `Parça kargosu: eksik parçası olan bir modülü HEDEF seçersen reklam izleyerek eksiklerinin %${share}'ini alabilirsin.`,
+        `Parça kargosu: TOPLA düğmesi açık ve eksik parçası olan bir modül varken reklam izleyerek eksiklerinin %${share}'ini alabilirsin.`,
         'caption',
         { color: SEMANTIC.textMuted, wrapWidth: width },
       );
@@ -354,7 +371,6 @@ export class RocketHangarView extends UiModal {
     const buttonWidth = stacked ? width - SPACE.sm * 2 : 112;
     const buttonHeight = stacked ? 40 : 48;
     const textRight = stacked ? width - SPACE.sm : width - SPACE.sm - buttonWidth - SPACE.sm;
-    const target = this.hangarBridge.getTargetModule();
     let y = startY;
 
     for (const def of ROCKET_UPGRADES) {
@@ -366,8 +382,8 @@ export class RocketHangarView extends UiModal {
       const partCount = showParts ? (cost?.requiredParts.length ?? 0) : 0;
       const hasButton = showParts;
 
-      // Sol sütun: modül görseli ve altında "hedef" düğmesi
-      const leftHeight = showParts ? 48 + SPACE.xs + TARGET_BUTTON_HEIGHT : 48;
+      // Sol sütun: modül görseli ve altında "topla" düğmesi
+      const leftHeight = showParts ? 48 + SPACE.xs + COLLECT_BUTTON_HEIGHT : 48;
       const textHeight = 50 + partCount * 30 + (state === 'locked' ? 28 : 0);
       const cardHeight =
         Math.max(leftHeight + SPACE.sm * 2, textHeight + SPACE.sm) + (stacked && hasButton ? buttonHeight + SPACE.sm : 0);
@@ -436,18 +452,24 @@ export class RocketHangarView extends UiModal {
           ref.partRows.push({ itemId: req.itemId, required: req.count, countText, bar });
         });
 
-        // Hedef modül: seçiliyse ihracattan yalnızca bu modülün parçaları ayrılır
-        const isTarget = target === category;
-        card.add(
-          new UiButton(layer, SPACE.sm + MODULE_THUMB_WIDTH / 2, SPACE.sm + 48 + SPACE.xs + TARGET_BUTTON_HEIGHT / 2, {
+        // Topla: açıkken (altın) bu modülün parçaları sevkiyattan ayrılır, kapalıyken satılır.
+        // Birden çok modül aynı anda açık olabilir; her biri kendi üretim hattından beslenir.
+        const isCollecting = this.hangarBridge.isCollectingFor(category);
+        const collectButton = new UiButton(
+          layer,
+          SPACE.sm + MODULE_THUMB_WIDTH / 2,
+          SPACE.sm + 48 + SPACE.xs + COLLECT_BUTTON_HEIGHT / 2,
+          {
             width: MODULE_THUMB_WIDTH,
-            height: TARGET_BUTTON_HEIGHT,
-            variant: isTarget ? 'gold' : 'secondary',
-            label: 'HEDEF',
+            height: COLLECT_BUTTON_HEIGHT,
+            variant: isCollecting ? 'gold' : 'secondary',
+            label: 'TOPLA',
             textVariant: 'buttonSmall',
-            onClick: () => this.toggleTarget(category),
-          }),
+            onClick: () => this.toggleCollecting(category),
+          },
         );
+        collectButton.setSelected(isCollecting);
+        card.add(collectButton);
 
         const buttonX = stacked ? width / 2 : width - SPACE.sm - buttonWidth / 2;
         const buttonY = stacked ? cardHeight - SPACE.sm - buttonHeight / 2 : cardHeight / 2;
@@ -459,7 +481,94 @@ export class RocketHangarView extends UiModal {
       y += cardHeight + SPACE.sm;
     }
 
+    y += this.buildLaunchPadCard(body, x, y, width, stacked, buttonWidth, buttonHeight) + SPACE.sm;
+
     return y - SPACE.sm - startY;
+  }
+
+  /**
+   * Fırlatma rampası: roket modülü değildir (sınıfı etkilemez, parça istemez). Seviyesi
+   * arttıkça fırlatma göstergesindeki mükemmel bölge genişler. Kartın yüksekliğini döner.
+   */
+  private buildLaunchPadCard(
+    body: Phaser.GameObjects.Container,
+    x: number,
+    y: number,
+    width: number,
+    stacked: boolean,
+    buttonWidth: number,
+    buttonHeight: number,
+  ): number {
+    const scene = this.scene;
+    const layer = this.layer;
+    const level = this.hangarBridge.getLaunchPadLevel();
+    const cost = this.hangarBridge.getLaunchPadUpgradeCost();
+    const percent = (padLevel: number): number => Math.round(getPerfectZoneWidth(padLevel) * 100);
+
+    const textX = SPACE.sm + MODULE_THUMB_WIDTH + SPACE.sm;
+    const textRight = stacked || cost === null ? width - SPACE.sm : width - SPACE.sm - buttonWidth - SPACE.sm;
+    const card = scene.add.container(x, y);
+
+    const levelLabel = layer
+      .text(textRight, SPACE.sm + 2, `Sv.${level}/${MAX_LAUNCH_PAD_LEVEL}`, 'captionBold', { color: SEMANTIC.moneyHex })
+      .setOrigin(1, 0);
+    const name = layer.text(textX, SPACE.sm, '', 'heading');
+    UiLayer.fit(name, 'Fırlatma Rampası', textRight - textX - levelLabel.width - SPACE.sm);
+    const stat = layer.text(textX, SPACE.sm + 22, `Mükemmel fırlatma bölgesi: çubuğun %${percent(level)}'i`, 'caption', {
+      color: SEMANTIC.textMuted,
+      wrapWidth: textRight - textX,
+    });
+    const detail = layer.text(
+      textX,
+      stat.y + stat.height + 4,
+      cost === null
+        ? `Mükemmel fırlatma uçuş primine ${PERFECT_LAUNCH_BONUS_SECONDS} sn'lik gelir ekler.`
+        : `Sonraki seviye: %${percent(level + 1)}. Mükemmel fırlatma uçuş primine ${PERFECT_LAUNCH_BONUS_SECONDS} sn'lik gelir ekler.`,
+      'caption',
+      { wrapWidth: textRight - textX },
+    );
+
+    const textHeight = detail.y + detail.height + (cost === null ? 26 : 0);
+    const cardHeight =
+      Math.max(48 + SPACE.sm * 2, textHeight + SPACE.sm) + (stacked && cost !== null ? buttonHeight + SPACE.sm : 0);
+    card.add(createCard(scene, 0, 0, width, cardHeight));
+    card.add(createInset(scene, SPACE.sm, SPACE.sm, MODULE_THUMB_WIDTH, 48));
+    if (scene.textures.exists('launch_pad')) {
+      card.add(scene.add.image(SPACE.sm + MODULE_THUMB_WIDTH / 2, SPACE.sm + 24, 'launch_pad').setOrigin(0.5));
+    }
+    card.add([name, levelLabel, stat, detail]);
+
+    if (cost === null) {
+      card.add(
+        new UiChip(layer, textX, detail.y + detail.height + 6, 'En üst seviye', SEMANTIC.primary, { icon: 'icon_check' }),
+      );
+    } else {
+      const affordable = this.factoryEconomy.canAfford(cost);
+      const button = new UiButton(
+        layer,
+        stacked ? width / 2 : width - SPACE.sm - buttonWidth / 2,
+        stacked ? cardHeight - SPACE.sm - buttonHeight / 2 : cardHeight / 2,
+        {
+          width: buttonWidth,
+          height: buttonHeight,
+          variant: 'primary',
+          label: 'YÜKSELT',
+          sublabel: `$${formatNumber(cost)}`,
+          textVariant: affordable ? 'button' : 'buttonSmall',
+          silent: true,
+          onClick: () => this.upgradeLaunchPad(),
+          onDisabledClick: () =>
+            this.onDenied(
+              `Yetersiz bakiye: $${formatNumber(Math.ceil(Math.max(0, cost - this.factoryEconomy.money)))} daha gerekli.`,
+            ),
+        },
+      );
+      button.setEnabled(affordable);
+      card.add(button);
+    }
+
+    body.add(card);
+    return cardHeight;
   }
 
   private buildModuleButton(
@@ -498,7 +607,7 @@ export class RocketHangarView extends UiModal {
         sublabel: `$${formatNumber(quickCost)}`,
         textVariant: 'buttonSmall',
         silent: true,
-        onClick: () => this.upgrade(category, true),
+        onClick: () => this.confirmQuickBuild(def),
       });
     }
 
@@ -548,12 +657,38 @@ export class RocketHangarView extends UiModal {
   // EYLEMLER
   // -------------------------------------------------------------
 
-  /** Modülü hedef seçer; hedef olan modüle yeniden basılırsa hedef kalkar */
-  private toggleTarget(category: RocketModuleCategory): void {
-    const current = this.hangarBridge.getTargetModule();
-    this.hangarBridge.setTargetModule(current === category ? null : category);
+  /** Modülün parçalarının sevkiyattan ayrılmasını açar veya kapatır */
+  private toggleCollecting(category: RocketModuleCategory): void {
+    this.hangarBridge.setCollecting(category, !this.hangarBridge.isCollectingFor(category));
     this.onChanged();
     this.rebuild();
+  }
+
+  /**
+   * Hızlı inşa: eksik parçalar nakitle tamamlanır (DEC-029). Pahalı bir kestirme olduğu
+   * için neyin kaça alındığı gösterilip onay istenir.
+   */
+  private confirmQuickBuild(def: RocketUpgradeDef): void {
+    const category = def.id as RocketModuleCategory;
+    const cost = this.hangarBridge.getUpgradeCost(category);
+    const multiplier = this.factoryEconomy.revenueMultiplier;
+    const quote = this.hangarBridge.getQuickBuildQuote(category, multiplier);
+    if (!cost || !quote.allowed) return;
+
+    const missing = this.hangarBridge
+      .getMissingParts(category, multiplier)
+      .map((part) => `${part.missingCount} ${part.itemName} ($${formatNumber(part.missingTotalCost)})`)
+      .join(', ');
+    this.confirmDialog.ask({
+      title: `${def.name}: hızlı inşa`,
+      message:
+        `Eksik parçalar nakitle tamamlanır: ${missing}. ` +
+        `Yükseltme bedeli $${formatNumber(cost.cashCost)} ile birlikte toplam $${formatNumber(quote.totalCost)}.\n\n` +
+        `Parçaları fabrikada üretip sevkiyata ulaştırırsan yalnızca $${formatNumber(cost.cashCost)} ödersin. ` +
+        `Her parçanın en fazla %${Math.round(QUICK_BUILD_MAX_SHARE * 100)}'i nakitle alınabilir.`,
+      confirmLabel: 'SATIN AL',
+      onConfirm: () => this.upgrade(category, true),
+    });
   }
 
   private upgrade(category: RocketModuleCategory, quickBuild: boolean): void {
@@ -561,6 +696,12 @@ export class RocketHangarView extends UiModal {
     if (!upgraded) return;
     // Kasa sınıfı roket seviyelerini de saklar; olay dinleyicileri ses ve efekt verir
     this.economy.setRocketUpgradeLevel(category, this.hangarBridge.getModuleLevel(category));
+    this.rebuild();
+  }
+
+  private upgradeLaunchPad(): void {
+    if (!this.hangarBridge.upgradeLaunchPad(this.factoryEconomy)) return;
+    this.onPadUpgraded(this.hangarBridge.getLaunchPadLevel());
     this.rebuild();
   }
 

@@ -155,6 +155,10 @@ export class FlightReportModal extends UiModal {
       ['icon_gear', undefined, 'Toplanan dişli', `${data.gears} adet`],
       [uiIcon('star'), SEMANTIC.rocket, 'Toplanan kristal', `${data.crystals} adet`],
     ];
+    // Mükemmel fırlatmanın prime kattığı pay (yalnız tutturulduysa)
+    if (view.breakdown.launchCash > 0) {
+      rows.push(['icon_rocket', undefined, 'Mükemmel fırlatma', `+$${formatNumber(view.breakdown.launchCash)}`]);
+    }
     const rowH = 26;
     body.add(createInset(scene, 0, y, width, rows.length * rowH + SPACE.sm));
     rows.forEach(([icon, tint, label, value], index) => {

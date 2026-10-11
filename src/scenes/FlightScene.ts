@@ -29,6 +29,13 @@ import {
   stepFlight,
 } from '../flight/FlightPhysics.ts';
 import { RANGE_LADDER, RangeLadder } from '../flight/RangeLadder.ts';
+import {
+  evaluateLaunch,
+  getGoodZoneWidth,
+  getPerfectZoneWidth,
+  launchMarkerPosition,
+  type LaunchResult,
+} from '../flight/LaunchPad.ts';
 import { MAX_ROCKET_LEVEL } from '../data/RocketData.ts';
 import { PALETTE, FONT_FAMILY, SEMANTIC, FLIGHT_SKY_TONES } from '../ui/theme';
 import { formatDistance } from '../utils/format';
@@ -132,9 +139,12 @@ export class FlightScene extends Phaser.Scene {
   private viewW = 360;
   private viewH = 640;
 
-  /* Fırlatma Güç Göstergesi (Rampa Mini-Oyunu) */
+  /* Fırlatma göstergesi (rampa mini-oyunu): imleç gidip gelir, yeşil bölgede ateşlenir */
   private launchPowerTimer = 0;
-  private currentLaunchPower = 0.5;
+  private launchPadLevel = 1;
+  private currentLaunch: LaunchResult = evaluateLaunch(0, 1);
+  /** Bu uçuşun fırlatma primi (mükemmel fırlatmada gelir süresi, saniye) */
+  private launchBonusSeconds = 0;
   private isLaunchLocked = false;
 
   private pointerHoldingBoost = false;
@@ -276,6 +286,15 @@ export class FlightScene extends Phaser.Scene {
         this.pointerHoldingBoost = false;
       },
     });
+    // Rampa seviyesi mükemmel bölgenin genişliğini belirler
+    this.launchPadLevel = this.bridge?.getLaunchPadLevel() ?? 1;
+    this.launchBonusSeconds = 0;
+    this.currentLaunch = evaluateLaunch(0, this.launchPadLevel);
+    this.hud.configureLaunchMeter(
+      getGoodZoneWidth(this.launchPadLevel),
+      getPerfectZoneWidth(this.launchPadLevel),
+      this.launchPadLevel,
+    );
     this.reportRewardMultiplier = 1;
     // Reklamla prim katlama (R2): reklam sunulamıyorsa düğme çizilmez, izlenemezse prim değişmez
     this.reportModal = new FlightReportModal(this.ui, () => void this.leaveFlight(), {
@@ -386,15 +405,16 @@ export class FlightScene extends Phaser.Scene {
     if (this.isLaunchLocked || this.flightState !== 'countdown') return;
     this.isLaunchLocked = true;
 
-    // Minimum %25, maksimum %100 güç
-    const powerRatio = Phaser.Math.Clamp(this.currentLaunchPower, 0.25, 1.0);
-    this.body = createFlightBody(this.stats, powerRatio);
+    // İmlecin o anki konumu fırlatma gücünü belirler (bölgenin dışında güç düşer)
+    const launch = this.currentLaunch;
+    this.body = createFlightBody(this.stats, launch.power);
+    this.launchBonusSeconds = launch.bonusSeconds;
 
-    const percent = Math.round(powerRatio * 100);
+    const percent = Math.round(launch.power * 100);
 
-    if (powerRatio >= 0.88) {
-      this.hud.announce(`Mükemmel fırlatma! %${percent}`, SEMANTIC.moneyHex);
-    } else if (powerRatio >= 0.6) {
+    if (launch.quality === 'perfect') {
+      this.hud.announce(`Mükemmel fırlatma! Prim +${launch.bonusSeconds} sn`, SEMANTIC.moneyHex);
+    } else if (launch.quality === 'good') {
       this.hud.announce(`İyi fırlatma! %${percent}`, SEMANTIC.primaryHex);
     } else {
       this.hud.announce(`Zayıf fırlatma: %${percent}`, SEMANTIC.warningHex);
@@ -483,11 +503,12 @@ export class FlightScene extends Phaser.Scene {
     const dt = delta / 1000;
 
     if (this.flightState === 'countdown') {
-      // Fırlatma barının osilasyonu (0 ile 1 arası gidip gelme)
-      this.launchPowerTimer += dt * 3.6;
-      this.currentLaunchPower = (Math.sin(this.launchPowerTimer) + 1) / 2;
+      // İmleç çubukta sabit hızla gidip gelir
+      this.launchPowerTimer += dt;
+      const position = launchMarkerPosition(this.launchPowerTimer);
+      this.currentLaunch = evaluateLaunch(position, this.launchPadLevel);
 
-      this.hud.setLaunchPower(this.currentLaunchPower);
+      this.hud.setLaunchMarker(position, this.currentLaunch.power, this.currentLaunch.quality === 'perfect');
       return;
     }
 
@@ -1024,6 +1045,7 @@ export class FlightScene extends Phaser.Scene {
         crystalsCollected: this.collectedCrystals,
         dodgedObstacles: this.dodgedObstacles,
         rangeScale: this.stats.rangeScale,
+        launchBonusSeconds: this.launchBonusSeconds,
       },
       this.factoryEconomy?.getRevenuePerSec(),
     );
@@ -1072,6 +1094,7 @@ export class FlightScene extends Phaser.Scene {
       currentRevenueMultiplier: currentMultiplier,
       incomePerSec: this.factoryEconomy?.getRevenuePerSec(),
       rangeScale: this.stats.rangeScale,
+      launchBonusSeconds: this.launchBonusSeconds,
     });
 
     if (view.isNewBestDistance || view.unlockedMilestones.length > 0) {
@@ -1116,6 +1139,7 @@ export class FlightScene extends Phaser.Scene {
           altitudeMeters: this.body.maxAltitude,
           rangeScale: this.stats.rangeScale,
           rewardMultiplier: this.reportRewardMultiplier,
+          launchBonusSeconds: this.launchBonusSeconds,
         },
         this.factoryEconomy,
       );

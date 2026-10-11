@@ -15,6 +15,7 @@ import { ItemRegistry, defaultItemRegistry } from './ItemRegistry.ts';
 import { FlightReturnHelper } from '../../scenes/FlightReturnHelper.ts';
 import { MAX_ROCKET_LEVEL, getRocketClass } from '../../data/RocketData.ts';
 import { RangeLadder, type RangeRung } from '../../flight/RangeLadder.ts';
+import { MAX_LAUNCH_PAD_LEVEL, getLaunchPadUpgradeCost } from '../../flight/LaunchPad.ts';
 
 export type RocketModuleCategory = 'hull' | 'engine' | 'wings' | 'boost';
 
@@ -40,6 +41,8 @@ export interface FlightResultInput {
   rangeScale?: number;
   /** Uçuş priminin çarpanı (reklam ödülü ×3; varsayılan 1) */
   rewardMultiplier?: number;
+  /** Mükemmel fırlatmanın prime eklediği gelir süresi (saniye; varsayılan 0) */
+  launchBonusSeconds?: number;
 }
 
 export interface FlightReturnSummary {
@@ -60,10 +63,14 @@ export interface RocketHangarSaveData {
     bestDistance: number;
     totalCashEarned: number;
   };
-  /** Parçaları toplanan hedef modül; null ise bütün modüller için toplanır */
+  /** Parçaları sevkiyattan ayrılan (işaretli) modüller; yoksa hepsi */
+  collectModules?: RocketModuleCategory[];
+  /** Eski kayıt: tek hedef modül (null ise hepsi). `collectModules` yoksa okunur */
   targetModule?: RocketModuleCategory | null;
   /** Rekorun hangi uçuş modeliyle tutulduğu (yoksa eski model) */
   recordVersion?: number;
+  /** Fırlatma rampasının seviyesi (yoksa 1) */
+  launchPadLevel?: number;
 }
 
 /** Hızlı inşa teklifi: nakitle tamamlanabilir mi, ne kadar tutar */
@@ -257,8 +264,19 @@ export class RocketHangarBridge {
   /** Hangarda stoklanan fiziksel havacılık parçaları (itemId -> count) */
   private inventory = new Map<string, number>();
 
-  /** Parçaları toplanan hedef modül; null ise bütün modüllerin ihtiyacı toplanır */
-  private targetModule: RocketModuleCategory | null = null;
+  /**
+   * Parçaları sevkiyattan ayrılan modüller. Oyuncu birden çok modülü işaretleyebilir;
+   * işaretli olmayan modülün beklediği ürünler satılır.
+   */
+  private collecting: Record<RocketModuleCategory, boolean> = {
+    hull: true,
+    engine: true,
+    wings: true,
+    boost: true,
+  };
+
+  /** Fırlatma rampasının seviyesi: fırlatma göstergesindeki mükemmel bölgeyi genişletir */
+  private launchPadLevel = 1;
 
   /** Kariyer uçuş istatistikleri */
   private flightStats = {
@@ -361,19 +379,32 @@ export class RocketHangarBridge {
     return RangeLadder.rungForRocketLevel(nextLevel);
   }
 
-  /** Parçaları toplanan hedef modül (null: hepsi) */
-  getTargetModule(): RocketModuleCategory | null {
-    return this.targetModule;
-  }
-
-  /** Hedef modülü seçer; null verilirse bütün modüllerin parçaları toplanır */
-  setTargetModule(category: RocketModuleCategory | null): void {
-    this.targetModule = category;
-  }
-
   /** Bu modülün parçaları şu an ihracattan ayrılıyor mu? */
   isCollectingFor(category: RocketModuleCategory): boolean {
-    return this.targetModule === null || this.targetModule === category;
+    return this.collecting[category];
+  }
+
+  /** Modülün parçalarının sevkiyattan ayrılmasını açar veya kapatır */
+  setCollecting(category: RocketModuleCategory, enabled: boolean): void {
+    this.collecting[category] = enabled;
+  }
+
+  /** Parçaları ayrılan modüller, hangardaki sırayla */
+  getCollectingModules(): RocketModuleCategory[] {
+    return MODULE_CATEGORIES.filter((cat) => this.collecting[cat]);
+  }
+
+  /**
+   * Parça kargosunun (reklam ödülü) gideceği modül: işaretli ve eksik parçası olanların
+   * en düşük seviyelisi (roket sınıfını tutan modül). Yoksa null.
+   */
+  getCargoModule(): RocketModuleCategory | null {
+    let best: RocketModuleCategory | null = null;
+    for (const cat of MODULE_CATEGORIES) {
+      if (!this.collecting[cat] || !this.canGrantPartsCargo(cat)) continue;
+      if (best === null || this.getModuleLevel(cat) < this.getModuleLevel(best)) best = cat;
+    }
+    return best;
   }
 
   /** Modül için gerekli tüm parçalar hangarda mevcut mu? */
@@ -594,6 +625,27 @@ export class RocketHangarBridge {
     return true;
   }
 
+  // -------------------------------------------------------------
+  // FIRLATMA RAMPASI
+  // -------------------------------------------------------------
+
+  getLaunchPadLevel(): number {
+    return this.launchPadLevel;
+  }
+
+  /** Rampanın sıradaki seviyesinin nakit bedeli; son seviyedeyse null */
+  getLaunchPadUpgradeCost(): number | null {
+    return getLaunchPadUpgradeCost(this.launchPadLevel);
+  }
+
+  /** Rampayı bir seviye yükseltir; para yetmezse veya son seviyedeyse false döner */
+  upgradeLaunchPad(economy: FactoryEconomy): boolean {
+    const cost = this.getLaunchPadUpgradeCost();
+    if (cost === null || !economy.spendMoney(cost)) return false;
+    this.launchPadLevel += 1;
+    return true;
+  }
+
   /**
    * Sıradaki yükseltmeler için bu parçadan hangarın hâlâ beklediği adet.
    * Fabrika ihracatı, bu sayı sıfırlanana kadar parçayı satmak yerine hangara yollar.
@@ -601,7 +653,7 @@ export class RocketHangarBridge {
   getOutstandingNeed(itemId: string): number {
     let required = 0;
     for (const cat of MODULE_CATEGORIES) {
-      // Hedef modül seçiliyse yalnız onun parçaları ayrılır; izin bekleyen seviye için toplanmaz
+      // Yalnız işaretli modüllerin parçaları ayrılır; izin bekleyen seviye için toplanmaz
       if (!this.isCollectingFor(cat) || this.getUpgradeLock(cat)) continue;
       const cost = this.getUpgradeCost(cat);
       if (!cost) continue;
@@ -657,6 +709,7 @@ export class RocketHangarBridge {
         crystalsCollected: result.crystalsCollected,
         dodgedObstacles: result.dodgedObstacles ?? 0,
         rangeScale: result.rangeScale,
+        launchBonusSeconds: result.launchBonusSeconds,
       },
       economy.getRevenuePerSec(),
     );
@@ -707,8 +760,9 @@ export class RocketHangarBridge {
       levels: { ...this.moduleLevels },
       inventory: this.getInventory(),
       flightStats: { ...this.flightStats },
-      targetModule: this.targetModule,
+      collectModules: this.getCollectingModules(),
       recordVersion: FLIGHT_RECORD_VERSION,
+      launchPadLevel: this.launchPadLevel,
     };
   }
 
@@ -722,9 +776,19 @@ export class RocketHangarBridge {
       }
     }
 
-    this.targetModule = MODULE_CATEGORIES.includes(data.targetModule as RocketModuleCategory)
+    // Eski kayıtta tek hedef modül vardı: seçiliyse yalnız o, değilse hepsi işaretli gelir
+    const legacyTarget = MODULE_CATEGORIES.includes(data.targetModule as RocketModuleCategory)
       ? (data.targetModule as RocketModuleCategory)
       : null;
+    for (const cat of MODULE_CATEGORIES) {
+      this.collecting[cat] = Array.isArray(data.collectModules)
+        ? data.collectModules.includes(cat)
+        : legacyTarget === null || legacyTarget === cat;
+    }
+
+    if (typeof data.launchPadLevel === 'number') {
+      this.launchPadLevel = Math.min(MAX_LAUNCH_PAD_LEVEL, Math.max(1, Math.floor(data.launchPadLevel)));
+    }
 
     if (data.inventory && typeof data.inventory === 'object') {
       this.inventory.clear();
