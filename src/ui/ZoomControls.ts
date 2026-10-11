@@ -36,7 +36,7 @@ export class ZoomControls {
     this.root = layer.container(55);
 
     this.bg = scene.add
-      .nineslice(0, 0, 'ui_panel_hud', 0, ZoomControls.width, ZoomControls.height, 6, 6, 6, 6)
+      .nineslice(0, 0, 'ui_card_bg', 0, ZoomControls.width, ZoomControls.height, 6, 6, 6, 6)
       .setOrigin(0, 0)
       .setAlpha(0.9);
     this.root.add(this.bg);

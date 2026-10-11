@@ -26,6 +26,7 @@ export class HUD {
   private readonly root: Phaser.GameObjects.Container;
 
   private readonly bg: Phaser.GameObjects.NineSlice;
+  private readonly pattern: Phaser.GameObjects.TileSprite;
   private readonly coin: Phaser.GameObjects.Sprite;
   private readonly moneyText: Phaser.GameObjects.Text;
   private readonly incomeChip: UiChip;
@@ -64,8 +65,10 @@ export class HUD {
     const scene = layer.scene;
     this.root = layer.container(100);
 
-    this.bg = scene.add.nineslice(0, 0, 'ui_panel_hud', 0, 100, HUD_BAR_HEIGHT, 6, 6, 6, 6).setOrigin(0, 0);
-    this.root.add(this.bg);
+    // Üst çubuk: tema dolgusu, altında pirinç şerit ve üstünde ince ızgara dokusu
+    this.bg = scene.add.nineslice(0, 0, 'ui2_bar_bg', 0, 100, HUD_BAR_HEIGHT, 6, 6, 6, 6).setOrigin(0, 0);
+    this.pattern = scene.add.tileSprite(0, 0, 100, HUD_BAR_HEIGHT, 'ui2_pattern').setOrigin(0, 0);
+    this.root.add([this.bg, this.pattern]);
 
     this.coin = scene.add.sprite(0, 0, scene.textures.exists('coin_gold') ? 'coin_gold' : 'icon_coin', 0);
     this.coin.setOrigin(0.5).setScale(1.5);
@@ -135,6 +138,7 @@ export class HUD {
     this.showRecord = m.width >= 560;
 
     this.bg.setPosition(0, 0).setSize(m.width, this.barBottom);
+    this.pattern.setPosition(1, 2).setSize(m.width - 2, this.barBottom - 6);
     this.settingsButton.setPosition(this.rightEdge - 20, this.centerY);
     this.coin.setPosition(this.leftEdge + 12, this.centerY);
     this.moneyText.setPosition(this.leftEdge + 30, this.centerY);

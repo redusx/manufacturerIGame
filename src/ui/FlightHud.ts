@@ -82,7 +82,7 @@ export class FlightHud {
     const scene = layer.scene;
     this.root = layer.container(100);
 
-    this.topBg = scene.add.nineslice(0, 0, 'ui_panel_hud', 0, 100, BAR_HEIGHT, 6, 6, 6, 6).setOrigin(0, 0);
+    this.topBg = scene.add.nineslice(0, 0, 'ui2_bar_bg', 0, 100, BAR_HEIGHT, 6, 6, 6, 6).setOrigin(0, 0);
     this.distanceIcon = scene.add.image(0, 0, 'icon_flag').setOrigin(0.5).setScale(1.5);
     this.distanceText = layer.text(0, 0, '0 m', 'display', { stroke: true }).setOrigin(0, 0.5);
     this.detailText = layer.text(0, 0, '', 'caption', { color: SEMANTIC.textMuted }).setOrigin(0, 0.5);

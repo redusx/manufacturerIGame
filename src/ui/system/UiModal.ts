@@ -46,6 +46,7 @@ export abstract class UiModal implements UiModalHandle {
   private readonly panelLayer: Phaser.GameObjects.Container;
   private readonly panelBlocker: Phaser.GameObjects.Zone;
   private readonly panel: Phaser.GameObjects.NineSlice;
+  private readonly pattern: Phaser.GameObjects.TileSprite;
   private readonly headerBg: Phaser.GameObjects.NineSlice;
   private readonly titleText: Phaser.GameObjects.Text;
   private readonly closeButton: UiButton | null = null;
@@ -109,6 +110,9 @@ export abstract class UiModal implements UiModalHandle {
 
     this.panel = scene.add.nineslice(0, 0, 'ui_modal_bg', 0, 100, 100, 8, 8, 8, 8).setOrigin(0, 0);
     this.panelLayer.add(this.panel);
+    // Tema dokusu: pencerenin zemininde ince ızgara (çerçevenin içinde kalır)
+    this.pattern = scene.add.tileSprite(0, 0, 100, 100, 'ui2_pattern').setOrigin(0, 0);
+    this.panelLayer.add(this.pattern);
 
     this.headerBg = scene.add
       .nineslice(0, 0, 'ui2_header', 0, 100, HEADER_HEIGHT - 8, 4, 4, 4, 4)
@@ -320,6 +324,7 @@ export abstract class UiModal implements UiModalHandle {
 
     this.panelBlocker.setPosition(this.panelX, this.panelY).setSize(this.panelW, this.panelH);
     this.panel.setPosition(this.panelX, this.panelY).setSize(this.panelW, this.panelH);
+    this.pattern.setPosition(this.panelX + 4, this.panelY + 4).setSize(this.panelW - 8, this.panelH - 8);
 
     this.headerBg.setPosition(this.panelX + 4, this.panelY + 4).setSize(this.panelW - 8, HEADER_HEIGHT - 8);
     const headerCenterY = this.panelY + HEADER_HEIGHT / 2;

@@ -42,6 +42,7 @@ export class Toolbar {
   private readonly layer: UiLayer;
   private readonly root: Phaser.GameObjects.Container;
   private readonly bg: Phaser.GameObjects.NineSlice;
+  private readonly pattern: Phaser.GameObjects.TileSprite;
 
   private readonly produceButton: UiButton;
   private readonly beltButton: UiButton;
@@ -59,8 +60,10 @@ export class Toolbar {
     const scene = layer.scene;
     this.root = layer.container(60);
 
-    this.bg = scene.add.nineslice(0, 0, 'ui_panel_hud', 0, 100, 64, 6, 6, 6, 6).setOrigin(0, 0);
-    this.root.add(this.bg);
+    // Araç çubuğu tablası: üst kenarında pirinç şerit, üstünde ince ızgara dokusu
+    this.bg = scene.add.nineslice(0, 0, 'ui2_dock_bg', 0, 100, 64, 6, 6, 6, 6).setOrigin(0, 0);
+    this.pattern = scene.add.tileSprite(0, 0, 100, 64, 'ui2_pattern').setOrigin(0, 0);
+    this.root.add([this.bg, this.pattern]);
 
     const make = (
       label: string,
@@ -134,6 +137,7 @@ export class Toolbar {
       const x = m.width - width;
       this.rect = { x, y: top, width, height: m.height - top };
       this.bg.setPosition(x, top).setSize(width + 6, m.height - top + 6);
+      this.syncPattern();
 
       const totalH = count * buttonH + (count - 1) * BUTTON_GAP;
       const startY = top + (available - totalH) / 2 + buttonH / 2;
@@ -168,6 +172,8 @@ export class Toolbar {
       this.bg.setPosition(Math.round((m.width - dockW) / 2), y).setSize(dockW, height + 6);
     }
 
+    this.syncPattern();
+
     const startX = m.safe.left + sidePad + (usable - totalW) / 2 + buttonW / 2;
     const centerY = y + SPACE.sm + BUTTON_HEIGHT / 2;
     this.buttons.forEach((button, i) => {
@@ -175,6 +181,11 @@ export class Toolbar {
       button.resize(buttonW, BUTTON_HEIGHT);
       button.setPosition(Math.round(startX + i * (buttonW + gap)), centerY);
     });
+  }
+
+  /** Izgara dokusunu tablanın içine (pirinç şeridin altına) oturtur */
+  private syncPattern(): void {
+    this.pattern.setPosition(this.bg.x + 1, this.bg.y + 4).setSize(this.bg.width - 2, this.bg.height - 5);
   }
 
   /** Bir düğmenin ekranda kapladığı dikdörtgen (arayüz birimi); öğretici vurgusu için */

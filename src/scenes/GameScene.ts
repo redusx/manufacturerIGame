@@ -99,6 +99,8 @@ const FLIGHT_CATCH_UP_STEP_SEC = 1 / 30;
 const SPLITTER_MERGER_FEATURE = 'SPLITTER_MERGER';
 /** Dünyadaki yazıların (etiketler) kamera zoom'una göre yeniden üretilme aralığı (ms) */
 const WORLD_TEXT_SYNC_INTERVAL_MS = 200;
+/** Fabrikanın çevresini kaplayan zemin dokusunun kenarı (dünya pikseli; 64'ün katı) */
+const FACTORY_BACKDROP_SIZE = 8192;
 /** Öğretici kutusunun fabrikayı örtmemesi için sığdırmada altta bırakılan ek şerit (arayüz birimi) */
 const TUTORIAL_FIT_INSET = 48;
 /** HUD'a uçan sikke ve vardığında çıkan kıvılcımın katmanı: HUD'ın (100) üstü, pencerelerin (200+) altı */
@@ -230,6 +232,7 @@ export class GameScene extends Phaser.Scene {
 
     // Fabrika Çevresi ve Zemin
     this.load.image('factory_floor', 'assets/factory_floor.png');
+    this.load.image('factory_backdrop', 'assets/factory_backdrop.png');
     this.load.image('conveyor_belt', 'assets/conveyor_belt.png');
     this.load.image('factory_intake', 'assets/factory_intake.png');
     this.load.image('shipping_crate', 'assets/shipping_crate.png');
@@ -361,6 +364,18 @@ export class GameScene extends Phaser.Scene {
     this.milestones = new MilestoneManager();
     this.logistics = new LogisticsNetwork(this.gridMap);
     this.productionEngine = new ProductionEngine(this.gridMap, this.logistics);
+
+    /* Fabrikanın çevresi: boş lacivert yerine hücre ızgarasıyla hizalı teknik çizim zemini.
+       Kameranın gezebildiği her yeri kaplayacak kadar büyüktür ve 64 piksele hizalıdır. */
+    this.add
+      .tileSprite(
+        (MAX_FACTORY_WIDTH * 32) / 2,
+        (MAX_FACTORY_HEIGHT * 32) / 2,
+        FACTORY_BACKDROP_SIZE,
+        FACTORY_BACKDROP_SIZE,
+        'factory_backdrop',
+      )
+      .setDepth(0);
 
     /* 2D Fabrika Zemin ve Render Katmanları */
     this.gridView = new GridView(this, this.gridMap, this.factoryEconomy);

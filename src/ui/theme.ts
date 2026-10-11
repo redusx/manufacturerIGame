@@ -6,19 +6,19 @@
 
 export const PALETTE = {
   // Deep Backgrounds
-  bgDeep: 0x070913,
-  bgDeepHex: '#070913',
-  panelBg: 0x0e1220,
-  panelBgHex: '#0e1220',
-  cardBg: 0x141a2e,
-  cardBgHex: '#141a2e',
+  bgDeep: 0x0a1330,
+  bgDeepHex: '#0a1330',
+  panelBg: 0x14244a,
+  panelBgHex: '#14244a',
+  cardBg: 0x1a2d58,
+  cardBgHex: '#1a2d58',
   modalOverlay: 0x070913,
 
   // Borders & Bevels
-  borderDark: 0x242f4c,
-  borderDarkHex: '#242f4c',
-  borderHighlight: 0x3d4e7a,
-  borderHighlightHex: '#3d4e7a',
+  borderDark: 0x2b4380,
+  borderDarkHex: '#2b4380',
+  borderHighlight: 0x4a6bbd,
+  borderHighlightHex: '#4a6bbd',
   borderLight: 0x4f649c,
   borderLightHex: '#4f649c',
 
@@ -204,6 +204,10 @@ export const UI_TEXTURES: ReadonlyArray<{ key: string; path: string }> = [
   { key: 'ui2_px', path: 'assets/ui/px.png' },
   { key: 'ui2_scroll_thumb', path: 'assets/ui/scroll_thumb.png' },
   { key: 'ui2_pip', path: 'assets/ui/pip.png' },
+  // Tema dokuları (tools/generate_theme_assets.py): çubuklar ve panellerin ince ızgarası
+  { key: 'ui2_bar_bg', path: 'assets/ui/bar_bg.png' },
+  { key: 'ui2_dock_bg', path: 'assets/ui/dock_bg.png' },
+  { key: 'ui2_pattern', path: 'assets/ui/pattern.png' },
 ];
 
 /** UI 2.0 ikon dokusunun anahtarı */
