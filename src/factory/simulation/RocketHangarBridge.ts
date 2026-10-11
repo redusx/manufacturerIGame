@@ -633,14 +633,17 @@ export class RocketHangarBridge {
     return this.launchPadLevel;
   }
 
-  /** Rampanın sıradaki seviyesinin nakit bedeli; son seviyedeyse null */
-  getLaunchPadUpgradeCost(): number | null {
-    return getLaunchPadUpgradeCost(this.launchPadLevel);
+  /**
+   * Rampanın sıradaki seviyesinin nakit bedeli; son seviyedeyse null.
+   * @param discount Bedelden düşülecek oran (reklam indirimi)
+   */
+  getLaunchPadUpgradeCost(discount = 0): number | null {
+    return getLaunchPadUpgradeCost(this.launchPadLevel, discount);
   }
 
   /** Rampayı bir seviye yükseltir; para yetmezse veya son seviyedeyse false döner */
-  upgradeLaunchPad(economy: FactoryEconomy): boolean {
-    const cost = this.getLaunchPadUpgradeCost();
+  upgradeLaunchPad(economy: FactoryEconomy, discount = 0): boolean {
+    const cost = this.getLaunchPadUpgradeCost(discount);
     if (cost === null || !economy.spendMoney(cost)) return false;
     this.launchPadLevel += 1;
     return true;

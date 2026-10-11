@@ -34,6 +34,7 @@ import {
   getGoodZoneWidth,
   getPerfectZoneWidth,
   launchMarkerPosition,
+  launchPadTextureKey,
   type LaunchResult,
 } from '../flight/LaunchPad.ts';
 import {
@@ -288,8 +289,10 @@ export class FlightScene extends Phaser.Scene {
     if (this.textures.exists('launch_platform')) {
       this.launchPlatform = this.add.image(rampX, rampY, 'launch_platform').setOrigin(0.5, 1).setDepth(8).setScale(1.7);
     }
-    if (this.textures.exists('launch_pad')) {
-      this.launchGantry = this.add.image(rampX - 35, rampY - 5, 'launch_pad').setOrigin(0.5, 1).setDepth(9).setScale(1.7);
+    // Rampa kulesi: oyuncunun rampa seviyesindeki görünümü
+    const padKey = launchPadTextureKey(this.bridge?.getLaunchPadLevel() ?? 1);
+    if (this.textures.exists(padKey)) {
+      this.launchGantry = this.add.image(rampX - 35, rampY - 5, padKey).setOrigin(0.5, 1).setDepth(9).setScale(1.7);
     }
 
     // 4. Roket Nesnesi (Başlangıçta rampada dikeyden 30° açılı: -60° yükseliş açısı)

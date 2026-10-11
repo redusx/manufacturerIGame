@@ -22,6 +22,7 @@ const PLACEMENT_LABELS: Readonly<Record<AdPlacementId, string>> = {
   income_boost: 'Gelir takviyesi',
   parts_cargo: 'Parça kargosu',
   plot_discount: 'Parsel indirimi',
+  pad_discount: 'Rampa indirimi',
 };
 
 export interface MockAdOptions {

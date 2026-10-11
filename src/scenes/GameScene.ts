@@ -31,6 +31,7 @@ import { formatAdCooldown, type AdPlacementId } from '../ads/AdService.ts';
 import { BOOST_GRANT_SECONDS, BOOST_MULTIPLIER, IncomeBoost } from '../economy/IncomeBoost.ts';
 import { RangeLadder } from '../flight/RangeLadder.ts';
 import { GROUND_THEMES, groundTextureKey, groundTexturePath } from '../flight/GroundThemes.ts';
+import { LAUNCH_PAD_AD_DISCOUNT, MAX_LAUNCH_PAD_LEVEL, launchPadTextureKey } from '../flight/LaunchPad.ts';
 import { OfflineEarningsModal } from '../ui/OfflineEarningsModal';
 import { calculateOfflineReport } from '../ui/OfflineEarningsHelper.ts';
 import { UiLayer } from '../ui/system/UiLayer.ts';
@@ -205,8 +206,10 @@ export class GameScene extends Phaser.Scene {
     this.load.image('obstacle_drone', 'assets/obstacle_drone.png');
     this.load.image('obstacle_debris', 'assets/obstacle_debris.png');
 
-    // Rampa ve Çevre
-    this.load.image('launch_pad', 'assets/launch_pad.png');
+    // Rampa: her seviyenin kendi görünümü vardır (tools/generate_launch_pad.py)
+    for (let level = 1; level <= MAX_LAUNCH_PAD_LEVEL; level++) {
+      this.load.image(launchPadTextureKey(level), `assets/launch_pads/launch_pad_${level}.png`);
+    }
     this.load.image('cloud_pixel', 'assets/cloud_pixel.png');
     this.load.image('star_pixel', 'assets/star_pixel.png');
 
@@ -704,11 +707,10 @@ export class GameScene extends Phaser.Scene {
         cooldownRemaining: () => ads.cooldownRemaining('parts_cargo'),
         onRequest: (category) => void this.requestPartsCargo(category),
       },
-      (level) => {
-        sound.playUpgrade();
-        fx.emitSparkles(this, this.ui.width / 2, this.ui.height / 2, 20, PALETTE.rocketCyan, 'ui');
-        this.notify(`Fırlatma Rampası Seviye ${level} oldu: mükemmel bölge genişledi`, 'success');
-        this.saveGame();
+      (level) => this.onLaunchPadUpgraded(level),
+      {
+        isOffered: () => ads.isOffered('pad_discount'),
+        onRequest: () => void this.requestPadDiscount(),
       },
     );
 
@@ -1207,6 +1209,23 @@ export class GameScene extends Phaser.Scene {
     this.saveGame();
     const list = granted.map((part) => `${part.count} ${part.itemName}`).join(', ');
     this.notify(`Parça kargosu geldi: ${list}`, 'reward');
+  }
+
+  private onLaunchPadUpgraded(level: number): void {
+    sound.playUpgrade();
+    fx.emitSparkles(this, this.ui.width / 2, this.ui.height / 2, 20, PALETTE.rocketCyan, 'ui');
+    this.notify(`Fırlatma Rampası Seviye ${level} oldu: mükemmel bölge genişledi`, 'success');
+    this.saveGame();
+  }
+
+  /** R6: reklam izlenirse rampanın sıradaki seviyesi indirimli bedelle alınır */
+  private async requestPadDiscount(): Promise<void> {
+    const cost = this.hangarBridge.getLaunchPadUpgradeCost(LAUNCH_PAD_AD_DISCOUNT);
+    if (cost === null || !this.factoryEconomy.canAfford(cost)) return;
+    if (!(await this.watchAd('pad_discount'))) return;
+    if (this.hangarBridge.upgradeLaunchPad(this.factoryEconomy, LAUNCH_PAD_AD_DISCOUNT)) {
+      this.onLaunchPadUpgraded(this.hangarBridge.getLaunchPadLevel());
+    }
   }
 
   /** Takviyenin nakit bedeli (takviyesiz gelirden hesaplanır) */

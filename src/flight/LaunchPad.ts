@@ -10,16 +10,35 @@
  * ====================================================================== */
 
 /** Rampanın ulaşabileceği en yüksek seviye */
-export const MAX_LAUNCH_PAD_LEVEL = 5;
+export const MAX_LAUNCH_PAD_LEVEL = 10;
 
 /**
  * Rampayı `seviye`ye çıkarmanın nakit bedeli (dizin = hedef seviye). Rampa roket
- * modülü değildir: parça istemez ve roket sınıfını etkilemez.
+ * modülü değildir: parça istemez ve roket sınıfını etkilemez. Bedel her seviyede
+ * 4–7 katına çıkar; son seviyeler oyunun en uzak hedefleridir.
  */
-const LAUNCH_PAD_UPGRADE_COSTS: readonly number[] = [0, 0, 1500, 12000, 90000, 600000];
+const LAUNCH_PAD_UPGRADE_COSTS: readonly number[] = [
+  0,
+  0,
+  10_000,
+  60_000,
+  400_000,
+  2_500_000,
+  15_000_000,
+  90_000_000,
+  500_000_000,
+  2_500_000_000,
+  10_000_000_000,
+];
 
-/** Mükemmel bölgenin çubuğa oranı (dizin = rampa seviyesi) */
-const PERFECT_ZONE_WIDTHS: readonly number[] = [0, 0.08, 0.12, 0.16, 0.21, 0.27];
+/**
+ * Mükemmel bölgenin çubuğa oranı (dizin = rampa seviyesi). Son seviyede bölge çubuğun
+ * tamamını kaplar: her fırlatma mükemmeldir.
+ */
+const PERFECT_ZONE_WIDTHS: readonly number[] = [0, 0.08, 0.12, 0.17, 0.23, 0.3, 0.38, 0.48, 0.6, 0.78, 1];
+
+/** Reklam izleyerek alınan rampa yükseltmesindeki indirim oranı */
+export const LAUNCH_PAD_AD_DISCOUNT = 0.2;
 
 /** İmlecin çubuğu bir uçtan diğerine geçme süresi (saniye) */
 export const LAUNCH_MARKER_SWEEP_SEC = 0.85;
@@ -58,10 +77,19 @@ export function getGoodZoneWidth(level: number): number {
   return perfect + (1 - perfect) * falloff;
 }
 
-/** Sıradaki rampa seviyesinin bedeli; rampa son seviyedeyse null */
-export function getLaunchPadUpgradeCost(level: number): number | null {
+/**
+ * Sıradaki rampa seviyesinin bedeli; rampa son seviyedeyse null.
+ * @param discount Bedelden düşülecek oran (0..1; reklam indirimi)
+ */
+export function getLaunchPadUpgradeCost(level: number, discount = 0): number | null {
   const current = clampLevel(level);
-  return current >= MAX_LAUNCH_PAD_LEVEL ? null : LAUNCH_PAD_UPGRADE_COSTS[current + 1];
+  if (current >= MAX_LAUNCH_PAD_LEVEL) return null;
+  return Math.round(LAUNCH_PAD_UPGRADE_COSTS[current + 1] * (1 - Math.min(1, Math.max(0, discount))));
+}
+
+/** Rampanın o seviyedeki çiziminin doku anahtarı (tools/generate_launch_pad.py) */
+export function launchPadTextureKey(level: number): string {
+  return `launch_pad_${clampLevel(level)}`;
 }
 
 /** İmlecin `timeSec` anındaki konumu (0..1): sabit hızla uçtan uca gidip gelir */

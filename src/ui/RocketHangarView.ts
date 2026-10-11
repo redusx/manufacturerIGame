@@ -29,7 +29,13 @@ import { formatAdCooldown } from '../ads/AdService.ts';
 import type { FactoryEconomy } from '../factory/simulation/FactoryEconomy';
 import { defaultItemRegistry } from '../factory/simulation/ItemRegistry.ts';
 import { RangeLadder } from '../flight/RangeLadder.ts';
-import { MAX_LAUNCH_PAD_LEVEL, PERFECT_LAUNCH_BONUS_SECONDS, getPerfectZoneWidth } from '../flight/LaunchPad.ts';
+import {
+  LAUNCH_PAD_AD_DISCOUNT,
+  MAX_LAUNCH_PAD_LEVEL,
+  PERFECT_LAUNCH_BONUS_SECONDS,
+  getPerfectZoneWidth,
+  launchPadTextureKey,
+} from '../flight/LaunchPad.ts';
 import { formatDistance, formatNumber } from '../utils/format';
 import { SEMANTIC, SPACE, uiIcon } from './theme';
 import { refreshRocketIcon } from './RocketIcon.ts';
@@ -49,6 +55,14 @@ export interface HangarCargoConfig {
   cooldownRemaining: () => number;
   /** Reklamı gösterir ve ödülü verir; pencere sonucu kendisi yeniler */
   onRequest: (category: RocketModuleCategory) => void;
+}
+
+/** Rampa yükseltmesini reklam izleyerek indirimli alma */
+export interface HangarPadDiscountConfig {
+  /** Düğme gösterilsin mi? Reklam sunulamıyorsa hiç çizilmez */
+  isOffered: () => boolean;
+  /** Reklamı gösterir; izlenirse rampayı indirimli bedelle yükseltir */
+  onRequest: () => void;
 }
 
 interface ModuleCardRef {
@@ -80,6 +94,8 @@ export class RocketHangarView extends UiModal {
   private readonly cargo: HangarCargoConfig | null;
   /** Rampa yükseltildi (ses, efekt ve kayıt sahnenin işidir) */
   private readonly onPadUpgraded: (level: number) => void;
+  /** Rampa indirimi (reklam ödülü); verilmezse düğme hiç çizilmez */
+  private readonly padDiscount: HangarPadDiscountConfig | null;
 
   private rocketContainer: Phaser.GameObjects.Container | null = null;
   private launchButton: UiButton | null = null;
@@ -103,6 +119,7 @@ export class RocketHangarView extends UiModal {
     onOpenRanges: () => void = () => undefined,
     cargo: HangarCargoConfig | null = null,
     onPadUpgraded: (level: number) => void = () => undefined,
+    padDiscount: HangarPadDiscountConfig | null = null,
   ) {
     super(layer, { title: 'Roket Hangarı', maxWidth: 760, depth: 205, accent: SEMANTIC.rocket });
     this.economy = economy;
@@ -114,6 +131,7 @@ export class RocketHangarView extends UiModal {
     this.onOpenRanges = onOpenRanges;
     this.cargo = cargo;
     this.onPadUpgraded = onPadUpgraded;
+    this.padDiscount = padDiscount;
     this.confirmDialog = new UiConfirmDialog(layer);
   }
 
@@ -146,7 +164,13 @@ export class RocketHangarView extends UiModal {
     const cargoState = this.cargo ? `${this.cargo.isOffered()}:${this.cargo.cooldownRemaining() > 0}` : '-';
     const collecting = this.hangarBridge.getCollectingModules().join(',');
     const padCost = this.hangarBridge.getLaunchPadUpgradeCost();
-    const pad = `${this.hangarBridge.getLaunchPadLevel()}:${padCost !== null && this.factoryEconomy.canAfford(padCost)}`;
+    const padAdCost = this.hangarBridge.getLaunchPadUpgradeCost(LAUNCH_PAD_AD_DISCOUNT);
+    const pad = [
+      this.hangarBridge.getLaunchPadLevel(),
+      padCost !== null && this.factoryEconomy.canAfford(padCost),
+      padAdCost !== null && this.factoryEconomy.canAfford(padAdCost),
+      this.padDiscount?.isOffered() ?? false,
+    ].join(':');
     return `${modules}#${pad}#${collecting}#${this.hangarBridge.getCargoModule() ?? '-'}#${this.hangarBridge.getLevelCap()}#${cargoState}`;
   }
 
@@ -208,8 +232,9 @@ export class RocketHangarView extends UiModal {
     body.add(createInset(scene, 0, y, width, PREVIEW_HEIGHT));
     const pad = scene.add.container(width / 2, y + PREVIEW_HEIGHT / 2 + 8);
     pad.add(scene.add.image(0, 26, 'launch_platform').setOrigin(0.5).setScale(1.5));
-    if (scene.textures.exists('launch_pad')) {
-      pad.add(scene.add.image(-40, 4, 'launch_pad').setOrigin(0.5, 0.7).setScale(1.5));
+    const padKey = launchPadTextureKey(this.hangarBridge.getLaunchPadLevel());
+    if (scene.textures.exists(padKey)) {
+      pad.add(scene.add.image(-40, 4, padKey).setOrigin(0.5, 0.7).setScale(1.5));
     }
 
     const rocket = scene.add.container(4, 0);
@@ -489,7 +514,8 @@ export class RocketHangarView extends UiModal {
 
   /**
    * Fırlatma rampası: roket modülü değildir (sınıfı etkilemez, parça istemez). Seviyesi
-   * arttıkça fırlatma göstergesindeki mükemmel bölge genişler. Kartın yüksekliğini döner.
+   * arttıkça fırlatma göstergesindeki mükemmel bölge genişler ve rampanın görünümü değişir.
+   * Sıradaki seviye doğrudan ya da reklam izleyerek indirimli alınabilir. Kartın yüksekliğini döner.
    */
   private buildLaunchPadCard(
     body: Phaser.GameObjects.Container,
@@ -506,6 +532,13 @@ export class RocketHangarView extends UiModal {
     const cost = this.hangarBridge.getLaunchPadUpgradeCost();
     const percent = (padLevel: number): number => Math.round(getPerfectZoneWidth(padLevel) * 100);
 
+    // İndirim düğmesi yalnız reklam sunulabiliyorsa çizilir; parası yetmeyen oyuncu da görür
+    const discount = this.padDiscount;
+    const showDiscount = cost !== null && discount !== null && discount.isOffered();
+    const discountedCost = this.hangarBridge.getLaunchPadUpgradeCost(LAUNCH_PAD_AD_DISCOUNT) ?? 0;
+    const adHeight = 40;
+    const buttonsHeight = cost === null ? 0 : buttonHeight + (showDiscount ? SPACE.xs + adHeight : 0);
+
     const textX = SPACE.sm + MODULE_THUMB_WIDTH + SPACE.sm;
     const textRight = stacked || cost === null ? width - SPACE.sm : width - SPACE.sm - buttonWidth - SPACE.sm;
     const card = scene.add.container(x, y);
@@ -515,27 +548,33 @@ export class RocketHangarView extends UiModal {
       .setOrigin(1, 0);
     const name = layer.text(textX, SPACE.sm, '', 'heading');
     UiLayer.fit(name, 'Fırlatma Rampası', textRight - textX - levelLabel.width - SPACE.sm);
-    const stat = layer.text(textX, SPACE.sm + 22, `Mükemmel fırlatma bölgesi: çubuğun %${percent(level)}'i`, 'caption', {
+    const zone =
+      percent(level) >= 100
+        ? 'Her fırlatma mükemmel: yeşil bölge çubuğun tamamı'
+        : `Mükemmel fırlatma bölgesi: çubuğun %${percent(level)}'i`;
+    const stat = layer.text(textX, SPACE.sm + 22, zone, 'caption', {
       color: SEMANTIC.textMuted,
       wrapWidth: textRight - textX,
     });
+    const bonus = `Mükemmel fırlatma uçuş primine ${PERFECT_LAUNCH_BONUS_SECONDS} sn'lik gelir ekler.`;
     const detail = layer.text(
       textX,
       stat.y + stat.height + 4,
-      cost === null
-        ? `Mükemmel fırlatma uçuş primine ${PERFECT_LAUNCH_BONUS_SECONDS} sn'lik gelir ekler.`
-        : `Sonraki seviye: %${percent(level + 1)}. Mükemmel fırlatma uçuş primine ${PERFECT_LAUNCH_BONUS_SECONDS} sn'lik gelir ekler.`,
+      cost === null ? bonus : `Sonraki seviye: %${percent(level + 1)}. ${bonus}`,
       'caption',
       { wrapWidth: textRight - textX },
     );
 
     const textHeight = detail.y + detail.height + (cost === null ? 26 : 0);
-    const cardHeight =
-      Math.max(48 + SPACE.sm * 2, textHeight + SPACE.sm) + (stacked && cost !== null ? buttonHeight + SPACE.sm : 0);
+    const cardHeight = stacked
+      ? Math.max(48 + SPACE.sm * 2, textHeight + SPACE.sm) + (cost !== null ? buttonsHeight + SPACE.sm : 0)
+      : Math.max(48 + SPACE.sm * 2, textHeight + SPACE.sm, buttonsHeight + SPACE.sm * 2);
     card.add(createCard(scene, 0, 0, width, cardHeight));
     card.add(createInset(scene, SPACE.sm, SPACE.sm, MODULE_THUMB_WIDTH, 48));
-    if (scene.textures.exists('launch_pad')) {
-      card.add(scene.add.image(SPACE.sm + MODULE_THUMB_WIDTH / 2, SPACE.sm + 24, 'launch_pad').setOrigin(0.5));
+    // Rampanın o seviyedeki görünümü
+    const padKey = launchPadTextureKey(level);
+    if (scene.textures.exists(padKey)) {
+      card.add(scene.add.image(SPACE.sm + MODULE_THUMB_WIDTH / 2, SPACE.sm + 24, padKey).setOrigin(0.5));
     }
     card.add([name, levelLabel, stat, detail]);
 
@@ -544,28 +583,44 @@ export class RocketHangarView extends UiModal {
         new UiChip(layer, textX, detail.y + detail.height + 6, 'En üst seviye', SEMANTIC.primary, { icon: 'icon_check' }),
       );
     } else {
+      const buttonX = stacked ? width / 2 : width - SPACE.sm - buttonWidth / 2;
+      const top = stacked ? cardHeight - SPACE.sm - buttonsHeight : (cardHeight - buttonsHeight) / 2;
+      const missing = (price: number): string =>
+        `$${formatNumber(Math.ceil(Math.max(0, price - this.factoryEconomy.money)))} daha gerekli.`;
+
       const affordable = this.factoryEconomy.canAfford(cost);
-      const button = new UiButton(
-        layer,
-        stacked ? width / 2 : width - SPACE.sm - buttonWidth / 2,
-        stacked ? cardHeight - SPACE.sm - buttonHeight / 2 : cardHeight / 2,
-        {
-          width: buttonWidth,
-          height: buttonHeight,
-          variant: 'primary',
-          label: 'YÜKSELT',
-          sublabel: `$${formatNumber(cost)}`,
-          textVariant: affordable ? 'button' : 'buttonSmall',
-          silent: true,
-          onClick: () => this.upgradeLaunchPad(),
-          onDisabledClick: () =>
-            this.onDenied(
-              `Yetersiz bakiye: $${formatNumber(Math.ceil(Math.max(0, cost - this.factoryEconomy.money)))} daha gerekli.`,
-            ),
-        },
-      );
+      const button = new UiButton(layer, buttonX, top + buttonHeight / 2, {
+        width: buttonWidth,
+        height: buttonHeight,
+        variant: 'primary',
+        label: 'YÜKSELT',
+        sublabel: `$${formatNumber(cost)}`,
+        textVariant: affordable ? 'button' : 'buttonSmall',
+        silent: true,
+        onClick: () => this.upgradeLaunchPad(),
+        onDisabledClick: () => this.onDenied(`Yetersiz bakiye: ${missing(cost)}`),
+      });
       button.setEnabled(affordable);
       card.add(button);
+
+      if (showDiscount && discount) {
+        // Reklamla indirim: doğrudan satın almanın altında, video simgeli ayrı düğme.
+        // İndirimli bedele para yetiyorsa etkindir; yetmiyorsa görünür ama pasiftir.
+        const discountPercent = Math.round(LAUNCH_PAD_AD_DISCOUNT * 100);
+        const adButton = new UiButton(layer, buttonX, top + buttonHeight + SPACE.xs + adHeight / 2, {
+          width: buttonWidth,
+          height: adHeight,
+          variant: 'gold',
+          icon: uiIcon('video'),
+          label: `%${discountPercent} İNDİRİM`,
+          sublabel: `$${formatNumber(discountedCost)}`,
+          textVariant: 'buttonSmall',
+          onClick: () => discount.onRequest(),
+          onDisabledClick: () => this.onDenied(`Reklamla indirimli bedel için ${missing(discountedCost)}`),
+        });
+        adButton.setEnabled(this.factoryEconomy.canAfford(discountedCost));
+        card.add(adButton);
+      }
     }
 
     body.add(card);
