@@ -272,3 +272,39 @@
   5. **Geçiş reklamı (G1)** `MIDGAME_AD_ENABLED` bayrağının arkasındadır ve **kapalıdır** (K8'de karar verilmedi). Açılırsa: uçuştan fabrikaya dönüşte, o uçuşta ödüllü reklam izlenmediyse ve son reklamın üstünden 180 sn geçtiyse.
 * **Gerekçe:** `M9_PLAN.md` §4.5 ve faz G; CrazyGames reklam gereksinimleri.
 * **Sınır:** Gerçek reklam ağı ve CrazyGames QA aracı bu ortamda denenemedi; `RELEASE_CHECKLIST.md` yayından önce yapılacakları listeler.
+
+### [DEC-035] Hammadde Girişi Sökülebilir
+* **Tarih:** 2026-10-12
+* **Karar:** Hammadde girişleri söküm aracıyla veya kendi penceresindeki "Sök" düğmesiyle sökülebilir (DEC-017'nin "girişler sökülemez" maddesini kaldırır). İade, o hammaddenin **en son kurulan girişinin bedelidir** (`PlacementMath.getIntakeRefund`); böylece söküp yeniden kurmak ne kazandırır ne kaybettirir. Oyunun başında bedelsiz verilen demir girişinin iadesi yoktur; sökülürse yenisi yine bedelsizdir. Sevkiyat sandığı sökülemez, yalnız taşınır.
+* **Gerekçe:** Kullanıcı isteği (2026-10-12): yanlış kurulan veya artık gerekmeyen girişler yer kaplıyordu.
+* **Not:** Artan fiyat (DEC-031) öncesinde sabit fiyattan alınmış girişleri olan kayıtlarda iade ödenenden fazla olabilir; yeniden kurmak aynı tutara mal olduğu için sömürülemez.
+
+### [DEC-036] Roket Parçaları Birden Çok Modül İçin Toplanır
+* **Tarih:** 2026-10-12
+* **Karar:** Tek "hedef modül" (DEC-029) yerine her modülün kendi **TOPLA** düğmesi vardır; açık olan her modülün beklediği parçalar sevkiyattan ayrılıp hangara gider, kapalı olanların ürünleri satılır. Birden çok üretim hattı aynı anda farklı modülleri besleyebilir. Yeni oyunda dördü de açıktır; eski kayıtta tek hedef seçiliyse yalnız o açık gelir. Parça kargosu (reklam, DEC-032 R4) açık ve eksiği olan modüllerden **en düşük seviyelisine** gider ve düğmede adı yazar.
+* **Denge:** Gereken parça adetleri değişmedi; toplanan her parça satılmadığı için bedeli oyuncunun kendi geliridir. Kargo ödülü tek modülle sınırlı kaldığı için büyümedi.
+* **Gerekçe:** Kullanıcı isteği (2026-10-12).
+
+### [DEC-037] Fırlatma Rampası: Yükseltme, Zamanlama Göstergesi, Mükemmel Fırlatma Primi
+* **Tarih:** 2026-10-12
+* **Karar:**
+  1. **Gösterge:** dolup boşalan çubuk yerine bir imleç çubuğun üstünde sabit hızla gidip gelir (uçtan uca 0,85 sn). Ortadaki dar yeşil bölge "mükemmel"dir (güç %100); dışına düşen fırlatmada güç, bölgeden uzaklaştıkça %25'e kadar düşer (%70 ve üstü "iyi").
+  2. **Rampa seviyeleri** (`src/flight/LaunchPad.ts`): 5 seviye, yalnız nakit: 1.500 · 12.000 · 90.000 · 600.000. Mükemmel bölgenin çubuğa oranı %8 → %12 → %16 → %21 → %27. Rampa roket modülü değildir: parça istemez, roket sınıfını etkilemez. Hangarda modül kartlarının altında kendi kartı vardır.
+  3. **Mükemmel fırlatma primi:** uçuş primine fabrikanın **20 saniyelik geliri** eklenir (180 sn sınırının içinde; DEC-011). Raporda ayrı satırdır.
+  4. **Hızlı inşa** (DEC-029) kuralı değişmedi (her parçanın en fazla %25'i, satış değerinin 10 katına); artık neyin kaça alındığını gösteren bir onay penceresi açar.
+* **Dayanak:** Fırlatma gücünün menzile etkisi ölçüldü (`createFlightBody`/`stepFlight` ile): nitroyu basılı tutan oyuncuda %1, düşerken kullanan oyuncuda üst seviyelerde ≈ %7, Sv.1'de ≈ 2 kat. Menzil merdiveni %85 güçle ayarlandığı için (tools/flight_sim.ts) merdiven değişmedi. Rampayı almaya değer kılan, menzil değil primdir.
+* **Varsayım (kullanıcı onayı bekliyor):** bedeller, bölge genişlikleri, imleç hızı ve 20 sn'lik prim başlangıç değerleridir; elde oynanarak ayarlanmalıdır.
+
+### [DEC-038] Eşya Çizimleri ve Gezegen Yüzeyleri
+* **Tarih:** 2026-10-12
+* **Karar:**
+  1. 22 eşyanın her birinin biçimini anlatan kendi 16x16 çizimi vardır (`tools/generate_item_assets.py` → `public/assets/items/`): cevher kaya parçası, toz alçak yığın, külçe yamuk kalıp, levha perçinli sac, bobin, dişli, kart, motor… Aynı biçimdekiler (demir/bakır) renkle ayrılır. Eşyalar artık boyanmış ortak bir halka değildir (`colorTint` kullanılmaz) ve bantta döndürülmez.
+  2. Uçuş zemini yol değildir; bulunulan menzil bölgesinin yüzeyidir (`src/flight/GroundThemes.ts`, `tools/generate_flight_ground.py` → `public/assets/flight/`): çayır (0–500 m) · çöl (500 m–2,5 km) · buzul (2,5–7 km) · Ay (7–14 km) · Mars (14–28 km) · asteroit (28–40 km) · Jüpiter · Satürn · Uranüs · Neptün. Yüzeyler engebelidir (tümsek, kaya, krater, kristal) ama zemin çizgisinin altına inmez; çarpışma seviyesi değişmedi. Bölge değişince doku, zemin görüş alanının dışındayken yenilenir.
+* **Gerekçe:** Kullanıcı isteği (2026-10-12): eşyalar ayırt edilemiyordu, gezegen yüzeyleri birbirinin aynısıydı.
+
+### [DEC-039] Telefonlarda Arayüz Ölçeği
+* **Tarih:** 2026-10-12
+* **Karar:** En küçük arayüz ekranı (DEC-021) **300x480 → 270x440** (dikey) ve **480x300 → 480x250** (yatay) birime indirildi. Böylece telefonlarda tarayıcı çubukları açıkken ve yatay tutuşta "Büyük" (çoğu telefonda "Çok Büyük" de) seçilebilir. Bu boyutlarda: kısa yatay ekranda dikey araç çubuğu yalnız ikon gösterir, hedef şeridi araç çubuğunun altına girmez, fırlatma göstergesi 252 birime daraltıldı, sığmayan düğme etiketi 10 puntoya kadar küçülür. Pencere boyutu, ekran döndükten ve tam ekrana geçildikten sonra kısa aralıklarla yeniden ölçülür; kaçan boyut değişimleri yarım saniyede bir denetlenir. Seçilen tercih saklanır; ekrana sığmadığı durumda sığan en büyük kademe uygulanır.
+* **Kök neden:** eski sınırlar telefonlarda yalnız "Normal"e izin veriyordu: 390x664'lük dikey ekranda "Çok Büyük", 750x342'lik yatay ekranda "Büyük" ve "Çok Büyük" "Normal"le aynı sonucu veriyordu.
+* **Sınır:** iPhone'da Safari tam ekran API'sini desteklemediği için Ayarlar'da "Tam ekran" satırı görünmez. Fiziksel cihazda denenmedi.
+

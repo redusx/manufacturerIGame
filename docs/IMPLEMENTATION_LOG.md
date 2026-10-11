@@ -1327,3 +1327,32 @@ Beklenen donanımla uçuş sonunda gövdenin ortalama %40–60'ı kalıyor; göv
 - Depoya girmeyen ek denetim (scratch): `disabled` ortam ve reklam engelleyicide `canShowAds` false; sağlayıcı + servis ile ödüllü reklam, bekleme süresi, ödüllüden hemen sonra geçiş reklamının atlanması, 181 sn sonra gösterilmesi, `adError`'da ödül ve bekleme verilmemesi.
 
 **Denenmeyenler:** CrazyGames QA aracı ve gerçek reklam ağı; Basic Launch; gerçek reklam engelleyici; geçiş reklamının oyun içi akışı (bayrak kapalı).
+
+### [2026-10-12] — Hata ve Revize Listesi (10 madde)
+
+Kullanıcının oynayarak çıkardığı 10 maddelik liste. Kararlar: DEC-035 … DEC-039.
+
+**Hatalar**
+- **Makine penceresi (madde 2 ve 3, tek kök neden):** Pencere yeniden kurulurken (yükseltme sonrası) `buildBody`, bir önceki kurulumun yok edilmiş "Yükselt" düğmesine `setEnabled` çağırıyordu. Düğmenin durumu değişecekse (yükseltmeden sonra para sıradakine yetmiyorsa) yok edilmiş dokuya erişim istisna atıyor, kurulum yarıda kalıyordu: alt düğmeler (Sök/Taşı/Yükselt) hiç kurulmuyor, kaydırma kırpması uygulanmadığı için alt alanın altında kalan reçete düğmeleri basılabilir kalıyordu (düğmelerin yerine basınca reçete değişiyordu). Para yeniden yetince aynı istisna `update` içinden atılıyor ve Phaser'ın kare döngüsünü durduruyordu (tam donma). Düzeltme: başvuru kurulumun başında sıfırlanır; `UiButton` yok edildikten sonraki çağrıları yok sayar. Ayrıca her yükseltmede bütün makine görsellerinin yeniden kurulması kaldırıldı (seviye rozeti kendini eşitliyor).
+- **Katalog üstünde parlama (madde 7):** HUD'a varan sikkenin kıvılcımı pencerelerin üstündeki katmanda (500) çiziliyordu; artık HUD katmanında (110) kalır.
+- **Arayüz ölçeği (madde 8):** DEC-039.
+
+**Yeni / değişen**
+- Hammadde girişi sökülebilir (madde 1, DEC-035): `GridMap.removeIntake`, `PlacementMath.getIntakeRefund`, `DemolishMath` (`INTAKE` hedefi), giriş penceresinde "Sök".
+- Birden çok modül için parça toplama (madde 4, DEC-036): `RocketHangarBridge` (`collecting`, `getCargoModule`), hangar kartlarında "TOPLA".
+- Fırlatma rampası ve gösterge (madde 5, DEC-037): yeni `src/flight/LaunchPad.ts`; `FlightHud` göstergesi, `FlightScene`, hangarda rampa kartı, raporda "Mükemmel fırlatma" satırı, `FlightReturnHelper` (`launchBonusSeconds`, `launchCash`).
+- Eşya çizimleri (madde 6) ve gezegen yüzeyleri (madde 10), DEC-038: yeni `tools/generate_item_assets.py`, `tools/generate_flight_ground.py`, `src/flight/GroundThemes.ts`.
+- Hızlı inşa (madde 9): kural bilinçlidir (DEC-029) ve değişmedi; onay penceresi eklendi (DEC-037/4).
+
+**Testler:** Yeni test eklenmedi. Davranışı değişen üç test güncellendi (giriş artık sökülebilir): `DemolishMath.test.ts`, `DemolishAndInspectorIntegration.test.ts`, `FullGameLoopIntegration.test.ts`. `npm test` 262/262, `npx tsc --noEmit` temiz, `npm run build` başarılı.
+
+**Tarayıcıda doğrulananlar** (uygulama içi tarayıcı; durumlar betikle kuruldu, düğmelere gerçek tıklamayla basıldı):
+- Makine penceresi: düzeltmeden önce hata yeniden üretildi (tek yükseltmelik parayla yükselt → alt düğmeler 0, istisna); düzeltmeden sonra alt düğmeler 3, art arda 25 yükseltmede hata yok, reçete değişmedi.
+- Giriş: bedelli demir girişi kuruldu ($500), penceresinden söküldü (+$500); başlangıç girişi söküm aracıyla söküldü (iade yok) ve bedelsiz yeniden kuruldu.
+- Hangar: eski kayıttaki tek hedef korunuyor; üç modül açıkken sevkiyata verilen çerçeve/motor/pelet hangara gitti, kapalı modülün mikroçipi satıldı; hızlı inşa onayı döküm gösterdi ve onaylanınca modül yükseldi.
+- Rampa: Sv.2'ye yükseltildi ($1.500); gösterge imleçle çalıştı; yeşil bölgede ateşlenen uçuşta raporda "Mükemmel fırlatma" satırı çıktı, bölge dışında çıkmadı.
+- Yüzeyler: Sv.10 roketle 56,7 km'lik uçuşta doku yedi kez, her seferinde zemin görüş alanının dışındayken değişti; roket Satürn yüzeyine düştü.
+- Arayüz ölçeği: en küçük dikey (270x440) ve yatay (480x250) boyutta ana ekran, katalog, makine penceresi, hangar, ayarlar ve uçuş ekranı; 390x664 ↔ 750x342 döndürmede "Büyük" her iki yönde etkin kaldı.
+
+**Denenmeyenler:** fiziksel telefon (özellikle iOS Safari'de döndürme ve adres çubuğu davranışı); rampanın Sv.3–5 bedelleri ve bölge genişliklerinin elde oynanışı; bütün yüzeylerin oyun içi görünümü (çayır, çöl, Mars ve Satürn oyunda, diğerleri önizleme görselinde görüldü); 3 girdili reçete makinelerinde (çok reçeteli montaj) makine penceresi.
+

@@ -119,7 +119,9 @@ Tüm arayüz ve oyun nesneleri bu merkezi renk ailesini kullanır (`src/ui/theme
 | `machine_welder.png` & `_part` | 48×48 / 24×16 | Kaynak Robotu gövdesi ve döner lazer kafası | Çoklu kaynak ünitesi |
 | `machine_automation.png` & `_part` | 48×48 / 32×16 | Otomasyon Hattı gantrisi ve hareketli taşıyıcı | Siber konveyör köprüsü |
 | `machine_empty_slot.png` | 48×48 piksel | Kilitli veya boş makine montaj yuvası | Boş slot göstergesi |
-| `flight_ground.png` | 64×32 karo | Fırlatma pisti ve zemin asfalt/toprak karosu | Farklı gezegen zeminleri |
+| `flight_ground.png` | 64×32 karo | Eski yol zemini; artık yüklenmiyor (yerini `flight/ground_*.png` aldı) | — |
+| `flight/ground_*.png` (10 yüzey) | 256×64 şerit | Menzil bölgesinin gezegen yüzeyi: çayır, çöl, buzul, Ay, Mars, asteroit, Jüpiter, Satürn, Uranüs, Neptün. Zemin çizgisi 16. satırda; `tools/generate_flight_ground.py` | Yeni bölgeler |
+| `items/<eşya>.png` (22 eşya) | 16×16 piksel | Eşyanın biçimini anlatan çizimi (cevher, toz, külçe, levha, bobin, dişli…); bantta, pencerelerde ve fiyat listesinde. `tools/generate_item_assets.py` | Yeni eşyalar |
 | `launch_platform.png` | 72×40 piksel | Ağır çelik roket fırlatma tablası ve gantry iskelesi | Orbital fırlatma kulesi |
 | `sky_band_space.png` | 64×64 karo | Uzay boşluğu yıldızlı gökyüzü bandı | Nebula ve derin uzay |
 | `ui_panel_hud.png` | 32×32 (9-slice) | Ana kaynak HUD'ı piksel çerçevesi | Üst durum barları |

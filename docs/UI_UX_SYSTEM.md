@@ -66,7 +66,9 @@ Ayarlar → **Arayüz Ölçeği**: Küçük / Normal / Büyük / Çok Büyük. T
 
 - **Normal**, ekranda en az 360x600 (dikey) ya da 800x450 (yatay) birimlik alan görünecek en büyük zoom'dur; bir birim hiçbir zaman bir CSS pikselinden küçük olmaz.
 - Diğer kademeler Normal'in 0,8 / 1,2 / 1,4 katıdır ve 0,5 adımına yuvarlanır.
-- Ölçek, arayüz ekranını 300x480 (dikey) / 480x300 (yatay) birimin altına düşürecek kadar büyüyemez. Bu yüzden küçük telefonlarda "Çok Büyük" bir önceki kademeyle aynı sonucu verir; Ayarlar bu kademeyi kapalı gösterir ve nedenini yazar.
+- Ölçek, arayüz ekranını 270x440 (dikey) / 480x250 (yatay) birimin altına düşürecek kadar büyüyemez (DEC-039; önceki sınırlar 300x480 / 480x300 telefonlarda "Büyük"ü bile engelliyordu). Sığmayan kademe bir öncekiyle aynı sonucu verir; Ayarlar onu kapalı gösterir ve nedenini yazar. Seçilen tercih saklanır: ekran dönünce veya büyüyünce yeniden uygulanır.
+- Aşağıdaki tablo eski sınırlarla ölçülmüştür; 375x812 ve 812x375 satırlarında artık "Büyük" 2,5 ile, "Çok Büyük" yalnız sığdığı yerde kullanılabilir.
+- En küçük boyutlarda: kısa yatay ekranda (yükseklik ≈ 250–340 birim) dikey araç çubuğunun düğmeleri yalnız ikon gösterir; hedef şeridi araç çubuğunun altına girmez.
 
 Ölçülen sonuçlar (cihaz piksel oranı 2; zoom → arayüz ekranı):
 

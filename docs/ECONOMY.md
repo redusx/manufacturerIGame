@@ -53,10 +53,11 @@ Diğerleri: cam blok 3 · çerçeve 4 · plastik 3 (2 pelet) · kart tabanı 4 �
 | Hammadde girişi | Taban: Demir 500 · Bakır 1.000 · Kum 2.500 · Polimer 2.500 (her biri 1 hammadde/sn). Aynı hammaddenin her yeni girişi ×1,7: demir 500 · 850 · 1.440 · 2.460 … 9.'su 34.900 · 13.'sü 291.000 · 17.'si 2,43 M |
 | Parseller | 12x8: 500 · 16x12: 2.500 · 20x16: 10.000 · 24x24: 30.000 · 28x24: 250.000 (7 km izni) · 28x28: 1,5 M (14 km) · 32x28: 6 M (28 km) · 32x32: 25 M (40 km) |
 | Roket modülü | Sv.2–3: nakit (400–3.500) + parça. Sv.4–10: §8 |
-| Hızlı inşa | Her parçanın en fazla %25'i; birim fiyat güncel satış değerinin 10 katı |
+| Hızlı inşa | Her parçanın en fazla %25'i; birim fiyat güncel satış değerinin 10 katı. Onay penceresi neyin kaça alındığını gösterir |
+| Fırlatma rampası | Sv.2–5: 1.500 · 12.000 · 90.000 · 600.000 (yalnız nakit). Mükemmel fırlatma bölgesi: çubuğun %8 · %12 · %16 · %21 · %27'si |
 | Gelir takviyesi (nakit) | Fabrikanın 5 dakikalık takviyesiz geliri (en az $100) → +10 dk |
 
-Söküm iadesi %100'dür.
+Söküm iadesi %100'dür. Hammadde girişi de sökülebilir: iade, o hammaddenin en son kurulan girişinin bedelidir (bedelsiz verilen ilk demir girişinin iadesi yoktur, yenisi yine bedelsizdir).
 
 ## 6. Aşamalar
 
@@ -133,7 +134,7 @@ En değerli iki ürün hammadde başına ≈ $48 getirir; 1 hammadde/sn'lik hat 
 | R1 | Çevrimdışı kazanç penceresi | Kazanç ×2 | — | Normal topla |
 | R2 | Uçuş raporu | Prim ×3 | 3 dk | Normal dön |
 | R3 | Takviye penceresi | +10 dk gelir ×2 | 5 dk | Nakitle al |
-| R4 | Hangar | Hedef modülün eksik parçalarının %15'i | 10 dk | Üret veya hızlı inşa |
+| R4 | Hangar | Parçası toplanan modüllerden en düşük seviyelisinin eksiklerinin %15'i | 10 dk | Üret veya hızlı inşa |
 | R5 | Parsel satın alma onayı | O parselde %15 indirim ($30.000 ve üstü) | Parsel başına 1 | Tam fiyat |
 
 ## 11. Tempo Tahmini (model; ölçüm değildir)
