@@ -13,7 +13,7 @@ import type { MachineDefinition } from '../factory/types.ts';
 import { defaultMachineRegistry } from '../factory/simulation/MachineRegistry.ts';
 import { MACHINE_SPRITE_TILE, machineThumbScale } from '../factory/view/MachineSprites.ts';
 import { defaultRecipeRegistry } from '../factory/simulation/RecipeRegistry.ts';
-import { defaultItemRegistry } from '../factory/simulation/ItemRegistry.ts';
+import { defaultItemRegistry, itemSpriteKey } from '../factory/simulation/ItemRegistry.ts';
 import {
   CONVEYOR_BUILD_COST,
   SPLITTER_BUILD_COST,
@@ -76,6 +76,8 @@ interface CatalogEntry {
   size: string;
   icon: string;
   iconScale: number;
+  /** Küçük resmin üstüne çizilen ikinci ikon (ör. girişin verdiği hammadde) */
+  overlayIcon?: string;
   action: 'build' | 'move' | 'expand';
   item?: PlacementItem;
   plotIndex?: number;
@@ -192,6 +194,7 @@ export class BuildMenuModal extends UiModal {
           size: '1x1',
           icon: uiIcon('intake'),
           iconScale: 3,
+          overlayIcon: itemSpriteKey(itemId),
           action: 'build' as const,
           item: { type: 'INTAKE_NEW' as const, intakeItemId: itemId },
         };
@@ -339,6 +342,15 @@ export class BuildMenuModal extends UiModal {
       .setScale(entry.iconScale);
     if (lockStage !== null) icon.setAlpha(0.45);
     card.add(icon);
+    if (entry.overlayIcon && scene.textures.exists(entry.overlayIcon)) {
+      // Girişin verdiği hammadde: silonun gövdesinin üstünde, yazı yerine ikon
+      const overlay = scene.add
+        .image(boxX + ICON_BOX / 2, boxY + ICON_BOX / 2 - 2, entry.overlayIcon)
+        .setOrigin(0.5)
+        .setScale(2);
+      if (lockStage !== null) overlay.setAlpha(0.45);
+      card.add(overlay);
+    }
     if (entry.size) {
       card.add(
         layer

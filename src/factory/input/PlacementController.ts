@@ -314,6 +314,11 @@ export class PlacementController {
       return;
     }
 
+    // Dokunmatikte hayalet yalnızca dokunuşla (pointerdown) taşınır. Parmağın küçük bir
+    // kayması, özellikle "Onayla" düğmesine basarken, hayaleti parmağın altındaki hücreye
+    // (düğmenin arkasına) sürüklüyor ve onay geçersiz bir yere düşüyordu.
+    if (pointer.wasTouch && !this.beltStroke) return;
+
     const coord = this.coordUnder(pointer);
 
     if (this.beltStroke && pointer.isDown) {

@@ -1386,3 +1386,16 @@ Kullanıcının ikinci listesi. Kararlar: DEC-040 … DEC-043.
 
 **Denenmeyenler:** fiziksel telefon; dokunmatikte basılı tutarak yakınlaştırma; ses seviyesinin kulakla denetimi (yalnız değer ve saklama doğrulandı); öğreticinin baştan sona elde, beklemeli oynanışı (adımlar durum ilerletilerek geçildi); rampanın 4–10. seviyelerinin satın alınması; dokunmatik kontrol şeması içeriği; yeni temanın bütün pencerelerde tek tek görünümü (katalog, makine, ayarlar, uçuş raporu ayrıca çekilmedi).
 
+### [2026-10-12] — Üçüncü Liste (5 madde)
+
+Karar: DEC-044.
+
+- **Mobil yerleştirme hatası (5):** kök neden `PlacementController.handlePointerMove`. Dokunmatikte her parmak hareketi hayaleti parmağın altındaki hücreye taşıyordu; "Onayla" düğmesine basarken parmak birkaç piksel kayınca hayalet düğmenin arkasındaki (çoğunlukla geçersiz) hücreye gidiyor, onay pasifleşiyor ve yerleştirme düşüyordu. Parmak hiç kaymadığında çalışması "bazen oluyor" izlenimini veriyordu. Artık dokunmatikte hayalet yalnızca dokunuşla taşınır.
+- **Giriş ikonları (1), "OUT" (3):** `GridView` ve `BuildMenuModal` (`overlayIcon`).
+- **Aşama hedefleri (2):** `MilestoneManager` ve öğretici metinleri.
+- **Çöp kutusu ikonu (4):** `tools/generate_ui_assets.py`; gövde 9 piksel iç genişlikte, üç çizgi eşit aralıklı.
+
+**Doğrulama:** `npm test` 262/262, `npx tsc --noEmit` temiz. Tarayıcıda telefon boyutunda sentetik dokunma olaylarıyla: eski kodda onay düğmesinde 3 piksellik kayma hayaleti (4,2)'den (6,11)'e taşıdı ve makine kurulmadı; düzeltmeyle aynı senaryo üç farklı hücrede üçünde de kurdu. Giriş ikonları haritada ve katalogda, "OUT"suz sandık ve yeni çöp kutusu ikonu ekranda görüldü.
+
+**Denenmeyenler:** fiziksel telefon; makine taşıma (aynı kod yolu, ayrıca denenmedi); yeni aşama hedefleriyle elde oynanış süresi.
+

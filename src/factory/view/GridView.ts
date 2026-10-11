@@ -19,7 +19,7 @@ import {
 } from '../simulation/FactoryEconomy.ts';
 import { PALETTE, FONT_FAMILY } from '../../ui/theme.ts';
 import { GridCoordinates } from './GridCoordinates.ts';
-import { INTAKE_SHORT_NAMES } from '../input/PlacementMath.ts';
+import { itemSpriteKey } from '../simulation/ItemRegistry.ts';
 import { bindWorldTap, isTap } from '../input/WorldPointer.ts';
 import { SCREEN_LABEL_NAME } from '../../ui/system/UiLayer.ts';
 import { DIRECTION_VECTORS } from '../types.ts';
@@ -389,19 +389,11 @@ export class GridView {
         intakeCont.add(arrow);
       }
 
-      // Giriş oku veya etiket
-      const inText = this.scene.add.text(
-        this.tileSize / 2,
-        this.tileSize / 2,
-        INTAKE_SHORT_NAMES[cell.intakeData?.itemId ?? ''] ?? 'IN',
-        {
-          fontFamily: FONT_FAMILY,
-          fontSize: '9px',
-          color: '#ffffff',
-        },
-      );
-      inText.setOrigin(0.5, 0.5);
-      intakeCont.add(inText);
+      // Verilen hammaddenin kendi çizimi: yazı yerine ikon (dilden bağımsız, taşmaz)
+      const oreKey = itemSpriteKey(cell.intakeData?.itemId ?? '');
+      if (this.scene.textures.exists(oreKey)) {
+        intakeCont.add(this.scene.add.image(this.tileSize / 2, this.tileSize / 2, oreKey).setOrigin(0.5));
+      }
 
       this.fixedNodesContainer.add(intakeCont);
     }
@@ -434,19 +426,6 @@ export class GridView {
         fallbackCrate.setOrigin(0, 0);
         exportCont.add(fallbackCrate);
       }
-
-      const outText = this.scene.add.text(
-        this.tileSize / 2,
-        this.tileSize / 2,
-        'OUT',
-        {
-          fontFamily: FONT_FAMILY,
-          fontSize: '9px',
-          color: '#0b0e17',
-        },
-      );
-      outText.setOrigin(0.5, 0.5);
-      exportCont.add(outText);
 
       this.fixedNodesContainer.add(exportCont);
     }

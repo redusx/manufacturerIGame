@@ -343,3 +343,11 @@
   4. Uçuşta hızın yanında irtifa gösterilir. Katalogda bant, ayırıcı ve birleştiricinin ayrı simgeleri vardır. Hangar düğmesi hangar simgesi, "Uçuşu başlat" düğmesi oyuncunun kendi roketini (modüllerin o anki çizimi) gösterir.
 * **Gerekçe:** Kullanıcı isteği (2026-10-12).
 
+### [DEC-044] İlk Aşamaların Temposu, Giriş İkonları, Dokunmatik Yerleştirme
+* **Tarih:** 2026-10-12
+* **Karar:**
+  1. İlk altı aşamanın adet hedefleri düştü (DEC-019'u günceller): demir tozu 60 → **35**, külçe 30 → **20**, levha 40 → **25**, dişli 40 → **25**. Ciro hedefleri ($50, $600, $2.500) ve ödüller değişmedi.
+  2. Hammadde girişinin üstünde ve katalogdaki küçük resminde ad yerine hammaddenin ikonu çizilir (dilden bağımsız, taşmaz). Sevkiyat sandığındaki "OUT" yazısı kaldırıldı.
+  3. Dokunmatikte yerleştirme hayaleti yalnızca dokunuşla taşınır; parmak sürüklemesi (bant çizimi dışında) hayaleti oynatmaz.
+* **Gerekçe:** Kullanıcı isteği (2026-10-12). Ciro hedeflerine dokunulmadı çünkü istek parça adetleriyle sınırlıydı; 4. ve 6. aşamalar artık adetten çok ciroya bağlı olabilir.
+
