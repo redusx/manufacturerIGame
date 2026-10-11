@@ -35,6 +35,8 @@ export interface ToolbarRect {
 
 const BUTTON_HEIGHT = 52;
 const BUTTON_GAP = 6;
+/** Dikey çubukta düğme bundan kısaysa ikon ve etiket birlikte sığmaz; yalnız ikon gösterilir */
+const ICON_ONLY_BELOW = 40;
 
 export class Toolbar {
   private readonly layer: UiLayer;
@@ -135,7 +137,10 @@ export class Toolbar {
 
       const totalH = count * buttonH + (count - 1) * BUTTON_GAP;
       const startY = top + (available - totalH) / 2 + buttonH / 2;
+      // Çok kısa ekranda (yatay telefon, büyük ölçek) düğmeler ikonla kalır
+      const showLabels = buttonH >= ICON_ONLY_BELOW;
       this.buttons.forEach((button, i) => {
+        button.setLabelVisible(showLabels);
         button.resize(buttonW, buttonH);
         button.setPosition(x + SPACE.sm + buttonW / 2, Math.round(startY + i * (buttonH + BUTTON_GAP)));
       });
@@ -166,6 +171,7 @@ export class Toolbar {
     const startX = m.safe.left + sidePad + (usable - totalW) / 2 + buttonW / 2;
     const centerY = y + SPACE.sm + BUTTON_HEIGHT / 2;
     this.buttons.forEach((button, i) => {
+      button.setLabelVisible(true);
       button.resize(buttonW, BUTTON_HEIGHT);
       button.setPosition(Math.round(startX + i * (buttonW + gap)), centerY);
     });

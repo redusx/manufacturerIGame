@@ -72,7 +72,8 @@ export class FlightHud {
   private readonly meterMarker: Phaser.GameObjects.Container;
   private readonly meterPercent: Phaser.GameObjects.Text;
   private readonly meterPadLabel: Phaser.GameObjects.Text;
-  private static readonly METER_WIDTH = 280;
+  /** En dar ekrana (270 birim) kenar boşluğuyla sığar */
+  private static readonly METER_WIDTH = 252;
   private static readonly METER_HEIGHT = 166;
   private static readonly TRACK_HEIGHT = 22;
 
@@ -202,7 +203,12 @@ export class FlightHud {
     this.nitroLabel.setPosition(0, -9);
     this.nitroHint.setPosition(0, 10);
 
-    this.meter.setPosition(Math.round(m.width / 2), Math.round(m.height * 0.42));
+    // Gösterge ekranın üst yarısında durur; kısa ekranda gövde/yakıt çubuklarının altına iner
+    const meterTop = barsY + 10 + SPACE.sm;
+    this.meter.setPosition(
+      Math.round(m.width / 2),
+      Math.round(Math.max(m.height * 0.42, meterTop + FlightHud.METER_HEIGHT / 2)),
+    );
   }
 
   update(state: FlightHudState): void {

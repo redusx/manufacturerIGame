@@ -84,7 +84,7 @@ export class SettingsPanel extends UiModal {
     y += Math.ceil(UI_SCALE_PRESETS.length / columns) * (ROW_HEIGHT + gap);
 
     const scaleNote = anyClamped
-      ? 'Bu ekran daha büyük ölçeğe sığmıyor; kapalı seçenekler bu yüzden kullanılamaz.'
+      ? 'Kapalı seçenekler bu ekrana sığmıyor. Seçimin saklanır: ekranı döndürünce veya tam ekrana geçince sığan en büyük ölçek kendiliğinden uygulanır.'
       : 'Yazı, düğme ve pencerelerin büyüklüğünü değiştirir. Fabrika görünümü etkilenmez.';
     const note = layer.text(0, y, scaleNote, 'caption', { color: SEMANTIC.textMuted, wrapWidth: width });
     body.add(note);

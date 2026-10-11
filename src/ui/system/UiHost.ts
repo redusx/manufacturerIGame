@@ -18,6 +18,27 @@ import {
 
 export const UI_PREFS_STORAGE_KEY = 'manufacturer_ui_prefs_v1';
 
+/** Yön değişimi ve tam ekran geçişinden sonra pencerenin yeniden ölçüldüğü anlar (ms) */
+const SETTLE_DELAYS_MS = [120, 350, 800] as const;
+/** Kaçan boyut değişimlerine karşı pencere boyutunun denetlenme aralığı (ms) */
+const SIZE_WATCH_INTERVAL_MS = 500;
+
+/** İki ölçü seti aynı yerleşimi mi üretir? (Aynıysa sahneler yeniden yerleştirilmez) */
+function isSameMetrics(a: UiMetrics, b: UiMetrics): boolean {
+  return (
+    a.canvasWidth === b.canvasWidth &&
+    a.canvasHeight === b.canvasHeight &&
+    a.cssWidth === b.cssWidth &&
+    a.cssHeight === b.cssHeight &&
+    a.zoom === b.zoom &&
+    a.preset === b.preset &&
+    a.safe.top === b.safe.top &&
+    a.safe.right === b.safe.right &&
+    a.safe.bottom === b.safe.bottom &&
+    a.safe.left === b.safe.left
+  );
+}
+
 type MetricsListener = (metrics: UiMetrics) => void;
 
 function loadPreset(): UiScalePreset {
@@ -48,6 +69,8 @@ class UiHostImpl {
   private current: UiMetrics = computeUiMetrics({ cssWidth: 360, cssHeight: 640, devicePixelRatio: 1 });
   private listeners = new Set<MetricsListener>();
   private safeAreaProbe: HTMLElement | null = null;
+  /** Tuval en az bir kez boyutlandırıldı mı? */
+  private applied = false;
 
   /** Geçerli ekran ölçüleri */
   get metrics(): UiMetrics {
@@ -65,9 +88,26 @@ class UiHostImpl {
     this.safeAreaProbe = this.createSafeAreaProbe();
 
     const refresh = (): void => this.refresh();
+    // Mobil tarayıcılar ekran döndükten veya tam ekrana geçildikten hemen sonra eski pencere
+    // boyutunu bildirebilir (adres çubuğu sonradan yerleşir). Ölçüm kısa aralıklarla yinelenir;
+    // değişiklik yoksa yineleme hiçbir şey yapmaz.
+    const refreshUntilSettled = (): void => {
+      refresh();
+      for (const delayMs of SETTLE_DELAYS_MS) window.setTimeout(refresh, delayMs);
+    };
     window.addEventListener('resize', refresh);
-    window.addEventListener('orientationchange', refresh);
+    window.addEventListener('orientationchange', refreshUntilSettled);
+    window.screen?.orientation?.addEventListener?.('change', refreshUntilSettled);
+    document.addEventListener('fullscreenchange', refreshUntilSettled);
     window.visualViewport?.addEventListener('resize', refresh);
+
+    // Bazı mobil tarayıcılar boyut değişimini olay göndermeden veya olaydan sonra uygular.
+    // Pencere boyutu ölçülenle uyuşmuyorsa yeniden ölçülür (iki sayı karşılaştırması).
+    window.setInterval(() => {
+      if (window.innerWidth !== this.current.cssWidth || window.innerHeight !== this.current.cssHeight) {
+        this.refresh();
+      }
+    }, SIZE_WATCH_INTERVAL_MS);
 
     this.refresh();
   }
@@ -106,6 +146,14 @@ class UiHostImpl {
       preset: this.preset,
     });
     const previous = this.current;
+    // İlk ölçüm her zaman uygulanır; sonrakiler yalnız bir şey değiştiyse
+    const unchanged =
+      this.applied &&
+      isSameMetrics(previous, next) &&
+      game.scale.width === next.canvasWidth &&
+      game.scale.height === next.canvasHeight;
+    if (unchanged) return;
+    this.applied = true;
     this.current = next;
 
     const canvasChanged =

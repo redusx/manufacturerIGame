@@ -1833,8 +1833,9 @@ export class GameScene extends Phaser.Scene {
       return hudBottom + SPACE.xs;
     }
 
-    // Sığmıyorsa HUD'ın altında tam genişlikte şerit
-    this.objective.layout(fullLeft, hudBottom + SPACE.xs, fullWidth, 'strip');
+    // Sığmıyorsa HUD'ın altında şerit; sağ kenardaki dikey araç çubuğunun üstüne taşmaz
+    const stripWidth = fullWidth - (this.toolbar.isVertical ? this.toolbar.occupied.width : 0);
+    this.objective.layout(fullLeft, hudBottom + SPACE.xs, stripWidth, 'strip');
     return this.objective.bottom + SPACE.xs;
   }
 

@@ -45,7 +45,8 @@ export interface UiButtonConfig {
 /** Bu kadar arayüz biriminden fazla sürüklenen basış tıklama sayılmaz */
 const DRAG_CANCEL_DISTANCE = 10;
 const PRESS_OFFSET = 2;
-const MIN_LABEL_SIZE = 11;
+/** Sığmayan etiket en çok bu puntoya kadar küçülür (ART_DIRECTION §5: 9'un altına inilmez) */
+const MIN_LABEL_SIZE = 10;
 
 export class UiButton extends Phaser.GameObjects.Container implements UiFocusable {
   private readonly layer: UiLayer;
@@ -72,6 +73,8 @@ export class UiButton extends Phaser.GameObjects.Container implements UiFocusabl
   private readonly labelBaseSize: number;
   /** Etiketin kısaltılmamış tam hâli */
   private labelFull = '';
+  /** Etiket gizliyken düğme yalnızca ikonunu gösterir (çok kısa düğmeler) */
+  private labelHidden = false;
 
   constructor(layer: UiLayer, x: number, y: number, config: UiButtonConfig) {
     super(layer.scene, x, y);
@@ -176,6 +179,15 @@ export class UiButton extends Phaser.GameObjects.Container implements UiFocusabl
       this.sublabelText.setText(sublabel);
       this.layoutContent();
     }
+    return this;
+  }
+
+  /** Etiketi gizler veya geri getirir; gizliyken ikon düğmenin ortasına oturur */
+  setLabelVisible(visible: boolean): this {
+    if (!this.scene || this.labelHidden === !visible) return this;
+    this.labelHidden = !visible;
+    this.labelText?.setVisible(visible);
+    this.layoutContent();
     return this;
   }
 
@@ -349,7 +361,7 @@ export class UiButton extends Phaser.GameObjects.Container implements UiFocusabl
     const centerY = -1;
 
     const icon = this.iconImage;
-    const label = this.labelText;
+    const label = this.labelHidden ? null : this.labelText;
     const sub = this.sublabelText;
     const column = this.config.layout === 'column';
 

@@ -95,10 +95,15 @@ const REFERENCE_SIZE = {
   landscape: { width: 800, height: 450 },
 } as const;
 
-/** Düzenlerin kırılmadan çalıştığı en küçük arayüz ekranı; ölçek bunun altına inecek kadar büyüyemez */
+/**
+ * Düzenlerin kırılmadan çalıştığı en küçük arayüz ekranı; ölçek bunun altına inecek kadar
+ * büyüyemez. Değerler telefonlara göre seçildi: tarayıcı çubukları açıkken (kısa görüş alanı)
+ * ve yatay tutuşta da "Büyük" ölçek seçilebilsin (360-412 px genişlikte dikey, 300-340 px
+ * yükseklikte yatay ekran).
+ */
 export const MIN_UI_SIZE = {
-  portrait: { width: 300, height: 480 },
-  landscape: { width: 480, height: 300 },
+  portrait: { width: 270, height: 440 },
+  landscape: { width: 480, height: 250 },
 } as const;
 
 /** Bu yükseklikten kısa yatay ekran "kısa yatay" (yatay telefon) sayılır */
