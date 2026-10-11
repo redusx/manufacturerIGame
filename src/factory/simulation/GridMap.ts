@@ -116,6 +116,15 @@ export class GridMap {
     };
   }
 
+  /** Hammadde girişini kaldırır; hücre boşalır. Giriş yoksa false döner */
+  removeIntake(x: number, y: number): boolean {
+    const cell = this.getCell(x, y);
+    if (!cell || cell.type !== 'INTAKE') return false;
+    cell.type = 'EMPTY';
+    cell.intakeData = undefined;
+    return true;
+  }
+
   /** Sabit ihracat/sevkiyat sandığı yerleştirir */
   setExport(x: number, y: number): void {
     if (!this.isInBounds(x, y)) {

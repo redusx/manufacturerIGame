@@ -272,11 +272,7 @@ export class DemolishTool {
 
   private executeDemolishCurrent(): void {
     if (!this.currentTarget || !this.currentTarget.canDemolish) {
-      if (
-        this.currentTarget &&
-        (this.currentTarget.blockReason === 'PROTECTED_INTAKE' ||
-          this.currentTarget.blockReason === 'PROTECTED_EXPORT')
-      ) {
+      if (this.currentTarget && this.currentTarget.blockReason === 'PROTECTED_EXPORT') {
         this.playErrorShakeEffect();
         if (this.onProtectedClicked) {
           this.onProtectedClicked(this.currentTarget.name);

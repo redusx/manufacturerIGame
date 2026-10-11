@@ -234,7 +234,7 @@ describe('TASK-INT-07: Master Full Game Loop End-to-End Verification Tests', () 
     assert.strictEqual(engine.getMachine('test_crusher'), undefined);
     assert.strictEqual(grid.isCellEmpty(1, 3), true);
 
-    // E. Korunan Terminaller Yıkılamaz
+    // E. Sevkiyat sandığı korunur; hammadde girişi sökülebilir
     const intakeInspect = DemolishMath.inspectTarget({
       grid,
       logistics,
@@ -242,8 +242,8 @@ describe('TASK-INT-07: Master Full Game Loop End-to-End Verification Tests', () 
       economy: factoryEconomy,
       coord: { x: 1, y: 0 },
     });
-    assert.strictEqual(intakeInspect.canDemolish, false);
-    assert.strictEqual(intakeInspect.blockReason, 'PROTECTED_INTAKE');
+    assert.strictEqual(intakeInspect.canDemolish, true);
+    assert.strictEqual(intakeInspect.targetType, 'INTAKE');
 
     const exportInspect = DemolishMath.inspectTarget({
       grid,
@@ -262,7 +262,8 @@ describe('TASK-INT-07: Master Full Game Loop End-to-End Verification Tests', () 
       economy: factoryEconomy,
       coord: { x: 1, y: 0 },
     });
-    assert.strictEqual(intakeDemolish.success, false);
+    assert.strictEqual(intakeDemolish.success, true);
+    assert.strictEqual(grid.isCellEmpty(1, 0), true);
 
     const exportDemolish = DemolishMath.executeDemolish({
       grid,

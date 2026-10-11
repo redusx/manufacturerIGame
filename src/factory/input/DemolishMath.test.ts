@@ -33,10 +33,11 @@ describe('DemolishMath Inspection & Protected Objects', () => {
     assert.equal(rObs.canDemolish, false);
     assert.equal(rObs.blockReason, 'PROTECTED_OBSTACLE');
 
-    // Hammadde Silosu
+    // Hammadde girişi sökülebilir; bedelsiz verilen ilk demir girişinin iadesi yoktur
     const rIntake = DemolishMath.inspectTarget({ grid, logistics, engine, economy, coord: { x: 2, y: 0 } });
-    assert.equal(rIntake.canDemolish, false);
-    assert.equal(rIntake.blockReason, 'PROTECTED_INTAKE');
+    assert.equal(rIntake.canDemolish, true);
+    assert.equal(rIntake.targetType, 'INTAKE');
+    assert.equal(rIntake.refundAmount, 0);
 
     // İhracat Sandığı
     const rExport = DemolishMath.inspectTarget({ grid, logistics, engine, economy, coord: { x: 7, y: 7 } });

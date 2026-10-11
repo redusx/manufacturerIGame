@@ -69,7 +69,7 @@ import { MilestoneManager } from '../factory/progression/MilestoneManager.ts';
 import { PlacementController, type PlacementItem } from '../factory/input/PlacementController.ts';
 import { BuildMenuModal, INTAKE_CARD_PREFIX } from '../ui/BuildMenuModal.ts';
 import { DemolishTool } from '../factory/input/DemolishTool.ts';
-import { DemolishMath } from '../factory/input/DemolishMath.ts';
+import { DemolishMath, type DemolishExecuteResult } from '../factory/input/DemolishMath.ts';
 import { MachineInspectorModal } from '../factory/view/MachineInspectorModal.ts';
 import { TerminalInspectorModal } from '../ui/TerminalInspectorModal.ts';
 import {
@@ -93,6 +93,8 @@ const FLIGHT_CATCH_UP_STEP_SEC = 1 / 30;
 const SPLITTER_MERGER_FEATURE = 'SPLITTER_MERGER';
 /** Dünyadaki yazıların (etiketler) kamera zoom'una göre yeniden üretilme aralığı (ms) */
 const WORLD_TEXT_SYNC_INTERVAL_MS = 200;
+/** HUD'a uçan sikke ve vardığında çıkan kıvılcımın katmanı: HUD'ın (100) üstü, pencerelerin (200+) altı */
+const HUD_FX_DEPTH = 110;
 
 export class GameScene extends Phaser.Scene {
   private economy!: EconomyManager;
@@ -524,9 +526,8 @@ export class GameScene extends Phaser.Scene {
       this.factoryEconomy,
       {
         onUpgrade: (machine, level) => {
-          this.machineRenderer.rebuild();
-          this.machineStatusIndicator.rebuild();
-          this.syncWorldTextResolution();
+          // Seviye rozeti kendini her karede eşitler; bütün makineleri yeniden kurmak
+          // büyük fabrikada art arda yükseltmede takılmaya yol açıyordu.
           sound.playUpgrade();
           fx.emitSparkles(this, this.ui.width / 2, this.ui.height / 2, 16, PALETTE.resourceGold, 'ui');
           this.saveGame();
@@ -579,6 +580,8 @@ export class GameScene extends Phaser.Scene {
             this.machineRenderer.rebuild();
             this.machineStatusIndicator.rebuild();
             this.notify(`${result.name} söküldü (+$${result.refundAmount} iade)`, 'info');
+          } else if (result.targetType === 'INTAKE') {
+            this.onIntakeDemolished(result);
           } else {
             this.conveyorRenderer.refreshAround(result.freedCoords);
           }
@@ -623,6 +626,23 @@ export class GameScene extends Phaser.Scene {
         return defaultItemRegistry.get(cell?.intakeData?.itemId ?? '')?.name;
       },
       getRevenuePerSec: () => this.factoryEconomy.getRevenuePerSec(),
+      getIntakeRefund: (coord) =>
+        PlacementMath.getIntakeRefund(this.gridMap.getCell(coord.x, coord.y)?.intakeData?.itemId ?? '', this.gridMap),
+      onDemolishIntake: (coord) => {
+        const result = DemolishMath.executeDemolish({
+          grid: this.gridMap,
+          logistics: this.logistics,
+          engine: this.productionEngine,
+          economy: this.factoryEconomy,
+          coord,
+        });
+        if (!result.success) return;
+        this.onIntakeDemolished(result);
+        sound.playDemolish();
+        const worldPos = GridCoordinates.gridToWorldCenter(coord, 32);
+        fx.emitSparkles(this, worldPos.x, worldPos.y, 14, PALETTE.dangerRed);
+        this.saveGame();
+      },
     });
 
     /* İnşa Kataloğu */
@@ -1004,7 +1024,7 @@ export class GameScene extends Phaser.Scene {
     const target = this.hud.getResourceTargetPos();
 
     const coinKey = this.textures.exists('coin_gold') ? 'coin_gold' : 'icon_coin';
-    const coin = this.ui.adopt(this.add.sprite(fromX, fromY, coinKey, 0).setDepth(110).setScale(1.5));
+    const coin = this.ui.adopt(this.add.sprite(fromX, fromY, coinKey, 0).setDepth(HUD_FX_DEPTH).setScale(1.5));
     if (this.anims.exists('coin_gold_spin')) {
       coin.play('coin_gold_spin');
     }
@@ -1026,7 +1046,8 @@ export class GameScene extends Phaser.Scene {
       onComplete: () => {
         coin.destroy();
         this.hud.pulse();
-        fx.emitSparkles(this, target.x, target.y, 6, PALETTE.resourceGold, 'ui');
+        // HUD'ın kıvılcımı HUD katmanında kalır; açık pencerenin (katalog) üstüne çıkmaz
+        fx.emitSparkles(this, target.x, target.y, 6, PALETTE.resourceGold, 'ui', HUD_FX_DEPTH);
       },
     });
   }
@@ -1198,6 +1219,19 @@ export class GameScene extends Phaser.Scene {
     this.notify(
       `Gelir takviyesi: ×${BOOST_MULTIPLIER} · ${formatAdCooldown(this.incomeBoost.remaining)}`,
       'reward',
+    );
+  }
+
+  /** Sökülen hammadde girişinin zemindeki izini siler ve iadeyi bildirir */
+  private onIntakeDemolished(result: DemolishExecuteResult): void {
+    this.gridView.refresh();
+    // Girişe bağlı bantların uçları yeniden çizilsin
+    this.conveyorRenderer.refreshAround(result.freedCoords);
+    this.notify(
+      result.refundAmount > 0
+        ? `${result.name} söküldü (+$${formatNumber(result.refundAmount)} iade)`
+        : `${result.name} söküldü`,
+      'info',
     );
   }
 

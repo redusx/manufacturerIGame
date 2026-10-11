@@ -45,12 +45,14 @@ export class PixelParticleManager {
     count = 14,
     color: number = PALETTE.resourceGold,
     space: FxSpace = 'world',
+    /** Varsayılan pencerelerin üstüdür; HUD'a ait kıvılcım pencerelerin altında kalmalıdır */
+    depth = 500,
   ): void {
     const particles = PixelParticleHelper.computeSparkleBurst(x, y, count, color);
 
     for (const p of particles) {
       const size = Math.max(2, Math.round(3 * p.scale));
-      const rect = placeInSpace(scene, scene.add.rectangle(p.x, p.y, size, size, p.color).setDepth(500), space);
+      const rect = placeInSpace(scene, scene.add.rectangle(p.x, p.y, size, size, p.color).setDepth(depth), space);
 
       scene.tweens.add({
         targets: rect,

@@ -157,7 +157,7 @@ describe('TASK-INT-05: Demolish & Machine Inspector Integration Tests', () => {
     assert.strictEqual(grid.isCellEmpty(5, 5), true);
   });
 
-  it('3. Protected nodes protection (INTAKE and EXPORT cannot be demolished)', () => {
+  it('3. Terminals: INTAKE can be demolished (free starter refunds nothing), EXPORT is protected', () => {
     const grid = new GridMap(16, 16);
     const logistics = new LogisticsNetwork(grid);
     const engine = new ProductionEngine(grid, logistics);
@@ -175,10 +175,11 @@ describe('TASK-INT-05: Demolish & Machine Inspector Integration Tests', () => {
       economy,
       coord: { x: 1, y: 0 },
     });
-    assert.strictEqual(intakeInfo.canDemolish, false);
-    assert.strictEqual(intakeInfo.blockReason, 'PROTECTED_INTAKE');
+    assert.strictEqual(intakeInfo.canDemolish, true);
+    assert.strictEqual(intakeInfo.targetType, 'INTAKE');
+    assert.strictEqual(intakeInfo.refundAmount, 0);
 
-    // Try execute demolish on INTAKE
+    // Execute demolish on INTAKE: the cell is freed
     const intakeDem = DemolishMath.executeDemolish({
       grid,
       logistics,
@@ -186,7 +187,8 @@ describe('TASK-INT-05: Demolish & Machine Inspector Integration Tests', () => {
       economy,
       coord: { x: 1, y: 0 },
     });
-    assert.strictEqual(intakeDem.success, false);
+    assert.strictEqual(intakeDem.success, true);
+    assert.strictEqual(grid.isCellEmpty(1, 0), true);
 
     // Try inspect EXPORT
     const exportInfo = DemolishMath.inspectTarget({

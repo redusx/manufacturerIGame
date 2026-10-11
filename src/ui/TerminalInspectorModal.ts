@@ -1,14 +1,14 @@
 /* ======================================================================
  * src/ui/TerminalInspectorModal.ts — Giriş ve sevkiyat penceresi
  *
- * Fabrikanın iki sabit ucunu anlatır: hammadde girişi (ne verir, ne hızla) ve
- * sevkiyat sandığı (ne işe yarar, ne kazandırıyor). İkisi de sökülemez, yalnız
- * taşınır; ana eylem bu yüzden "Taşı"dır.
+ * Fabrikanın iki ucunu anlatır: hammadde girişi (ne verir, ne hızla) ve
+ * sevkiyat sandığı (ne işe yarar, ne kazandırıyor). İkisi de taşınabilir; giriş
+ * ayrıca sökülebilir (son kurulanın bedeli iade edilir), sandık sökülemez.
  * ====================================================================== */
 
 import Phaser from 'phaser';
 import type { GridCoord } from '../factory/types.ts';
-import { formatRate } from '../utils/format.ts';
+import { formatNumber, formatRate } from '../utils/format.ts';
 import { SEMANTIC, SPACE, uiIcon } from './theme.ts';
 import { UiButton } from './system/UiButton.ts';
 import type { UiLayer } from './system/UiLayer.ts';
@@ -25,6 +25,10 @@ export interface TerminalInspectorModalConfig {
   getIntakeItemName?: (coord?: GridCoord) => string | undefined;
   /** Fabrikanın ölçülen saniyelik geliri */
   getRevenuePerSec?: () => number;
+  /** İncelenen giriş sökülürse iade edilecek tutar */
+  getIntakeRefund?: (coord: GridCoord) => number;
+  /** İncelenen girişi söker; verilmezse "Sök" düğmesi çizilmez */
+  onDemolishIntake?: (coord: GridCoord) => void;
 }
 
 export class TerminalInspectorModal extends UiModal {
@@ -120,7 +124,7 @@ export class TerminalInspectorModal extends UiModal {
 
     let y = Math.max(boxH, chipY + 26) + SPACE.md;
     const help = isIntake
-      ? 'Yanına bant döşeyip hammaddeyi makinelere taşı. Daha fazla hammadde için katalogdan yeni giriş kur. Girişler sökülemez, taşınır.'
+      ? 'Okun gösterdiği kenara bant döşeyip hammaddeyi makinelere taşı. Daha fazla hammadde için katalogdan yeni giriş kur. Giriş taşınabilir veya sökülebilir; sökünce son kurduğun girişin bedeli iade edilir.'
       : 'Ürünleri bantla buraya getir; her ürün değeri kadar para kazandırır. Roketin beklediği parçalar satılmaz, hangara gider.';
     const helpText = layer.text(0, y, help, 'body', { color: SEMANTIC.textMuted, wrapWidth: width });
     body.add(helpText);
@@ -137,9 +141,35 @@ export class TerminalInspectorModal extends UiModal {
     const height = 48;
     const showCatalog = type === 'INTAKE' && this.callbacks.onOpenCatalog !== undefined;
     const gap = SPACE.sm;
-    const buttonWidth = showCatalog ? (width - gap) / 2 : width;
 
-    this.relocateButton = new UiButton(this.layer, buttonWidth / 2, height / 2, {
+    // Sök düğmesi makine penceresindeki gibi solda ve kırmızıdır
+    const coord = this.shownCoord;
+    const onDemolish = this.callbacks.onDemolishIntake;
+    let left = 0;
+    if (type === 'INTAKE' && coord && onDemolish) {
+      const demolishWidth = Math.max(84, Math.round(width * 0.27));
+      const refund = this.callbacks.getIntakeRefund?.(coord) ?? 0;
+      footer.add(
+        new UiButton(this.layer, demolishWidth / 2, height / 2, {
+          width: demolishWidth,
+          height,
+          variant: 'danger',
+          label: 'SÖK',
+          sublabel: refund > 0 ? `+$${formatNumber(refund)} iade` : 'İade yok',
+          silent: true,
+          onClick: () => {
+            this.close();
+            onDemolish(coord);
+          },
+        }),
+      );
+      left = demolishWidth + gap;
+    }
+
+    const remaining = width - left;
+    const buttonWidth = showCatalog ? (remaining - gap) / 2 : remaining;
+
+    this.relocateButton = new UiButton(this.layer, left + buttonWidth / 2, height / 2, {
       width: buttonWidth,
       height,
       variant: 'primary',
@@ -150,7 +180,7 @@ export class TerminalInspectorModal extends UiModal {
     footer.add(this.relocateButton);
 
     if (showCatalog) {
-      const catalogButton = new UiButton(this.layer, buttonWidth + gap + buttonWidth / 2, height / 2, {
+      const catalogButton = new UiButton(this.layer, left + buttonWidth + gap + buttonWidth / 2, height / 2, {
         width: buttonWidth,
         height,
         variant: 'secondary',

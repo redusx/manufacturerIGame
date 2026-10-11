@@ -2,7 +2,7 @@
  * src/factory/input/DemolishMath.ts — Yıkım ve Taşıma Matematik Çekirdeği
  *
  * Fabrika zeminindeki makineleri, konveyör bantlarını, Splitter ve Merger
- * ünitelerini %100 tam sermaye iadesiyle (DEC-007) yıkma, hedef denetimi,
+ * ünitelerini ve hammadde girişlerini %100 tam sermaye iadesiyle (DEC-007) yıkma, hedef denetimi,
  * çok hücreli ayak izi vurgulama ve toplu alan yıkım hesaplarını yürüten
  * saf TypeScript modülü.
  *
@@ -14,6 +14,7 @@ import { GridMap } from '../simulation/GridMap.ts';
 import { LogisticsNetwork } from '../simulation/LogisticsNetwork.ts';
 import { ProductionEngine } from '../simulation/ProductionEngine.ts';
 import { FactoryEconomy } from '../simulation/FactoryEconomy.ts';
+import { defaultItemRegistry } from '../simulation/ItemRegistry.ts';
 import {
   CONVEYOR_BUILD_COST,
   SPLITTER_BUILD_COST,
@@ -26,12 +27,12 @@ export type DemolishTargetType =
   | 'CONVEYOR'
   | 'SPLITTER'
   | 'MERGER'
+  | 'INTAKE'
   | 'NONE';
 
 export type DemolishBlockReason =
   | 'EMPTY'
   | 'PROTECTED_OBSTACLE'
-  | 'PROTECTED_INTAKE'
   | 'PROTECTED_EXPORT'
   | 'OUT_OF_BOUNDS';
 
@@ -113,14 +114,15 @@ export class DemolishMath {
       };
     }
 
+    // Hammadde girişi sökülebilir; iadesi en son kurulan girişin bedelidir
     if (cell.type === 'INTAKE') {
+      const itemId = cell.intakeData?.itemId ?? '';
       return {
-        canDemolish: false,
-        targetType: 'NONE',
-        name: 'Hammadde Giriş Silosu',
-        refundAmount: 0,
+        canDemolish: true,
+        targetType: 'INTAKE',
+        name: `${defaultItemRegistry.get(itemId)?.name ?? 'Hammadde'} Girişi`,
+        refundAmount: PlacementMath.getIntakeRefund(itemId, grid),
         occupiedCoords: [coord],
-        blockReason: 'PROTECTED_INTAKE',
       };
     }
 
@@ -238,7 +240,20 @@ export class DemolishMath {
       };
     }
 
-    const { logistics, engine, economy, coord } = params;
+    const { grid, logistics, engine, economy, coord } = params;
+
+    // 0. Hammadde Girişi
+    if (info.targetType === 'INTAKE') {
+      grid.removeIntake(coord.x, coord.y);
+      if (info.refundAmount > 0) economy.addMoney(info.refundAmount, 'REFUND');
+      return {
+        success: true,
+        targetType: 'INTAKE',
+        name: info.name,
+        refundAmount: info.refundAmount,
+        freedCoords: [coord],
+      };
+    }
 
     // 1. Makine Yıkımı
     if (info.targetType === 'MACHINE' && info.instanceId && info.level !== undefined) {

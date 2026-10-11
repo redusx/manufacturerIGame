@@ -298,12 +298,28 @@ export class PlacementMath {
     return this.getIntakeCostForCount(intakeItemId, owned);
   }
 
-  /** Bu hammaddeden `ownedCount` giriş kuruluyken sıradaki girişin bedeli */
+  /**
+   * Bu hammaddeden `ownedCount` giriş kuruluyken sıradaki girişin bedeli. Bedelsiz
+   * verilen giriş (başlangıçtaki demir) sökülmüşse yenisi yine bedelsizdir.
+   */
   static getIntakeCostForCount(intakeItemId: string, ownedCount: number): number {
     const base = INTAKE_BUILD_COSTS[intakeItemId];
     if (base === undefined) return Infinity;
-    const paid = Math.max(0, ownedCount - (FREE_INTAKE_COUNTS[intakeItemId] ?? 0));
-    return roundCost(base * Math.pow(INTAKE_COST_GROWTH, paid));
+    const free = FREE_INTAKE_COUNTS[intakeItemId] ?? 0;
+    if (ownedCount < free) return 0;
+    return roundCost(base * Math.pow(INTAKE_COST_GROWTH, ownedCount - free));
+  }
+
+  /**
+   * Bu hammaddenin bir girişi sökülünce iade edilen tutar: en son kurulan girişin
+   * bedeli. Böylece söküp yeniden kurmak ne kazandırır ne kaybettirir; bedelsiz
+   * verilen girişin iadesi yoktur.
+   */
+  static getIntakeRefund(intakeItemId: string, grid: GridMap): number {
+    const owned = grid.getIntakeCells().filter((cell) => cell.intakeData?.itemId === intakeItemId).length;
+    if (owned <= 0) return 0;
+    const refund = this.getIntakeCostForCount(intakeItemId, owned - 1);
+    return Number.isFinite(refund) ? refund : 0;
   }
 
   /**
