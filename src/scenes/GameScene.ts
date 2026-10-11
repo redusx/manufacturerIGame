@@ -40,6 +40,9 @@ import { UiConfirmDialog } from '../ui/system/UiConfirmDialog.ts';
 import { RotationPreview, type RotationPreviewSubject } from '../ui/RotationPreview.ts';
 import { BeltStepper } from '../ui/BeltStepper.ts';
 import { ZoomControls } from '../ui/ZoomControls.ts';
+import { ControlsModal } from '../ui/ControlsModal.ts';
+import { TutorialCoach, type CoachRect } from '../ui/TutorialCoach.ts';
+import { TutorialGuide, type TutorialContext, type TutorialTarget } from '../tutorial/TutorialGuide.ts';
 import { DIRECTION_VECTORS, type Direction, type GridCoord } from '../factory/types.ts';
 import { ItemPriceModal, MachineInfoModal } from '../ui/CatalogInfoModals.ts';
 import { MACHINE_SPRITE_SHEETS, PORT_ARROW_IMAGES } from '../factory/view/MachineSprites.ts';
@@ -96,6 +99,8 @@ const FLIGHT_CATCH_UP_STEP_SEC = 1 / 30;
 const SPLITTER_MERGER_FEATURE = 'SPLITTER_MERGER';
 /** Dünyadaki yazıların (etiketler) kamera zoom'una göre yeniden üretilme aralığı (ms) */
 const WORLD_TEXT_SYNC_INTERVAL_MS = 200;
+/** Öğretici kutusunun fabrikayı örtmemesi için sığdırmada altta bırakılan ek şerit (arayüz birimi) */
+const TUTORIAL_FIT_INSET = 48;
 /** HUD'a uçan sikke ve vardığında çıkan kıvılcımın katmanı: HUD'ın (100) üstü, pencerelerin (200+) altı */
 const HUD_FX_DEPTH = 110;
 
@@ -122,6 +127,16 @@ export class GameScene extends Phaser.Scene {
   private lastRocketClass = 1;
   private beltStepper!: BeltStepper;
   private zoomControls!: ZoomControls;
+  private controlsModal!: ControlsModal;
+  /** Öğretici: oyunun başından ilk uçuşa kadar sıradaki adımı gösterir */
+  private tutorial = new TutorialGuide();
+  private tutorialCoach!: TutorialCoach;
+  /** Bu oturumda "Üret"e basılma sayısı (öğreticinin ilk adımı) */
+  private manualClicks = 0;
+  /** Öğretici kutusunun son yerleşimi; değişmedikçe yeniden yerleştirilmez */
+  private coachLayoutKey = '';
+  /** Fabrika görüş alanının arayüzdeki yeri (öğretici kutusu buna göre konumlanır) */
+  private factoryView = { left: 0, right: 0, bottom: 0 };
   /** Dokunmatikte son döşenen bant; adım adım döşeme düğmeleri buna göre konumlanır */
   private beltStep: { coord: GridCoord; direction: Direction } | null = null;
   /** Son uygulanan kamera görüş alanı; değişmedikçe kamera yeniden sığdırılmaz */
@@ -288,6 +303,9 @@ export class GameScene extends Phaser.Scene {
   create(): void {
     // Sahne yeniden başlarken (uçuş dönüşü, kayıt sıfırlama) kamera yeniden kurulur
     this.lastViewportKey = '';
+    this.tutorial = new TutorialGuide();
+    this.manualClicks = 0;
+    this.coachLayoutKey = '';
     this.economy = new EconomyManager();
 
     /* Arayüz katmanı: bundan sonra sahneye eklenen her nesne varsayılan olarak
@@ -805,7 +823,39 @@ export class GameScene extends Phaser.Scene {
     this.confirmDialog = new UiConfirmDialog(this.ui);
 
     /* Ayarlar */
-    this.settingsPanel = new SettingsPanel(this.ui, () => this.resetGame());
+    this.controlsModal = new ControlsModal(this.ui);
+    this.settingsPanel = new SettingsPanel(this.ui, () => this.resetGame(), {
+      onShowControls: () => this.controlsModal.open(),
+      isTutorialActive: () => !this.tutorial.isDone,
+      onToggleTutorial: () => {
+        if (this.tutorial.isDone) {
+          this.tutorial.restart();
+        } else {
+          this.tutorial.skip();
+        }
+        this.saveGame();
+        this.layoutAll();
+      },
+    });
+
+    /* Öğretici kutusu */
+    this.tutorialCoach = new TutorialCoach(this.ui, {
+      onConfirm: (stepId) => {
+        this.tutorial.confirm(stepId);
+        this.saveGame();
+      },
+      onSkip: () =>
+        this.confirmDialog.ask({
+          title: 'Öğretici kapatılsın mı?',
+          message: 'İstediğin zaman Ayarlar > Öğretici ile yeniden başlatabilirsin.',
+          confirmLabel: 'KAPAT',
+          onConfirm: () => {
+            this.tutorial.skip();
+            this.saveGame();
+            this.layoutAll();
+          },
+        }),
+    });
 
     /* Çevrimdışı İlerleme Penceresi */
     this.offlineEarningsModal = new OfflineEarningsModal(this.ui, {
@@ -873,8 +923,13 @@ export class GameScene extends Phaser.Scene {
 
     /* Kayıt yükle */
     this.loadGame();
+    // Öğreticinin durumu kayıttan geldi: kutusuna ayrılan şerit buna göre yeniden hesaplanır
+    this.layoutAll();
 
     this.lastRocketClass = this.hangarBridge.getRocketClass();
+
+    /* Masaüstünde ilk açılışta kontrol şeması gösterilir (sonra Ayarlar > Kontroller) */
+    this.time.delayedCall(250, () => this.controlsModal.openOnFirstVisit());
 
     /* İlk UI güncellemesi */
     this.refreshUI();
@@ -1018,6 +1073,7 @@ export class GameScene extends Phaser.Scene {
     sound.initContext();
     sound.playCoin();
     const gained = this.economy.produceByClick();
+    this.manualClicks += 1;
 
     this.toolbar.pulseProduce();
     this.hud.pulse();
@@ -1337,7 +1393,11 @@ export class GameScene extends Phaser.Scene {
       this.hangarBridge.getFlightStats().bestDistance,
       this.incomeBoost.isActive ? `×${BOOST_MULTIPLIER} ${formatAdCooldown(this.incomeBoost.remaining)}` : '',
       // Takviye reklamla artırılabiliyorsa gelir rozetinin yanında küçük bir düğme belirir
-      this.incomeBoost.canAdd() && ads.isOffered('income_boost') && ads.cooldownRemaining('income_boost') === 0,
+      this.tutorial.isDone &&
+        revenuePerSec > 0 &&
+        this.incomeBoost.canAdd() &&
+        ads.isOffered('income_boost') &&
+        ads.cooldownRemaining('income_boost') === 0,
     );
 
     /* Hedef kartı: tamamlanan aşamanın ödülünü ver, sonra sıradaki görevi göster */
@@ -1374,6 +1434,98 @@ export class GameScene extends Phaser.Scene {
 
     /* Sıradaki parsel rozeti: para yetince alınabilir görünüme geçsin */
     this.gridView.syncLockedPlotAffordability();
+
+    this.syncTutorial();
+  }
+
+  /* ================================================================
+   * ÖĞRETİCİ
+   * ================================================================ */
+
+  private buildTutorialContext(): TutorialContext {
+    const machines = this.productionEngine.getAllMachines();
+    const first = machines[0];
+    return {
+      completedStages: this.milestones.completedCount,
+      manualClicks: this.manualClicks,
+      money: this.factoryEconomy.money,
+      firstUpgradeCost: first
+        ? this.factoryEconomy.getMachineUpgradeCost(
+            first.def.baseCost,
+            this.productionEngine.getMachineLevel(first.instanceId),
+          )
+        : 0,
+      hasUpgradedMachine: machines.some((machine) => this.productionEngine.getMachineLevel(machine.instanceId) > 1),
+      hasMachine: (defId) => machines.some((machine) => machine.defId === defId),
+      exported: (itemId) => this.milestones.getExportedCount(itemId),
+      isPlotUnlocked: (plotIndex) => this.factoryEconomy.isPlotUnlocked(plotIndex),
+      hangarUnlocked: this.milestones.isFeatureUnlocked(HANGAR_FEATURE),
+      totalFlights: this.hangarBridge.getFlightStats().totalFlights,
+    };
+  }
+
+  /** Öğreticinin geçerli adımını ve vurgusunu ekrana yansıtır; pencere açıkken gizler */
+  private syncTutorial(): void {
+    if (this.tutorial.isDone) {
+      if (this.tutorialCoach.visible) this.tutorialCoach.show(null);
+      return;
+    }
+
+    const step = this.tutorial.current(this.buildTutorialContext());
+    // Pencere açıkken ve yön önizlemesinde kutu içeriği örtmesin
+    const hidden = !step || this.ui.isModalOpen || this.rotationPreview.visible;
+    if (hidden) {
+      this.tutorialCoach.show(null);
+      if (!step) {
+        // Öğretici bitti: kayda geçir ve kutunun şeridini fabrikaya geri ver
+        this.saveGame();
+        this.layoutAll();
+      }
+      return;
+    }
+
+    // Kutu fabrikanın altında, araç çubuğunun (ve varsa etkin araç çubuğunun) üstünde durur
+    const view = this.factoryView;
+    const bottom = view.bottom - (this.contextBar.visible ? ToolContextBar.height + SPACE.sm : 0);
+    const maxWidth = view.right - view.left - SPACE.md * 2;
+    const layoutKey = `${Math.round(view.left)}|${Math.round(view.right)}|${Math.round(bottom)}`;
+    if (layoutKey !== this.coachLayoutKey) {
+      this.coachLayoutKey = layoutKey;
+      this.tutorialCoach.layout((view.left + view.right) / 2, bottom, maxWidth);
+    }
+    this.tutorialCoach.show(step);
+    this.tutorialCoach.setHighlight(this.tutorialTargetRect(step.highlight));
+  }
+
+  /** Öğreticinin işaret ettiği öğenin ekrandaki dikdörtgeni (arayüz birimi) */
+  private tutorialTargetRect(target: TutorialTarget | null): CoachRect | null {
+    const fromWorld = (x: number, y: number, width: number, height: number): CoachRect => {
+      const topLeft = this.worldToUi(x, y);
+      const bottomRight = this.worldToUi(x + width, y + height);
+      return { x: topLeft.x, y: topLeft.y, width: bottomRight.x - topLeft.x, height: bottomRight.y - topLeft.y };
+    };
+
+    switch (target) {
+      case 'produce':
+      case 'belt':
+      case 'build':
+      case 'demolish':
+      case 'hangar':
+        return this.toolbar.getButtonBounds(target);
+      case 'objective':
+        return this.objective.bounds;
+      case 'firstMachine': {
+        const machine = this.productionEngine.getAllMachines()[0];
+        if (!machine) return null;
+        return fromWorld(machine.coord.x * 32, machine.coord.y * 32, machine.effectiveWidth * 32, machine.effectiveHeight * 32);
+      }
+      case 'plotBadge': {
+        const badge = this.gridView.getLockedBadgeBounds();
+        return badge ? fromWorld(badge.x, badge.y, badge.width, badge.height) : null;
+      }
+      default:
+        return null;
+    }
   }
 
   /* ================================================================
@@ -1427,6 +1579,7 @@ export class GameScene extends Phaser.Scene {
       factoryLayout,
       milestones: this.milestones.serialize(),
       monetization: { ads: ads.serialize(), boost: this.incomeBoost.serialize() },
+      tutorial: this.tutorial.serialize(),
     });
   }
 
@@ -1457,6 +1610,8 @@ export class GameScene extends Phaser.Scene {
         this.factoryEconomy.revenueMultiplier = data.factoryEconomy.revenueMultiplier;
       }
     }
+
+    this.tutorial.deserialize(data.tutorial, this.hangarBridge.getFlightStats().totalFlights);
 
     // Gösterge sıfırdan başlamasın: kayıt anındaki ölçülmüş gelirle başlat
     this.factoryEconomy.setDiscountedPlots(data.factoryEconomy?.discountedPlots);
@@ -1914,6 +2069,7 @@ export class GameScene extends Phaser.Scene {
       viewWidth - m.safe.left - SPACE.md * 2,
     );
     this.rotationPreview.layout(contentTop, barBottom - ToolContextBar.height - SPACE.sm);
+    this.factoryView = { left: viewLeft + m.safe.left, right: viewRight, bottom: barBottom };
     // Yakınlaştırma düğmeleri fabrika görüş alanının sağ üst köşesinde durur
     this.zoomControls.layout(
       viewRight - ZoomControls.width - SPACE.sm - (this.toolbar.isVertical ? 0 : m.safe.right),
@@ -1933,14 +2089,16 @@ export class GameScene extends Phaser.Scene {
     // Kamera yalnızca görüş alanı gerçekten değiştiğinde (pencere boyutu, ekran yönü,
     // arayüz ölçeği) yeniden sığdırılır. Bu yerleşim HUD'daki para yazısı genişleyince de
     // çalışır; her seferinde sığdırmak oyuncunun yaptığı yakınlaştırmayı geri alıyordu.
-    const viewportKey = `${m.renderScale}|${viewport.map((v) => Math.round(v)).join(',')}`;
+    // Öğretici sürerken kutusunun kaplayacağı şerit de sığdırmada boş bırakılır
+    const tutorialInset = this.tutorial.isDone ? 0 : TUTORIAL_FIT_INSET;
+    const viewportKey = `${m.renderScale}|${viewport.map((v) => Math.round(v)).join(',')}|${tutorialInset}`;
     if (viewportKey === this.lastViewportKey) return;
     this.lastViewportKey = viewportKey;
 
     this.cameraController.setPixelScale(m.renderScale);
     this.cameraController.setViewport(...viewport);
     // Etkin araç çubuğunun yüzdüğü şerit sığdırmada boş bırakılır: çubuk fabrikayı örtmez
-    this.cameraController.setFitInsetBottom((ToolContextBar.height + SPACE.md) * zoom);
+    this.cameraController.setFitInsetBottom((ToolContextBar.height + SPACE.md + tutorialInset) * zoom);
     this.cameraController.fitToFactory();
     this.syncWorldTextResolution();
   }

@@ -228,6 +228,16 @@ export class ObjectiveCard {
     return this.root.y + ObjectiveCard.heightFor(this.variant);
   }
 
+  /** Kartın ekranda kapladığı dikdörtgen (arayüz birimi) */
+  get bounds(): { x: number; y: number; width: number; height: number } {
+    return {
+      x: this.root.x,
+      y: this.root.y,
+      width: this.cardWidth,
+      height: ObjectiveCard.heightFor(this.variant),
+    };
+  }
+
   update(view: ObjectiveView): void {
     this.view = view;
     // Çubuk hedefe doğru yumuşakça dolar

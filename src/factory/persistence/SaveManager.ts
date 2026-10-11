@@ -16,6 +16,7 @@
  * Saf TypeScript — Node 24 native testleri ile %100 test edilebilir.
  * ====================================================================== */
 
+import type { TutorialState } from '../../tutorial/TutorialGuide.ts';
 import Decimal, { type DecimalSource } from 'break_eternity.js';
 import { D, D_ZERO } from '../../utils/decimal.ts';
 import type { EconomySaveData } from '../../economy/EconomyManager.ts';
@@ -66,6 +67,8 @@ export interface UnifiedGameSaveData {
   factoryLayout?: FactorySaveData;
   /** M9-E: reklam bekleme süreleri ve süreli gelir takviyesi */
   monetization?: MonetizationSaveData;
+  /** Öğreticinin durumu (bitti mi, kapatılan bilgi adımları) */
+  tutorial?: TutorialState;
 }
 
 export interface MonetizationSaveData {

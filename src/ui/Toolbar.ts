@@ -177,6 +177,18 @@ export class Toolbar {
     });
   }
 
+  /** Bir düğmenin ekranda kapladığı dikdörtgen (arayüz birimi); öğretici vurgusu için */
+  getButtonBounds(name: 'produce' | 'belt' | 'build' | 'demolish' | 'hangar'): Phaser.Geom.Rectangle {
+    const buttons = {
+      produce: this.produceButton,
+      belt: this.beltButton,
+      build: this.buildButton,
+      demolish: this.demolishButton,
+      hangar: this.hangarButton,
+    };
+    return buttons[name].getFocusBounds();
+  }
+
   /** Etkin aracı vurgular (null: hiçbiri) */
   setActiveTool(tool: ToolbarTool | null): void {
     this.beltButton.setSelected(tool === 'belt');

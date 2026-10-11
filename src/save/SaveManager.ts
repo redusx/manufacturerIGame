@@ -57,6 +57,7 @@ export const SaveManager = {
       factoryLayout?: FactorySaveData;
       milestones?: UnifiedGameSaveData['milestones'];
       monetization?: UnifiedGameSaveData['monetization'];
+      tutorial?: UnifiedGameSaveData['tutorial'];
     },
     storage?: StorageLike,
   ): void {
@@ -83,6 +84,9 @@ export const SaveManager = {
     }
     if (extra?.monetization) {
       current.monetization = extra.monetization;
+    }
+    if (extra?.tutorial) {
+      current.tutorial = extra.tutorial;
     }
     UnifiedSaveManager.save(current, storage);
   },

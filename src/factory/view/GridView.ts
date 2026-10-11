@@ -146,6 +146,11 @@ export class GridView {
    * Rozet büyüdükçe etkin fabrikanın üstüne taşmasın: fabrikaya bakan kenarı her
    * zaman fabrikanın sağ (veya alt) kenarının dışında kalır, rozet dışarı doğru büyür.
    */
+  /** Kilitli parsel rozetinin dünyadaki dikdörtgeni; rozet yoksa null (öğretici vurgusu için) */
+  getLockedBadgeBounds(): Phaser.Geom.Rectangle | null {
+    return this.lockedBadge ? this.lockedBadge.getBounds() : null;
+  }
+
   private applyBadgeLayout(): void {
     const badge = this.lockedBadge;
     if (!badge) return;

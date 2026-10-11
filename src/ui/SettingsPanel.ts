@@ -26,22 +26,25 @@ const ROW_HEIGHT = 44;
 /** Ses seviyesinin bir adımı */
 const VOLUME_STEP = 0.05;
 
-/** Masaüstünde gösterilen klavye kısayolları */
-const SHORTCUT_LINES = [
-  'Boşluk / 1: Üret   ·   2: Bant   ·   3 / B: İnşa',
-  '4 / X: Sök   ·   5 / H: Hangar   ·   R: Döndür',
-  'Sağ tuş basılı: Kaydır   ·   Tekerlek: Yakınlaştır',
-  'WASD / Oklar: Kamera   ·   Sağ tık: Aracı iptal et',
-  'Esc: Kapat / İptal   ·   Tab, Enter: Düğmeler',
-];
+/** Ayarlar penceresinin sahneden beklediği ek eylemler */
+export interface SettingsPanelOptions {
+  /** Kontrol şeması penceresini açar */
+  onShowControls?: () => void;
+  /** Öğretici şu an etkin mi (bitmemiş ve kapatılmamış)? */
+  isTutorialActive?: () => boolean;
+  /** Öğreticiyi kapatır veya baştan başlatır */
+  onToggleTutorial?: () => void;
+}
 
 export class SettingsPanel extends UiModal {
   private readonly onReset: () => void;
+  private readonly options: SettingsPanelOptions;
   private readonly confirmDialog: UiConfirmDialog;
 
-  constructor(layer: UiLayer, onReset: () => void) {
+  constructor(layer: UiLayer, onReset: () => void, options: SettingsPanelOptions = {}) {
     super(layer, { title: 'Ayarlar', maxWidth: 400, depth: 300, accent: SEMANTIC.secondary });
     this.onReset = onReset;
+    this.options = options;
     this.confirmDialog = new UiConfirmDialog(layer);
   }
 
@@ -126,17 +129,31 @@ export class SettingsPanel extends UiModal {
       });
     }
 
-    // --- Klavye kısayolları (yalnız geniş ekranda) -------------------------
-    if (metrics.mode === 'landscape') {
-      body.add(createDivider(scene, 0, y, width));
-      y += SPACE.md;
-      sectionTitle('KLAVYE KISAYOLLARI');
-      for (const line of SHORTCUT_LINES) {
-        const text = layer.text(0, y, line, 'caption', { wrapWidth: width });
-        body.add(text);
-        y += text.height + 4;
-      }
-      y += SPACE.sm;
+    // --- Öğretici ve kontrol şeması ---------------------------------------
+    const { isTutorialActive, onToggleTutorial, onShowControls } = this.options;
+    if (isTutorialActive && onToggleTutorial) {
+      const active = isTutorialActive();
+      y = this.addToggleRow(body, width, y, {
+        label: 'Öğretici',
+        icon: uiIcon('info'),
+        on: active,
+        onToggle: () => {
+          onToggleTutorial();
+          this.rebuild();
+        },
+      });
+    }
+    if (onShowControls) {
+      const controlsButton = new UiButton(layer, width / 2, y + ROW_HEIGHT / 2, {
+        width,
+        height: ROW_HEIGHT,
+        variant: 'secondary',
+        label: 'KONTROLLER',
+        icon: uiIcon(metrics.mode === 'landscape' ? 'mouse' : 'touch'),
+        onClick: onShowControls,
+      });
+      body.add(controlsButton);
+      y += ROW_HEIGHT + SPACE.md;
     }
 
     // --- Kayıt -------------------------------------------------------------

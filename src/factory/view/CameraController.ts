@@ -417,13 +417,22 @@ export class CameraController {
       width: this.camera.width,
       height: this.camera.height,
     };
-    return CameraMath.computePanBounds(
+    const bounds = CameraMath.computePanBounds(
       this.contentWidth,
       this.contentHeight,
       viewport,
       this.camera.zoom,
       this.padding,
     );
+    // Alttaki şerit (etkin araç çubuğu, öğretici kutusu) fabrikayı örter: içerik o kadar
+    // yukarı kaydırılabilsin ki son satırlar şeridin üstünde kalsın.
+    const insetWorld = this.fitInsetBottom / this.camera.zoom;
+    if (bounds.minY > bounds.maxY) {
+      bounds.minY += insetWorld;
+    } else {
+      bounds.maxY += insetWorld;
+    }
+    return bounds;
   }
 
   // -------------------------------------------------------------
