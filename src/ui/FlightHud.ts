@@ -9,7 +9,7 @@
 
 import Phaser from 'phaser';
 import { formatDistance, formatNumber } from '../utils/format';
-import { PALETTE, SEMANTIC, SPACE, brightOf, uiIcon } from './theme';
+import { BUTTON_LABEL_COLORS, PALETTE, SEMANTIC, SPACE, brightOf, uiIcon } from './theme';
 import type { UiLayer } from './system/UiLayer.ts';
 import { UiProgressBar } from './system/UiWidgets.ts';
 
@@ -164,7 +164,7 @@ export class FlightHud {
         .setOrigin(0.5),
     );
     this.meter.add(
-      layer.text(0, mh / 2 - 47, 'ATEŞLE', 'button', { color: SEMANTIC.textOnBright }).setOrigin(0.5),
+      layer.text(0, mh / 2 - 47, 'ATEŞLE', 'button', { color: BUTTON_LABEL_COLORS.primary }).setOrigin(0.5),
     );
     this.meter.add(
       layer

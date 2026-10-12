@@ -12,7 +12,7 @@
 
 import type { MachineOperationalStatus } from '../types.ts';
 import type { MachineVisualBounds } from './MachineVisualGeometry.ts';
-import { PALETTE } from '../../ui/theme.ts';
+import { PALETTE, TONE } from '../../ui/theme.ts';
 
 export type BadgeType = 'NONE' | 'WARNING_INPUT' | 'BLOCKED_OUTPUT' | 'PROCESSING';
 
@@ -74,8 +74,8 @@ export class MachineStatusHelper {
       default:
         return {
           badgeType: 'NONE',
-          colorHex: '#8c9bb3',
-          colorNum: 0x8c9bb3,
+          colorHex: PALETTE.textMuted,
+          colorNum: TONE.mist,
           iconKey: '',
           label: 'BEKLEMEDE',
           isWarning: false,

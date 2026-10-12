@@ -4,16 +4,18 @@
 Çalıştırma:  python3 tools/generate_ui_assets.py   (Pillow gerekir)
 
 Tüm dokular raster PNG'dir ve docs/ART_DIRECTION.md kurallarına uyar: 1px koyu kontur,
-üstte açık vurgu, altta koyu gölge, palet renkleri (src/ui/theme.ts ile aynı).
-Düğmeler renkli basılır; ikonlar ve çerçeveler beyazdır ve kodda `setTint` ile boyanır.
+üstte açık vurgu, altta koyu gölge. Renkler tools/palette.py içindeki 16 renkli ana
+paletten gelir (src/ui/theme.ts ile aynı). Düğmeler renkli basılır; ikonlar ve çerçeveler
+beyazdır ve kodda `setTint` ile boyanır.
 """
 
 from pathlib import Path
 from PIL import Image
 
+from palette import BASE, TONE
+
 OUT = Path(__file__).resolve().parent.parent / "public" / "assets" / "ui"
 
-OUTLINE = (7, 9, 19, 255)
 CLEAR = (0, 0, 0, 0)
 
 
@@ -26,7 +28,7 @@ def mix(a: tuple, b: tuple, t: float) -> tuple:
 
 
 WHITE = rgb(0xFFFFFF)
-BLACK = rgb(0x000000)
+OUTLINE = rgb(BASE["umber"])
 
 # ---------------------------------------------------------------------------
 # Düğmeler: 24x24, 9-slice kenarları sol/sağ 4, üst 4, alt 6 (alttaki "dudak" dahil)
@@ -34,15 +36,16 @@ BLACK = rgb(0x000000)
 
 BUTTON_SIZE = 24
 
-# varyant: (gövde, üst vurgu, alt dudak)
+# varyant: (gövde, üst vurgu, alt dudak). Gövde ana paletin orta tonu, vurgu aynı ailenin
+# açığı, dudak koyusudur; düğme böylece şehirdeki çatılarla aynı renk dilini konuşur.
 BUTTON_VARIANTS = {
-    "primary": (0x2ECC71, 0x82E0AA, 0x1E8449),
-    "secondary": (0x4F649C, 0x8194C8, 0x2F3D66),
-    "rocket": (0x00D2D3, 0xA6F4F4, 0x01898A),
-    "factory": (0xF4A261, 0xFFD9B0, 0xC0621A),
-    "gold": (0xFFD166, 0xFFF0C2, 0xC98F1A),
-    "danger": (0xE74C3C, 0xF29488, 0xA5281B),
-    "disabled": (0xCBB894, 0xE0D0AE, 0xA8956F),
+    "primary": (BASE["green"], BASE["mint"], BASE["olive"]),
+    "secondary": (BASE["plum"], TONE["lilac"], BASE["navy"]),
+    "rocket": (BASE["blue"], BASE["sky"], BASE["teal"]),
+    "factory": (BASE["copper"], BASE["sand"], BASE["brown"]),
+    "gold": (BASE["sand"], TONE["cream_light"], BASE["copper"]),
+    "danger": (BASE["purple"], BASE["pink"], BASE["plum"]),
+    "disabled": (TONE["disabled"], TONE["disabled_light"], TONE["disabled_lip"]),
 }
 
 
@@ -83,8 +86,9 @@ def make_buttons() -> None:
         button(body, hi, lip, False).save(OUT / f"btn_{name}_normal.png")
         if name == "disabled":
             continue
-        button(mix(body, WHITE, 0.22), mix(hi, WHITE, 0.4), lip, False).save(OUT / f"btn_{name}_hover.png")
-        button(mix(body, BLACK, 0.12), mix(body, BLACK, 0.05), lip, True).save(OUT / f"btn_{name}_pressed.png")
+        # Üzerine gelince gövde vurgu tonuna, basılınca dudak tonuna yaklaşır
+        button(mix(body, hi, 0.25), mix(hi, WHITE, 0.4), lip, False).save(OUT / f"btn_{name}_hover.png")
+        button(mix(body, lip, 0.25), mix(body, lip, 0.1), lip, True).save(OUT / f"btn_{name}_pressed.png")
 
 
 # ---------------------------------------------------------------------------
@@ -109,7 +113,7 @@ def chip() -> Image.Image:
     size = 16
     img = Image.new("RGBA", (size, size), CLEAR)
     px = img.load()
-    fill = (51, 36, 26, 255)  # koyu kahve: açık zeminde rozet okunur kalsın
+    fill = rgb(BASE["umber"])  # en koyu kahve: açık zeminde rozet okunur kalsın
     for y in range(size):
         for x in range(size):
             d = min(x, y, size - 1 - x, size - 1 - y)
@@ -183,15 +187,15 @@ def pip() -> Image.Image:
 ICON_COLORS = {
     ".": CLEAR,
     "o": OUTLINE,
-    "w": rgb(0xFFFFFF),
-    "g": rgb(0xC8D0E0),
-    "d": rgb(0x7F8BA6),
-    "a": rgb(0xF4A261),
-    "A": rgb(0xC0621A),
-    "y": rgb(0xFFD166),
-    "c": rgb(0x00D2D3),
-    "r": rgb(0xE74C3C),
-    "G": rgb(0x2ECC71),
+    "w": WHITE,
+    "g": rgb(TONE["steel_light"]),   # açık metal
+    "d": rgb(TONE["steel"]),         # koyu metal
+    "a": rgb(BASE["sand"]),
+    "A": rgb(BASE["copper"]),
+    "y": rgb(BASE["sand"]),
+    "c": rgb(BASE["blue"]),
+    "r": rgb(BASE["purple"]),
+    "G": rgb(BASE["green"]),
 }
 
 BLANK = "................"

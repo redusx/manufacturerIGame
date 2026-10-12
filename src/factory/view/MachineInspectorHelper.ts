@@ -18,7 +18,7 @@ import { RecipeRegistry, defaultRecipeRegistry } from '../simulation/RecipeRegis
 import { MachineEntity } from '../simulation/MachineEntity.ts';
 import { ProductionEngine } from '../simulation/ProductionEngine.ts';
 import { FactoryEconomy } from '../simulation/FactoryEconomy.ts';
-import { PALETTE } from '../../ui/theme.ts';
+import { PALETTE, TONE } from '../../ui/theme.ts';
 
 export interface InspectorBufferItem {
   itemId: string;
@@ -104,7 +104,7 @@ export class MachineInspectorHelper {
         return {
           label: 'Boşta / Bekliyor',
           colorHex: PALETTE.textMuted,
-          colorInt: 0x8c9bb3,
+          colorInt: TONE.mist,
         };
     }
   }

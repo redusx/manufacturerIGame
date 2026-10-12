@@ -3,6 +3,7 @@ import { GameScene } from './scenes/GameScene';
 import { FlightScene } from './scenes/FlightScene';
 import { crazyGames } from './integration/CrazyGamesSDK.ts';
 import { UiHost } from './ui/system/UiHost.ts';
+import { PALETTE } from './ui/theme.ts';
 
 // CrazyGames SDK v3 Başlatma (Güvenli Fallback ile)
 crazyGames.init().catch(() => {});
@@ -16,7 +17,7 @@ const config: Phaser.Types.Core.GameConfig = {
   width: BASE_WIDTH,
   height: BASE_HEIGHT,
   parent: 'game-container',
-  backgroundColor: '#0a1330',
+  backgroundColor: PALETTE.bgDeepHex,
   pixelArt: true,
   roundPixels: true,
   scale: {

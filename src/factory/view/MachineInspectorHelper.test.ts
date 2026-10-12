@@ -8,6 +8,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { MachineInspectorHelper } from './MachineInspectorHelper.ts';
+import { PALETTE } from '../../ui/theme.ts';
 import { GridMap } from '../simulation/GridMap.ts';
 import { LogisticsNetwork } from '../simulation/LogisticsNetwork.ts';
 import { ProductionEngine } from '../simulation/ProductionEngine.ts';
@@ -21,15 +22,15 @@ describe('MachineInspectorHelper Headless Unit Tests', () => {
   it('getStatusMeta should return accurate labels and palette colors for all states', () => {
     const processing = MachineInspectorHelper.getStatusMeta('PROCESSING');
     assert.strictEqual(processing.label, 'Çalışıyor');
-    assert.strictEqual(processing.colorHex, '#2ecc71');
+    assert.strictEqual(processing.colorHex, PALETTE.successGreenHex);
 
     const waiting = MachineInspectorHelper.getStatusMeta('WAITING_INPUT');
     assert.strictEqual(waiting.label, 'Girdi Bekliyor');
-    assert.strictEqual(waiting.colorHex, '#f39c12');
+    assert.strictEqual(waiting.colorHex, PALETTE.warningOrangeHex);
 
     const blocked = MachineInspectorHelper.getStatusMeta('BLOCKED_OUTPUT');
     assert.strictEqual(blocked.label, 'Çıkış Tıkalı');
-    assert.strictEqual(blocked.colorHex, '#e74c3c');
+    assert.strictEqual(blocked.colorHex, PALETTE.dangerRedHex);
 
     const idle = MachineInspectorHelper.getStatusMeta('IDLE');
     assert.strictEqual(idle.label, 'Boşta / Bekliyor');

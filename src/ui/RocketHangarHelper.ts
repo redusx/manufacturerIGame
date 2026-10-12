@@ -15,7 +15,7 @@ import type {
   RocketHangarBridge,
 } from '../factory/simulation/RocketHangarBridge.ts';
 import type { FactoryEconomy } from '../factory/simulation/FactoryEconomy.ts';
-import { PALETTE } from './theme.ts';
+import { BUTTON_LABEL_COLORS } from './theme.ts';
 
 export interface RocketUpgradeCardViewModel {
   category: RocketModuleCategory;
@@ -146,7 +146,7 @@ export class RocketHangarHelper {
         hasEnoughParts: true,
         hasEnoughCash: true,
         btnTexture: 'btn_disabled',
-        textColor: PALETTE.textMuted,
+        textColor: BUTTON_LABEL_COLORS.disabled,
       };
     }
 
@@ -167,7 +167,7 @@ export class RocketHangarHelper {
         hasEnoughParts: true,
         hasEnoughCash: true,
         btnTexture: 'btn_disabled',
-        textColor: PALETTE.textMuted,
+        textColor: BUTTON_LABEL_COLORS.disabled,
       };
     }
 
@@ -217,7 +217,7 @@ export class RocketHangarHelper {
       hasEnoughParts: canAffordParts,
       hasEnoughCash,
       btnTexture: canAfford ? 'btn_green_normal' : 'btn_disabled',
-      textColor: canAfford ? PALETTE.btnAffordableText : PALETTE.btnDisabledText,
+      textColor: canAfford ? BUTTON_LABEL_COLORS.primary : BUTTON_LABEL_COLORS.disabled,
       isQuickBuild: canQuickBuild,
     };
   }

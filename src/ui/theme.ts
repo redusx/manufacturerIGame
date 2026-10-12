@@ -2,87 +2,139 @@
  * Merkezi tema: renk paleti (docs/ART_DIRECTION.md §2) ve UI 2.0 tasarım
  * belirteçleri (docs/UI_UX_SYSTEM.md). Arayüzdeki her renk, yazı boyutu ve
  * boşluk buradan gelir.
+ *
+ * Renk sistemi üç katmandır:
+ *  1. BASE  — oyunun 16 renkli ana paleti. Şehir arka planı yalnızca bunları kullanır.
+ *  2. TONE  — iki ana rengin adlandırılmış karışımı olan yardımcı tonlar (krem yüzeyler,
+ *             beton, gece tonları). Başka hiçbir yerde serbest hex tanımlanmaz.
+ *  3. PALETTE / SEMANTIC — kullanım amacına göre adlandırılmış roller (yüzey, yazı, vurgu).
+ *
+ * Çizim betikleri aynı tabloları tools/palette.py içinden okur; ikisi birlikte güncellenir.
  */
 
+/** 16 renkli ana palet (soldan sağa palet görselindeki sırayla) */
+export const BASE = {
+  sand: 0xe1b670, // açık kahve
+  copper: 0xb96925, // bakır
+  brown: 0x68392e, // kahve
+  umber: 0x201300, // en koyu kahve: kontur ve yazı
+  olive: 0x404e21,
+  green: 0x45944f,
+  mint: 0x77d3b2,
+  sky: 0x96bfff,
+  blue: 0x038ac2,
+  teal: 0x01515e,
+  navy: 0x001437,
+  plum: 0x503e66, // koyu mor: nötr düğme, yol
+  purple: 0xa762a9,
+  pink: 0xefa3c8,
+  white: 0xffffff,
+  black: 0x000000,
+} as const;
+
+/** İki rengin doğrusal karışımı: t=0 -> a, t=1 -> b */
+export function mixColor(a: number, b: number, t: number): number {
+  let out = 0;
+  for (const shift of [16, 8, 0]) {
+    const ca = (a >> shift) & 255;
+    const cb = (b >> shift) & 255;
+    out |= Math.floor(ca + (cb - ca) * t + 0.5) << shift;
+  }
+  return out;
+}
+
+export function toHex(color: number): string {
+  return `#${color.toString(16).padStart(6, '0')}`;
+}
+
+/** Türetilmiş yardımcı tonlar (tools/palette.py -> TONE ile aynı) */
+export const TONE = {
+  // Açık yüzeyler
+  cream: mixColor(BASE.sand, BASE.white, 0.62), // pencere dolgusu
+  creamLight: mixColor(BASE.sand, BASE.white, 0.8), // kart dolgusu
+  tan: mixColor(BASE.sand, BASE.white, 0.38), // iç bölme
+  tanBar: mixColor(BASE.sand, BASE.white, 0.14), // üst çubuk, araç çubuğu tablası
+  tanDark: mixColor(BASE.sand, BASE.copper, 0.35), // ayırıcı çizgi, çerçeve gölgesi
+  // Dünya (koyu) yüzeyleri
+  nightDeep: mixColor(BASE.navy, BASE.plum, 0.3),
+  night: mixColor(BASE.navy, BASE.plum, 0.55),
+  lilac: mixColor(BASE.plum, BASE.sky, 0.45),
+  mist: mixColor(BASE.plum, BASE.white, 0.62), // koyu zeminde soluk yazı
+  // Devre dışı düğme etiketi ve soluk ikon
+  faded: mixColor(BASE.brown, BASE.sand, 0.25),
+  fadedLight: mixColor(BASE.brown, BASE.sand, 0.55),
+} as const;
+
+/**
+ * Dünya (koyu zemin) rolleri: fabrika sahnesinin tabanı, dünyadaki etiketler ve uçuş
+ * ekranı. Vurgu renkleri ana paletin orta tonlarıdır; koyu zeminde ve açık zeminde
+ * (ikon, çubuk dolgusu, başlık şeridi) aynı renk kullanılır.
+ */
 export const PALETTE = {
-  // Deep Backgrounds
-  bgDeep: 0x0a1330,
-  bgDeepHex: '#0a1330',
-  panelBg: 0x14244a,
-  panelBgHex: '#14244a',
-  cardBg: 0x1a2d58,
-  cardBgHex: '#1a2d58',
-  modalOverlay: 0x070913,
+  // Koyu zeminler
+  bgDeep: BASE.navy,
+  bgDeepHex: toHex(BASE.navy),
+  panelBg: TONE.nightDeep,
+  panelBgHex: toHex(TONE.nightDeep),
+  cardBg: TONE.night,
+  cardBgHex: toHex(TONE.night),
+  /** Pencere arkasındaki karartma */
+  modalOverlay: BASE.umber,
 
-  // Borders & Bevels
-  borderDark: 0x2b4380,
-  borderDarkHex: '#2b4380',
-  borderHighlight: 0x4a6bbd,
-  borderHighlightHex: '#4a6bbd',
-  borderLight: 0x4f649c,
-  borderLightHex: '#4f649c',
+  // Çizgiler
+  borderDark: BASE.plum,
+  borderDarkHex: toHex(BASE.plum),
+  borderHighlight: BASE.sky,
+  borderLight: TONE.lilac,
+  borderLightHex: toHex(TONE.lilac),
 
-  // Typography
-  textPrimary: '#f5f6fa',
-  textMuted: '#8c9bb3',
-  textDark: '#0b0e17',
+  // Koyu zemindeki yazı
+  textPrimary: toHex(BASE.white),
+  textMuted: toHex(TONE.mist),
+  textDark: toHex(BASE.umber),
 
-  // Semantic & Role Accents
-  resourceGold: 0xffd166,
-  resourceGoldHex: '#ffd166',
-  factoryAmber: 0xf4a261,
-  factoryAmberHex: '#f4a261',
-  rocketCyan: 0x00d2d3,
-  rocketCyanHex: '#00d2d3',
-  successGreen: 0x2ecc71,
-  successGreenHex: '#2ecc71',
-  warningOrange: 0xf39c12,
-  warningOrangeHex: '#f39c12',
-  dangerRed: 0xe74c3c,
-  dangerRedHex: '#e74c3c',
+  // Vurgular
+  resourceGold: BASE.sand,
+  resourceGoldHex: toHex(BASE.sand),
+  factoryAmber: BASE.copper,
+  factoryAmberHex: toHex(BASE.copper),
+  rocketCyan: BASE.blue,
+  rocketCyanHex: toHex(BASE.blue),
+  successGreen: BASE.green,
+  successGreenHex: toHex(BASE.green),
+  warningOrange: BASE.copper,
+  warningOrangeHex: toHex(BASE.copper),
+  dangerRed: BASE.purple,
+  dangerRedHex: toHex(BASE.purple),
 
-  // Button States
-  btnDisabled: 0x22293e,
-  btnDisabledHex: '#22293e',
-  btnDisabledBorder: 0x3d4e7a,
-  btnDisabledText: '#8c9bb3', // was #6f7e9a
-
-  btnAffordable: 0x2ecc71, // was 0x27ae60
-  btnAffordableHover: 0x2ecc71,
-  btnAffordableText: '#0b0e17', // was #08170e
-
-  btnAction: 0xf4a261,
-  btnActionHover: 0xf4a261, // was 0xf6b27e
-  btnActionText: '#0b0e17', // was #1f1003
-
-  btnCyan: 0x00d2d3, // was 0x00b4b5
-  btnCyanHover: 0x00d2d3,
-  btnCyanText: '#0b0e17', // was #021818
+  // Dünyadaki devre dışı rozet
+  btnDisabled: TONE.nightDeep,
+  btnDisabledHex: toHex(TONE.nightDeep),
 };
 
-/** ART_DIRECTION §5: temiz, yüksek okunabilirlikli sans-serif (her platformda hazır bulunur) */
 /**
  * Uçuş bölgelerinin gökyüzü tonları (bölge indeksiyle seçilir). Kalkışta lacivert
- * atmosfer, ilerledikçe uzayın koyu tonları; son tonlar tekrar eder.
+ * atmosfer, ilerledikçe uzayın koyu tonları; her ton ana paletin iki renginin karışımıdır.
  */
 export const FLIGHT_SKY_TONES: readonly number[] = [
-  0x0f1b33, // Kalkış
-  0x0d172c, // İlk Tırmanış
-  0x0b1325, // Stratosfer
-  0x0a0f20, // Alçak Yörünge
-  0x090c1a, // Yörünge İstasyonu
-  0x070913, // Derin Uzay
-  0x0c0a1c, // Ay Geçişi
-  0x120a1f, // Ay Üssü
-  0x190b1a, // Mars Transferi
-  0x1c0d14, // Mars Yörüngesi
-  0x15110f, // Asteroit Kuşağı
-  0x1a140c, // Jüpiter
-  0x101613, // Satürn Halkaları
-  0x0a161a, // Uranüs
-  0x091226, // Neptün
+  mixColor(BASE.navy, BASE.blue, 0.1), // Kalkış
+  mixColor(BASE.navy, BASE.blue, 0.05), // İlk Tırmanış
+  BASE.navy, // Stratosfer
+  mixColor(BASE.navy, BASE.black, 0.25), // Alçak Yörünge
+  mixColor(BASE.navy, BASE.black, 0.45), // Yörünge İstasyonu
+  mixColor(BASE.navy, BASE.black, 0.65), // Derin Uzay
+  mixColor(BASE.black, BASE.plum, 0.18), // Ay Geçişi
+  mixColor(BASE.black, BASE.plum, 0.3), // Ay Üssü
+  mixColor(BASE.black, BASE.purple, 0.14), // Mars Transferi
+  mixColor(BASE.black, BASE.brown, 0.3), // Mars Yörüngesi
+  mixColor(BASE.black, BASE.umber, 0.75), // Asteroit Kuşağı
+  BASE.umber, // Jüpiter
+  mixColor(BASE.black, BASE.olive, 0.32), // Satürn Halkaları
+  mixColor(BASE.black, BASE.teal, 0.3), // Uranüs
+  mixColor(BASE.navy, BASE.black, 0.3), // Neptün
 ];
 
+/** ART_DIRECTION §5: temiz, yüksek okunabilirlikli sans-serif (her platformda hazır bulunur) */
 export const FONT_FAMILY = 'Arial, Helvetica, sans-serif';
 
 /* =========================================================================
@@ -92,32 +144,32 @@ export const FONT_FAMILY = 'Arial, Helvetica, sans-serif';
 
 /**
  * Arayüz zeminleri açıktır (krem pencere, açık kahve çubuk; tools/generate_theme_assets.py),
- * bu yüzden panelin üstündeki yazılar koyudur ("mürekkep" tonları). Parlak karşılıkları
- * konturlu yazılarda ve koyu zeminlerde (dünya, uçuş, renkli düğmeler) kullanılır.
+ * bu yüzden panelin üstündeki yazılar koyudur ("mürekkep" tonları: vurgu renginin bir koyusu).
+ * Parlak karşılıkları konturlu yazılarda ve koyu zeminlerde (dünya, uçuş, rozet) kullanılır.
  */
 const INK = {
-  text: '#33241a',
-  muted: '#6b543c',
-  money: '#96580a',
-  primary: '#1b7f45',
-  rocket: '#086f78',
-  factory: '#a8521a',
-  warning: '#a55a00',
-  danger: '#b93626',
-  secondary: '#3f5490',
+  text: toHex(BASE.umber),
+  muted: toHex(BASE.brown),
+  money: toHex(mixColor(BASE.copper, BASE.brown, 0.6)),
+  primary: toHex(mixColor(BASE.green, BASE.olive, 0.7)),
+  rocket: toHex(mixColor(BASE.blue, BASE.teal, 0.7)),
+  factory: toHex(mixColor(BASE.copper, BASE.brown, 0.5)),
+  warning: toHex(mixColor(BASE.copper, BASE.brown, 0.55)),
+  danger: toHex(mixColor(BASE.purple, BASE.plum, 0.55)),
+  secondary: toHex(BASE.plum),
 } as const;
 
-/** Mürekkep tonu -> koyu zeminde okunan parlak karşılığı */
+/** Mürekkep tonu -> koyu zeminde okunan açık karşılığı */
 const BRIGHT_OF_INK: Readonly<Record<string, string>> = {
-  [INK.text]: PALETTE.textPrimary,
-  [INK.muted]: '#d8ccb8',
-  [INK.money]: PALETTE.resourceGoldHex,
-  [INK.primary]: PALETTE.successGreenHex,
-  [INK.rocket]: PALETTE.rocketCyanHex,
-  [INK.factory]: PALETTE.factoryAmberHex,
-  [INK.warning]: PALETTE.warningOrangeHex,
-  [INK.danger]: PALETTE.dangerRedHex,
-  [INK.secondary]: PALETTE.borderLightHex,
+  [INK.text]: toHex(BASE.white),
+  [INK.muted]: toHex(TONE.tan),
+  [INK.money]: toHex(BASE.sand),
+  [INK.primary]: toHex(BASE.mint),
+  [INK.rocket]: toHex(BASE.sky),
+  [INK.factory]: toHex(TONE.tanDark),
+  [INK.warning]: toHex(TONE.tanDark),
+  [INK.danger]: toHex(BASE.pink),
+  [INK.secondary]: toHex(BASE.sky),
 };
 
 /**
@@ -128,46 +180,70 @@ export function brightOf(colorHex: string): string {
   return BRIGHT_OF_INK[colorHex] ?? colorHex;
 }
 
+/** Vurgu renginin koyu rozet içinde okunan açık tonu (yeşil -> nane, mavi -> açık mavi...) */
+const ON_DARK: Readonly<Record<number, number>> = {
+  [BASE.green]: BASE.mint,
+  [BASE.blue]: BASE.sky,
+  [BASE.copper]: TONE.tanDark,
+  [BASE.purple]: BASE.pink,
+  [BASE.plum]: BASE.sky,
+};
+
+export function onDark(color: number): number {
+  return ON_DARK[color] ?? color;
+}
+
+/** Düz renk dolgunun (başlık şeridi, renkli düğme) üstündeki yazı: açık dolguda koyu, diğerlerinde beyaz */
+export function inkOn(fill: number): string {
+  const channel = (shift: number): number => {
+    const c = ((fill >> shift) & 255) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  const luminance = 0.2126 * channel(16) + 0.7152 * channel(8) + 0.0722 * channel(0);
+  return luminance > 0.36 ? toHex(BASE.umber) : toHex(BASE.white);
+}
+
 /**
  * Anlamsal renkler: bir anlam her ekranda aynı renkle gösterilir. Sayısal değerler
- * (ikon, çubuk, rozet, düğme) parlaktır; `...Hex` değerleri panel üstündeki yazı içindir.
+ * (ikon, çubuk, rozet, başlık şeridi, düğme gövdesi) ana paletin orta tonlarıdır;
+ * `...Hex` değerleri panel üstündeki yazı içindir.
  */
 export const SEMANTIC = {
   /** Ana eylem / satın alınabilir / olumlu sonuç */
-  primary: PALETTE.successGreen,
+  primary: BASE.green,
   primaryHex: INK.primary,
   /** İkincil, nötr eylem */
-  secondary: PALETTE.borderLight,
+  secondary: BASE.plum,
   secondaryHex: INK.secondary,
   /** Para, fiyat, kaynak, ilerleme */
-  money: PALETTE.resourceGold,
+  money: BASE.sand,
   moneyHex: INK.money,
   /** Fabrika / elle üretim */
-  factory: PALETTE.factoryAmber,
+  factory: BASE.copper,
   factoryHex: INK.factory,
   /** Roket, hangar, uçuş */
-  rocket: PALETTE.rocketCyan,
+  rocket: BASE.blue,
   rocketHex: INK.rocket,
   /** Uyarı ve kilitli içerik */
-  warning: PALETTE.warningOrange,
+  warning: BASE.copper,
   warningHex: INK.warning,
-  /** Tehlikeli / geri alınamaz eylem, hata */
-  danger: PALETTE.dangerRed,
+  /** Tehlikeli / geri alınamaz eylem, hata, hasar (palette kırmızı yok: mor ailesi) */
+  danger: BASE.purple,
   dangerHex: INK.danger,
   /** Devre dışı */
-  disabled: PALETTE.btnDisabled,
-  disabledHex: PALETTE.btnDisabledHex,
+  disabled: TONE.tan,
+  disabledHex: toHex(TONE.tan),
   textPrimary: INK.text,
   textMuted: INK.muted,
-  textOnBright: PALETTE.textDark,
-  textOnDark: '#ffffff',
+  textOnBright: toHex(BASE.umber),
+  textOnDark: toHex(BASE.white),
   /** Metin ve ikon konturu */
-  outlineHex: '#070913',
+  outlineHex: toHex(BASE.umber),
   /** Panel üstündeki çizgiler: ayırıcı, seçim ve odak çerçevesi, kaydırma tutamağı */
-  divider: 0xc9a877,
-  ink: 0x33241a,
+  divider: TONE.tanDark,
+  ink: BASE.umber,
   /** Açık zeminde soluk ikon (tamamlanmamış, ikincil) */
-  iconMuted: 0x8a7558,
+  iconMuted: TONE.fadedLight,
 } as const;
 
 export type UiTextVariant =
@@ -201,16 +277,20 @@ export const TOUCH_MIN = 44;
 
 export type UiButtonVariant = 'primary' | 'secondary' | 'rocket' | 'factory' | 'gold' | 'danger';
 
-/** Düğme varyantlarının etiket rengi: parlak gövdede koyu, koyu gövdede açık yazı */
+/**
+ * Düğme varyantlarının etiket rengi. Gövdeler ana paletin orta tonlarıdır (yeşil, mavi,
+ * bakır, mor, koyu mor): üstlerinde beyaz yazı okunur. Yalnızca açık kahve (gold) gövdede
+ * koyu yazı kullanılır.
+ */
 export const BUTTON_LABEL_COLORS: Readonly<Record<UiButtonVariant | 'disabled', string>> = {
-  primary: SEMANTIC.textOnBright,
+  primary: SEMANTIC.textOnDark,
   secondary: SEMANTIC.textOnDark,
-  rocket: SEMANTIC.textOnBright,
-  factory: SEMANTIC.textOnBright,
+  rocket: SEMANTIC.textOnDark,
+  factory: SEMANTIC.textOnDark,
   gold: SEMANTIC.textOnBright,
   danger: SEMANTIC.textOnDark,
-  // Devre dışı düğme soluk ten rengidir; etiketi bir ton koyusu
-  disabled: '#8a7558',
+  // Devre dışı düğme soluk açık kahvedir; etiketi okunur kalacak kadar koyu
+  disabled: toHex(TONE.faded),
 };
 
 /** UI 2.0 dokuları (public/assets/ui/, tools/generate_ui_assets.py üretir) */

@@ -10,6 +10,7 @@
 
 import { FactoryEconomy } from '../simulation/FactoryEconomy.ts';
 import { ItemRegistry, defaultItemRegistry } from '../simulation/ItemRegistry.ts';
+import { PALETTE } from '../../ui/theme.ts';
 
 export type ContractStatus = 'AVAILABLE' | 'ACTIVE' | 'COMPLETED' | 'FAILED' | 'EXPIRED';
 
@@ -578,9 +579,9 @@ export class ContractManager {
    * Kalan süreye göre UI metin rengi döner (Kritik acil: kırmızı, Uyarı: turuncu, Normal: beyaz/yeşil).
    */
   static getTimeColor(remainingSec: number): string {
-    if (remainingSec <= 20) return '#e74c3c'; // Danger red
-    if (remainingSec <= 60) return '#f39c12'; // Warning orange
-    return '#ecf0f1'; // Normal white
+    if (remainingSec <= 20) return PALETTE.dangerRedHex;
+    if (remainingSec <= 60) return PALETTE.warningOrangeHex;
+    return PALETTE.textPrimary;
   }
 
   /**

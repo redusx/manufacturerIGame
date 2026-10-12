@@ -21,7 +21,7 @@ import {
   type DemolishTargetInfo,
   type DemolishExecuteResult,
 } from './DemolishMath.ts';
-import { PALETTE, FONT_FAMILY } from '../../ui/theme.ts';
+import { PALETTE, SEMANTIC, FONT_FAMILY } from '../../ui/theme.ts';
 import { isPointerInsideViewport, isPointerOverUi, pointerToGrid } from './WorldPointer.ts';
 
 /** Hiçbir hücreyi göstermeyen koordinat (dokunmatikte ilk dokunuşa kadar hedef yok) */
@@ -99,7 +99,7 @@ export class DemolishTool {
         fontFamily: FONT_FAMILY,
         fontSize: '10px',
         color: PALETTE.dangerRedHex,
-        stroke: '#0c1020',
+        stroke: SEMANTIC.outlineHex,
         strokeThickness: 3,
       })
       .setOrigin(0.5, 1.2)
@@ -376,7 +376,7 @@ export class DemolishTool {
         fontSize: '11px',
         color: PALETTE.resourceGoldHex,
         fontStyle: 'bold',
-        stroke: '#0c1020',
+        stroke: SEMANTIC.outlineHex,
         strokeThickness: 3,
       })
       .setOrigin(0.5)

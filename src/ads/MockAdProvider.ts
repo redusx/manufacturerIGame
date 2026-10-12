@@ -8,7 +8,7 @@
  * (docs/M9_PLAN.md §4.5, DEC-032)
  * ====================================================================== */
 
-import { FONT_FAMILY, PALETTE } from '../ui/theme.ts';
+import { BASE, FONT_FAMILY, PALETTE, SEMANTIC, TONE, toHex } from '../ui/theme.ts';
 import type { AdPlacementId, AdProvider, AdProviderHooks } from './AdService.ts';
 
 /** Sahte reklamın süresi (saniye) */
@@ -73,17 +73,19 @@ export class MockAdProvider implements AdProvider {
         width: 'min(420px, 100%)',
         padding: '24px 20px',
         boxSizing: 'border-box',
-        background: PALETTE.cardBgHex,
-        border: `2px solid ${PALETTE.borderLightHex}`,
+        // Oyunun pencereleriyle aynı dil: krem zemin, kahve çerçeve, koyu yazı
+        background: toHex(TONE.cream),
+        border: `3px solid ${toHex(BASE.brown)}`,
+        color: SEMANTIC.textPrimary,
       });
 
       const title = document.createElement('div');
       title.textContent = 'REKLAM ALANI';
-      Object.assign(title.style, { fontSize: '22px', fontWeight: 'bold', color: PALETTE.resourceGoldHex });
+      Object.assign(title.style, { fontSize: '22px', fontWeight: 'bold', color: SEMANTIC.moneyHex });
 
       const note = document.createElement('div');
       note.textContent = `Deneme yerleşimi: ${PLACEMENT_LABELS[placement]}. Gerçek reklam CrazyGames SDK bağlanınca burada gösterilir.`;
-      Object.assign(note.style, { marginTop: '10px', fontSize: '14px', lineHeight: '1.4', color: PALETTE.textMuted });
+      Object.assign(note.style, { marginTop: '10px', fontSize: '14px', lineHeight: '1.4', color: SEMANTIC.textMuted });
 
       const countdown = document.createElement('div');
       Object.assign(countdown.style, { marginTop: '18px', fontSize: '16px', fontWeight: 'bold' });
@@ -97,9 +99,9 @@ export class MockAdProvider implements AdProvider {
         padding: '10px 16px',
         fontFamily: FONT_FAMILY,
         fontSize: '14px',
-        color: PALETTE.textPrimary,
-        background: PALETTE.panelBgHex,
-        border: `1px solid ${PALETTE.borderDarkHex}`,
+        color: SEMANTIC.textOnDark,
+        background: toHex(SEMANTIC.secondary),
+        border: `2px solid ${SEMANTIC.outlineHex}`,
         cursor: 'pointer',
       });
 

@@ -23,7 +23,7 @@ import {
   PORT_ARROW_OUT,
   machineTextureKey,
 } from '../factory/view/MachineSprites.ts';
-import { SEMANTIC, SPACE } from './theme.ts';
+import { PALETTE, SEMANTIC, SPACE } from './theme.ts';
 import type { UiLayer } from './system/UiLayer.ts';
 
 const DIRECTION_NAMES: Readonly<Record<Direction, string>> = {
@@ -61,7 +61,7 @@ export class RotationPreview {
     this.root = layer.container(depth).setVisible(false);
 
     // Opak karartma; fabrikaya giden dokunuşları da keser
-    this.backdrop = scene.add.rectangle(0, 0, 10, 10, 0x05070e, 0.9).setOrigin(0, 0).setInteractive();
+    this.backdrop = scene.add.rectangle(0, 0, 10, 10, PALETTE.modalOverlay, 0.9).setOrigin(0, 0).setInteractive();
     this.stage = scene.add.container(0, 0);
     this.sprite = scene.add.image(0, 0, PORT_ARROW_OUT).setOrigin(0.5);
     this.stage.add(this.sprite);

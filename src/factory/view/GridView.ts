@@ -17,7 +17,7 @@ import {
   FACTORY_PLOTS,
   type PlotDefinition,
 } from '../simulation/FactoryEconomy.ts';
-import { PALETTE, FONT_FAMILY } from '../../ui/theme.ts';
+import { PALETTE, SEMANTIC, TONE, FONT_FAMILY } from '../../ui/theme.ts';
 import { GridCoordinates } from './GridCoordinates.ts';
 import { itemSpriteKey } from '../simulation/ItemRegistry.ts';
 import { bindWorldTap, isTap } from '../input/WorldPointer.ts';
@@ -488,7 +488,7 @@ export class GridView {
         fontFamily: FONT_FAMILY,
         fontSize: '11px',
         fontStyle: 'bold',
-        color: PALETTE.textPrimary,
+        color: SEMANTIC.textPrimary,
         align: 'center',
         wordWrap: { width: badgeW - 12 },
       });
@@ -504,7 +504,7 @@ export class GridView {
         {
           fontFamily: FONT_FAMILY,
           fontSize: '11px',
-          color: canAfford ? PALETTE.resourceGoldHex : PALETTE.textMuted,
+          color: canAfford ? SEMANTIC.moneyHex : SEMANTIC.textMuted,
         },
       );
       costText.setOrigin(0.5, 0);
@@ -516,7 +516,7 @@ export class GridView {
               fontFamily: FONT_FAMILY,
               fontSize: '11px',
               fontStyle: 'bold',
-              color: PALETTE.warningOrangeHex,
+              color: SEMANTIC.warningHex,
               align: 'center',
               wordWrap: { width: badgeW - 12 },
             })
@@ -533,9 +533,10 @@ export class GridView {
         0,
         badgeW,
         badgeH,
-        canAfford ? PALETTE.cardBg : PALETTE.btnDisabled,
+        canAfford ? TONE.creamLight : TONE.tan,
       );
-      badgeBg.setStrokeStyle(1, canAfford ? PALETTE.successGreen : PALETTE.borderDark);
+      // Arayüzdeki kartlarla aynı dil: krem zemin, kahve çerçeve; alınabiliyorsa yeşil çerçeve
+      badgeBg.setStrokeStyle(1, canAfford ? SEMANTIC.primary : SEMANTIC.ink);
 
       // İnteraktif tıklama alanı
       const hitZone = this.scene.add.zone(0, 0, badgeW, badgeH);

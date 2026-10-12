@@ -102,8 +102,12 @@ const FLIGHT_CATCH_UP_STEP_SEC = 1 / 30;
 const SPLITTER_MERGER_FEATURE = 'SPLITTER_MERGER';
 /** Dünyadaki yazıların (etiketler) kamera zoom'una göre yeniden üretilme aralığı (ms) */
 const WORLD_TEXT_SYNC_INTERVAL_MS = 200;
-/** Fabrikanın çevresini kaplayan şehir dokusunun kenarı (dünya pikseli; 512'nin katı) */
-const FACTORY_BACKDROP_SIZE = 8192;
+/** Şehir karosunun kenarı (dünya pikseli; tools/generate_city_backdrop.py ile aynı). Arsa da bu boydadır. */
+const FACTORY_BACKDROP_TILE = 1024;
+/** Arsanın köşesinin karodaki yeri: bulvarın dış şeridi (24) ve çevre duvarı (6) arsanın dışında kalır */
+const FACTORY_BACKDROP_LOT_OFFSET = 30;
+/** Arsanın her yanına döşenen karo sayısı (kamera en uzak görünümde de boşluk görmesin) */
+const FACTORY_BACKDROP_RING = 4;
 /** Arsanın çevre duvarının kalınlığı (dünya pikseli) */
 const FACTORY_FENCE_THICKNESS = 6;
 /** Öğretici kutusunun fabrikayı örtmemesi için sığdırmada altta bırakılan ek şerit (arayüz birimi) */
@@ -376,15 +380,20 @@ export class GameScene extends Phaser.Scene {
     this.logistics = new LogisticsNetwork(this.gridMap);
     this.productionEngine = new ProductionEngine(this.gridMap, this.logistics);
 
-    /* Fabrikanın çevresi (tools/generate_theme_assets.py):
-       - en dışta kuşbakışı minyatür sanayi ve şehir çizimi (512 piksellik karo, arsayla hizalı),
-       - arsanın tamamında (fabrikanın genişleyebileceği 32x32 hücre) gri beton,
+    /* Fabrikanın çevresi:
+       - en dışta minyatür sanayi şehri (tools/generate_city_backdrop.py; kesintisiz döşenen karo).
+         Karo, arsanın kenarları bulvarların orta refüjüne gelecek biçimde hizalanır: arsanın dört
+         yanında yol kalır, hiçbir yapı duvarla kesilmez;
+       - arsanın tamamında (fabrikanın genişleyebileceği 32x32 hücre) beton (generate_theme_assets.py),
        - arsanın kenarında çevre duvarı.
        Hiçbiri etkileşimli değildir; açık fabrika zemini bunların üstüne çizilir. */
     const lotWidth = MAX_FACTORY_WIDTH * 32;
     const lotHeight = MAX_FACTORY_HEIGHT * 32;
+    const backdropStart = -FACTORY_BACKDROP_LOT_OFFSET - FACTORY_BACKDROP_RING * FACTORY_BACKDROP_TILE;
+    const backdropSize = (FACTORY_BACKDROP_RING * 2 + 1) * FACTORY_BACKDROP_TILE;
     this.add
-      .tileSprite(lotWidth / 2, lotHeight / 2, FACTORY_BACKDROP_SIZE, FACTORY_BACKDROP_SIZE, 'factory_backdrop')
+      .tileSprite(backdropStart, backdropStart, backdropSize, backdropSize, 'factory_backdrop')
+      .setOrigin(0, 0)
       .setDepth(0);
     this.add.tileSprite(0, 0, lotWidth, lotHeight, 'factory_concrete').setOrigin(0, 0).setDepth(0.2);
     const fence = FACTORY_FENCE_THICKNESS;

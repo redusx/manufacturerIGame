@@ -7,7 +7,7 @@
  * ====================================================================== */
 
 import Phaser from 'phaser';
-import { SEMANTIC, SPACE, type UiTextVariant } from '../theme.ts';
+import { SEMANTIC, SPACE, onDark, toHex, type UiTextVariant } from '../theme.ts';
 import { UiLayer } from './UiLayer.ts';
 
 export type UiBarColor = 'gold' | 'green' | 'cyan' | 'red';
@@ -110,12 +110,14 @@ export class UiChip extends Phaser.GameObjects.Container {
     this.lastText = text;
     this.lastColor = color;
     this.label.setText(text);
-    this.bg.setTint(color);
-    this.label.setColor(`#${color.toString(16).padStart(6, '0')}`);
+    // Rozetin içi koyudur: vurgu renginin açık tonu okunur
+    const tone = onDark(color);
+    this.bg.setTint(tone);
+    this.label.setColor(toHex(tone));
 
     let cursor = SPACE.sm - 2;
     if (this.icon) {
-      this.icon.setPosition(cursor, this.chipHeight / 2).setTint(color);
+      this.icon.setPosition(cursor, this.chipHeight / 2).setTint(tone);
       cursor += this.icon.displayWidth + 4;
     }
     this.label.setPosition(cursor, this.chipHeight / 2);

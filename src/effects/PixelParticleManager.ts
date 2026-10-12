@@ -7,7 +7,7 @@
  * ====================================================================== */
 
 import Phaser from 'phaser';
-import { PALETTE, FONT_FAMILY } from '../ui/theme.ts';
+import { PALETTE, SEMANTIC, FONT_FAMILY } from '../ui/theme.ts';
 import { UiLayer } from '../ui/system/UiLayer.ts';
 import { PixelParticleHelper } from './PixelParticleHelper.ts';
 
@@ -147,7 +147,7 @@ export class PixelParticleManager {
       fontSize: space === 'ui' ? '14px' : '11px',
       color,
       fontStyle: 'bold',
-      stroke: '#070913',
+      stroke: SEMANTIC.outlineHex,
       strokeThickness: 3,
       // Dünyadaki yazı dünya kamerasının zoom'unda, arayüzdeki arayüz zoom'unda keskin çizilir
       resolution: space === 'ui' ? layer?.zoom : layer?.worldTextResolution,

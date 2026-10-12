@@ -7,6 +7,7 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { PALETTE } from '../../ui/theme.ts';
 import {
   ContractManager,
   CONTRACT_TEMPLATES,
@@ -212,9 +213,9 @@ describe('ContractManager Progression & Delivery Tests', () => {
     assert.strictEqual(ContractManager.formatRemainingTime(-5), '00:00');
 
     // Time colors
-    assert.strictEqual(ContractManager.getTimeColor(15), '#e74c3c'); // Critical red
-    assert.strictEqual(ContractManager.getTimeColor(45), '#f39c12'); // Warning orange
-    assert.strictEqual(ContractManager.getTimeColor(90), '#ecf0f1'); // Normal white
+    assert.strictEqual(ContractManager.getTimeColor(15), PALETTE.dangerRedHex);
+    assert.strictEqual(ContractManager.getTimeColor(45), PALETTE.warningOrangeHex);
+    assert.strictEqual(ContractManager.getTimeColor(90), PALETTE.textPrimary);
 
     // Progress ratio
     const dummyContract: any = { currentCount: 5, requiredCount: 20 };

@@ -10,7 +10,7 @@
  * ====================================================================== */
 
 import Phaser from 'phaser';
-import { SEMANTIC, SPACE, uiIcon } from './theme';
+import { SEMANTIC, SPACE, onDark, uiIcon } from './theme';
 import { UiButton } from './system/UiButton.ts';
 import type { UiLayer } from './system/UiLayer.ts';
 
@@ -93,13 +93,13 @@ export class Toolbar {
 
     // Üret'in kendi sesi ve efekti var; düğme tıklama sesi üstüne binmesin
     this.produceButton = make('ÜRET', uiIcon('hand'), 'factory', callbacks.onProduce, {
-      iconTint: 0x0b0e17,
       silent: true,
     });
     this.beltButton = make('BANT', uiIcon('belt'), 'secondary', callbacks.onBelt);
     this.buildButton = make('İNŞA', 'icon_factory', 'primary', callbacks.onBuild);
     this.demolishButton = make('SÖK', uiIcon('trash'), 'secondary', callbacks.onDemolish, {
-      iconTint: SEMANTIC.danger,
+      // Koyu mor düğmenin üstünde tehlike renginin açık tonu okunur
+      iconTint: onDark(SEMANTIC.danger),
     });
     this.hangarButton = make('HANGAR', uiIcon('hangar'), 'rocket', callbacks.onHangar, {
       onDisabledClick: callbacks.onHangarLocked,

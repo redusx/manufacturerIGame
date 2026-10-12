@@ -50,7 +50,8 @@ export class StartScreenModal extends UiModal {
         scene.add
           .tileSprite(2, 2, width - 4, BANNER_HEIGHT - 4, 'factory_backdrop')
           .setOrigin(0, 0)
-          .setTilePosition(96, 150),
+          // Karonun sağ üstü: solda idari bina ve yol, sağda bacalı çelik fabrikası
+          .setTilePosition(640, 74),
       );
     }
     if (scene.textures.exists('boss')) {

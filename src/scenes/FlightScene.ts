@@ -45,7 +45,7 @@ import {
   type GroundTheme,
 } from '../flight/GroundThemes.ts';
 import { MAX_ROCKET_LEVEL } from '../data/RocketData.ts';
-import { PALETTE, FONT_FAMILY, SEMANTIC, FLIGHT_SKY_TONES, brightOf } from '../ui/theme';
+import { PALETTE, TONE, FONT_FAMILY, SEMANTIC, FLIGHT_SKY_TONES, brightOf } from '../ui/theme';
 import { formatDistance } from '../utils/format';
 import { UiLayer } from '../ui/system/UiLayer.ts';
 import { FlightHud } from '../ui/FlightHud.ts';
@@ -477,7 +477,7 @@ export class FlightScene extends Phaser.Scene {
         .setDepth(15)
         .setScale(Phaser.Math.FloatBetween(0.5, 1.1))
         .setAlpha(0.9)
-        .setTint(i % 2 === 0 ? 0xffa502 : 0xc8c8c8);
+        .setTint(i % 2 === 0 ? PALETTE.factoryAmber : TONE.mist);
       this.tweens.add({
         targets: p,
         x: x + Math.cos(angle) * spd,
@@ -949,7 +949,7 @@ export class FlightScene extends Phaser.Scene {
       const p = this.add.image(this.rocketScreenX, this.rocketScreenY, key)
         .setDepth(30)
         .setScale(0.8)
-        .setTint(0xffd166);
+        .setTint(PALETTE.resourceGold);
       this.tweens.add({
         targets: p,
         x: p.x + Math.cos(angle) * 22,
@@ -1019,7 +1019,7 @@ export class FlightScene extends Phaser.Scene {
       const spark = this.add.image(x, y, key)
         .setDepth(40)
         .setScale(0.7)
-        .setTint(0xff4757);
+        .setTint(PALETTE.dangerRed);
       this.tweens.add({
         targets: spark,
         x: x + Math.cos(angle) * dist,
@@ -1040,7 +1040,7 @@ export class FlightScene extends Phaser.Scene {
       // Dünyada, koyu gökyüzünün üstünde: mürekkep tonunun parlak karşılığı
       color: brightOf(color),
       fontStyle: 'bold',
-      stroke: '#0c1020',
+      stroke: SEMANTIC.outlineHex,
       strokeThickness: 3,
       // Dünyada çizilen yazı, dünya kamerasının zoom'unda keskin üretilir
       resolution: this.cameras.main.zoom,

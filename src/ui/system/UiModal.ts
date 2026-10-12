@@ -12,7 +12,7 @@
  * ====================================================================== */
 
 import Phaser from 'phaser';
-import { SEMANTIC, SPACE } from '../theme.ts';
+import { PALETTE, SEMANTIC, SPACE, inkOn } from '../theme.ts';
 import { UiButton } from './UiButton.ts';
 import { UiLayer, type UiFocusable, type UiModalHandle } from './UiLayer.ts';
 
@@ -32,7 +32,7 @@ const HEADER_HEIGHT = 48;
 const PADDING = SPACE.md;
 const BODY_TOP_GAP = SPACE.sm;
 const SCROLL_DRAG_THRESHOLD = 6;
-const BACKDROP_COLOR = 0x05070e;
+const BACKDROP_COLOR = PALETTE.modalOverlay;
 const BACKDROP_ALPHA = 0.72;
 
 export abstract class UiModal implements UiModalHandle {
@@ -120,10 +120,13 @@ export abstract class UiModal implements UiModalHandle {
       .setTint(config.accent ?? SEMANTIC.secondary);
     this.panelLayer.add(this.headerBg);
 
-    this.handle = scene.add.image(0, 0, 'ui2_px').setOrigin(0.5).setTint(0x000000).setAlpha(0.35);
+    this.handle = scene.add.image(0, 0, 'ui2_px').setOrigin(0.5).setTint(SEMANTIC.ink).setAlpha(0.35);
     this.panelLayer.add(this.handle);
 
-    this.titleText = layer.text(0, 0, config.title, 'title', { color: SEMANTIC.textOnBright }).setOrigin(0, 0.5);
+    // Başlık yazısı şeridin rengine göre seçilir: açık şeritte koyu, diğerlerinde beyaz
+    this.titleText = layer
+      .text(0, 0, config.title, 'title', { color: inkOn(config.accent ?? SEMANTIC.secondary) })
+      .setOrigin(0, 0.5);
     this.panelLayer.add(this.titleText);
 
     this.body = scene.add.container(0, 0);
@@ -231,6 +234,7 @@ export abstract class UiModal implements UiModalHandle {
 
   setAccent(color: number): void {
     this.headerBg.setTint(color);
+    this.titleText.setColor(inkOn(color));
   }
 
   // UiModalHandle ------------------------------------------------

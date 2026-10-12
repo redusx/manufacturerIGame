@@ -16,7 +16,7 @@ import {
   type MachineVisualBounds,
 } from './MachineVisualGeometry.ts';
 import { GridCoordinates } from './GridCoordinates.ts';
-import { PALETTE, FONT_FAMILY } from '../../ui/theme.ts';
+import { PALETTE, SEMANTIC, FONT_FAMILY } from '../../ui/theme.ts';
 import { bindWorldTap } from '../input/WorldPointer.ts';
 import { DIRECTION_VECTORS, OPPOSITE_DIRECTIONS } from '../types.ts';
 import { ConveyorGeometry } from './ConveyorGeometry.ts';
@@ -164,7 +164,7 @@ export class MachineRenderer {
         fontSize: '9px',
         color: PALETTE.resourceGoldHex,
         fontStyle: 'bold',
-        stroke: '#0c1020',
+        stroke: SEMANTIC.outlineHex,
         strokeThickness: 3,
       },
     );
