@@ -1399,7 +1399,7 @@ Karar: DEC-044.
 
 **Denenmeyenler:** fiziksel telefon; makine taşıma (aynı kod yolu, ayrıca denenmedi); yeni aşama hedefleriyle elde oynanış süresi.
 
-### [2026-10-13] — Dördüncü Liste (8 madde)
+### [2026-10-12] — Dördüncü Liste (8 madde)
 
 Kararlar: DEC-045 … DEC-047. Lider tablosu araştırması: `docs/LEADERBOARD.md`.
 
@@ -1415,4 +1415,25 @@ Kararlar: DEC-045 … DEC-047. Lider tablosu araştırması: `docs/LEADERBOARD.m
 **Doğrulama:** `npm test` 262/262, `npx tsc --noEmit` temiz, `npm run build` başarılı. Tarayıcıda: Ayarlar'da dokunarak kaydırmada pencere kaydı, kamera kıpırdamadı; tekerlekte de aynı. 700x290 yatayda beş araç düğmesi etiketli. Giriş ekranı göründü ve "Oyna" ile kapandı. Lider tablosu HUD'dan açıldı (örnek kip, oyuncu 8. sırada vurgulu). Öğretici uçuştan sonra lider tablosu adımına geçti. Yeni tema masaüstünde ve telefon boyutunda ana ekran, hangar, katalog ve uçuş ekranında görüldü.
 
 **Denenmeyenler:** fiziksel telefon; gerçek skor sunucusu (`online` kip) ve ağ hatası yolu; CrazyGames skor gönderimi; yayın sürümündeki `local` kipin ekranı; tam ekran düğmesine basılması; yeni temada makine penceresi, ayarlar, uçuş raporu, Seferler, Takviye, çevrimdışı kazanç ve onay pencereleri.
+
+### [2026-10-12] — Görsel Kimlik: 16 Renkli Palet, Yeni Şehir Arka Planı, Arayüz Renkleri
+
+Kararlar: DEC-048, DEC-049. Kullanıcı iki referans verdi: 16 renkli palet ve bir piksel sanat şehir çizimi.
+
+- **Palet:** `src/ui/theme.ts` yeniden kuruldu: `BASE` (16 renk), `mixColor`/`toHex`, `TONE` (adlandırılmış karışımlar), `PALETTE` (dünya rolleri), `SEMANTIC` (arayüz rolleri), `onDark`, `inkOn`. Çizim betikleri için karşılığı `tools/palette.py`. Uçuş göğü tonları da palet karışımı oldu.
+- **Şehir:** yeni `tools/generate_city_backdrop.py` (katman + otomatik kontur + palet içi gölge; yapı parçaları: testere dişi/beşik/kırma/tonoz çatılı hol, ev, idari bina, tank, silo, küre tank, soğutma kulesi, baca, vinç, konteyner, vagon, araçlar, ağaçlar). Çıktı `factory_backdrop.png` 1024×1024, indeksli, 16 renk, ~49 KB. Eski 512'lik kuşbakışı şehir `generate_theme_assets.py` içinden kaldırıldı.
+- **Hizalama:** `GameScene` karoyu arsanın köşesi karonun (30, 30) noktasına gelecek biçimde yerleştirir (`FACTORY_BACKDROP_LOT_OFFSET`); arsa tam bir karo boyunda olduğu için dört kenar da bulvara denk gelir.
+- **Dokular:** `generate_theme_assets.py` (paneller, çubuklar, zemin, beton, duvar, patron) ve `generate_ui_assets.py` (düğmeler, rozet, ikon renkleri) paletten üretir. Elle çizilmiş ikonlar ve HUD sikkesi `tools/recolor_ui_icons.py` ile palete çekildi (renk ailesine göre en yakın parlaklık; kırmızılar mor ailesine).
+- **Kod:** başlık yazısı şeridin rengine göre (`inkOn`), rozet yazısı açık tonda (`onDark`), düğme etiketleri beyaz, parsel etiketi krem kart, pencere karartması `umber`. Kalan sabit renkler (uçuş kıvılcımları, yazı konturları, durum renkleri, `ContractManager.getTimeColor`, deneme reklam katmanı, `index.html`) belirteçlere bağlandı; `src/` içinde tema dışında serbest hex kalmadı (testlerdeki girdi değerleri hariç).
+- **Testler:** yeni test yok. Sabit hex bekleyen iki mevcut test (`MachineInspectorHelper`, `ContractManager`) belirteçle karşılaştıracak biçimde güncellendi.
+
+**Doğrulama:** `npm test` 262/262, `npx tsc --noEmit` temiz, `npm run build` başarılı. Tarayıcıda (uygulama içi bölme, kareler elle ilerletilerek):
+- Masaüstü 1280×800: ana ekran (oyun başı ve geç oyun), en uzak (%50) ve varsayılan yakınlaştırma; karo arsanın dört yanında yola oturuyor, tekrar çizgisi yok.
+- Pencereler: katalog, makine, hangar, ayarlar, onay, giriş ekranı, lider tablosu, Aşamalar, Seferler, Takviye, fiyat listesi, kontroller, çevrimdışı kazanç; bildirim kutusu, söküm ve bant modu çubukları.
+- Telefon dikey 390×780: ana ekran, katalog, hangar, makine, ayarlar, giriş, onay. Telefon yatay 740×360: ana ekran, hangar, makine, katalog.
+- Uçuş: fırlatma göstergesi, uçuş HUD'ı, çakılma raporu.
+- Mekanik (gerçek tıklamalarla): 12 elle üretim → $32 gelir; katalogdan kırıcı kurma ($100, makine sayısı 1 → 2); makine penceresinden yükseltme (Sv.1 → 2, $112,5).
+- Önce/sonra ekran görüntüleri aynı sahnelerde alındı.
+
+**Denenmeyenler:** fiziksel telefon; gerçek kayıt yazma (denemede kapalıydı; kayıt kodu değişmedi); dokunmatik girdi (bu işte yalnız fareyle tıklandı); söküm ve bant modlarında yalnız çubuklara bakıldı, söküm ya da bant çizimi yapılmadı; tablet boyutu; makine bilgi penceresi (katalogdaki "i"); renk körlüğü denetimi.
 

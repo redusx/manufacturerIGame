@@ -1,6 +1,6 @@
 # LEADERBOARD.md — Lider Tablosu: Altyapı Araştırması ve Kurulum
 
-> 2026-10-13. Oyundaki lider tablosunun nasıl çalıştığı, gerçek oyuncu sıralaması için
+> 2026-10-12. Oyundaki lider tablosunun nasıl çalıştığı, gerçek oyuncu sıralaması için
 > neyin gerektiği ve hangi kararların kullanıcıya ait olduğu.
 
 ## 1. Bugünkü durum
@@ -19,7 +19,7 @@ Uydurma oyuncular hiçbir kipte gerçekmiş gibi gösterilmez.
 
 ## 2. Araştırma: CrazyGames ne sunuyor?
 
-Kaynak: docs.crazygames.com/sdk/leaderboards (2026-10-13'te okundu).
+Kaynak: docs.crazygames.com/sdk/leaderboards (2026-10-12'te okundu).
 
 - CrazyGames'in **kendi lider tablosu** vardır: haftalık sezonlar (pazartesi 09:00 UTC'de
   sıfırlanır), ülke/arkadaş/genel sıralama, ödüller.

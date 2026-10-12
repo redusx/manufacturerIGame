@@ -17,31 +17,57 @@
 
 ---
 
-## 2. Renk Paleti (Harmonious Industrial Pixel Palette)
+## 2. Renk Paleti (16 Renkli Ana Palet)
 
-Tüm arayüz ve oyun nesneleri bu merkezi renk ailesini kullanır (`src/ui/theme.ts` içerisinde tanımlıdır):
+Oyunun bütün arayüzü ve fabrikanın çevresi tek bir 16 renkli paletten doğar (DEC-048). Palet `src/ui/theme.ts` içinde `BASE`, çizim betikleri için `tools/palette.py` içinde tanımlıdır; ikisi birlikte güncellenir.
 
-| Rol / Görev | HEX Kodu | Sayısal (0x) | Kullanım Alanı |
+| Ad | HEX | Aile | Başlıca kullanım |
 |---|---|---|---|
-| **Derin Arka Plan** | `#0a1330` | `0x0a1330` | Sahne tabanı; fabrikanın çevresi bu tonda teknik çizim ızgarasıyla dokunur |
-| **Panel Zemin** | `#14244a` | `0x14244a` | Üst çubuk, araç çubuğu tablası, pencere dolgusu |
-| **Kart Zemin** | `#1a2d58` | `0x1a2d58` | Kart dolgusu (iç bölmeler bir ton koyu: `#0f1b3a`) |
-| **Panel Çerçevesi (Koyu)** | `#2b4380` | `0x2b4380` | Kart ve panel dış hatları, ayırıcı çizgiler |
-| **Panel Çerçevesi (Açık)** | `#4a6bbd` | `0x4a6bbd` | 1px piksel iç kenar vurgusu (bevel highlight) |
-| **Pirinç Şerit / Perçin** | `#ffd166` / `#c98f1a` | — | Çubukların kenar şeridi, pencere köşelerindeki perçinler (tema motifi) |
-| **Ana Metin (Primary)** | `#f5f6fa` | `0xf5f6fa` | Başlıklar, sayılar, kart isimleri (yüksek kontrast) |
-| **İkincil Metin (Muted)** | `#8c9bb3` | `0x8c9bb3` | Açıklamalar, birimler, stat etiketleri |
-| **Kaynak / Para Vurgusu** | `#ffd166` | `0xffd166` | Parça miktarı, altın paralar, fiyatlar |
-| **Fabrika Rengi (Amber)** | `#f4a261` | `0xf4a261` | Sevkiyat sandığı, manuel üretim butonu |
-| **Roket / Boost (Cyan)** | `#00d2d3` | `0x00d2d3` | Nitro barı, fırlatma butonu, jet alevi |
-| **Başarı / Satın Alınabilir** | `#2ecc71` | `0x2ecc71` | Satın alınabilir 'GELİŞTİR' butonu, +Kazanç metni |
-| **Uyarı / Kilitli** | `#f39c12` | `0xf39c12` | Hedef eşiği, kilitli makine uyarısı |
-| **Tehlike / Hasar / Kaza** | `#e74c3c` | `0xe74c3c` | Darbe flaşı, düşük HP, kayıt sıfırlama butonu |
-| **Devre Dışı / Yetersiz** | `#22293e` | `0x22293e` | Satın alınamayan buton zemini, sönük sınır |
+| `sand` | `#e1b670` | sıcak | Açık kahve: para/ödül vurgusu, "gold" düğme, krem tonlarının kaynağı, şehirde kum avlu ve kaldırım |
+| `copper` | `#b96925` | sıcak | Bakır: fabrika/elle üretim, uyarı, tuğla duvar, yol çizgisi |
+| `brown` | `#68392e` | sıcak | Kahve: kart ve pencere çerçevesi, soluk yazı |
+| `umber` | `#201300` | sıcak | En koyu kahve: kontur, ana yazı, rozet ve çubuk yuvası dolgusu |
+| `olive` | `#404e21` | yeşil | Yeşilin koyusu: düğme dudağı, ağaç gölgesi |
+| `green` | `#45944f` | yeşil | Ana eylem / satın alınabilir / olumlu; şehirde çim |
+| `mint` | `#77d3b2` | yeşil | Yeşilin açığı: düğme vurgusu, koyu rozette yeşil yazı, tanklar |
+| `sky` | `#96bfff` | mavi | Mavinin açığı: cam, koyu rozette mavi yazı, etkin fabrika kenarı |
+| `blue` | `#038ac2` | mavi | Roket / hangar / uçuş; şehirde çatı ve su |
+| `teal` | `#01515e` | mavi | Mavinin koyusu: düğme dudağı, koyu çatılar |
+| `navy` | `#001437` | mavi | Sahne tabanı, fabrika zemininin ve uçuş göğünün kaynağı |
+| `plum` | `#503e66` | mor | Nötr (ikincil) düğme, ızgara çizgisi, şehirde asfalt |
+| `purple` | `#a762a9` | mor | Tehlike / söküm / hasar (palette kırmızı yoktur) |
+| `pink` | `#efa3c8` | mor | Morun açığı: düğme vurgusu, koyu rozette tehlike yazısı |
+| `white` | `#ffffff` | — | Renkli düğme etiketi, koyu zeminde ana yazı, parlama |
+| `black` | `#000000` | — | Yalnızca gölge ve uzay tonlarının karışımında |
 
----
+**Kural:** bir renk ya bu 16 renkten biridir ya da ikisinin **adlandırılmış karışımıdır** (`TONE`). Kodda ve betiklerde serbest hex yazılmaz.
 
-**Tema (DEC-042, "atölye mavisi + pirinç"):** lacivert ailesi donuk olmasın diye bir kademe açık ve doygundur. Aynı üç motif her yerde tekrar eder: çubukların kenarında pirinç şerit, pencere köşelerinde pirinç perçin ve zeminlerde ince teknik çizim ızgarası (üst çubuk, araç çubuğu, pencereler ve fabrikanın çevresi).
+### Türetilmiş tonlar (`TONE`)
+
+| Ton | Karışım | Kullanım |
+|---|---|---|
+| `cream` `#f4e3c9` | sand → white %62 | Pencere dolgusu |
+| `creamLight` `#f9f0e2` | sand → white %80 | Kart dolgusu |
+| `tan` `#ecd2a6` | sand → white %38 | İç bölme (içe gömük yüzey) |
+| `tanBar` `#e5c084` | sand → white %14 | Üst çubuk ve araç çubuğu tablası |
+| `tanDark` `#d39b56` | sand → copper %35 | Ayırıcı çizgi, çerçeve gölgesi |
+| `night`, `nightDeep` | navy → plum | Dünyadaki koyu rozet ve yedek dolgular |
+| `lilac`, `mist` | plum → sky / white | Koyu zeminde çizgi ve soluk yazı |
+| `faded`, `fadedLight` | brown → sand | Devre dışı düğme etiketi, soluk ikon |
+| beton tonları (yalnız dokuda) | plum → white %30–62 | Açılmamış arsanın gri-eflatun betonu |
+
+### Roller
+
+* **Yüzeyler açıktır:** pencere krem, kart açık krem, çubuklar açık kahve; çerçeve `brown`, dış kontur `umber`, pencere kenarında `sand`/`copper` şerit ve perçinler.
+* **Açık zemindeki yazı ("mürekkep") koyudur:** ana yazı `umber`, ikincil `brown`; vurgulu yazılar vurgu renginin bir koyusudur (yeşil → green+olive, mavi → blue+teal, para → copper+brown, tehlike → purple+plum). `SEMANTIC.*Hex` bunlardır.
+* **Vurgular** (`SEMANTIC` sayısal değerleri) ana paletin orta tonlarıdır: `green`, `plum`, `sand`, `copper`, `blue`, `purple`. İkon, çubuk dolgusu, başlık şeridi ve düğme gövdesi aynı rengi kullanır.
+* **Koyu zeminde** (rozet içi, dünya, uçuş) vurgunun açığı okunur: green → `mint`, blue → `sky`, purple → `pink` (`onDark`, `brightOf`).
+* **Düğme gövdesi** orta ton, üst vurgusu ailenin açığı, alt dudağı koyusudur; etiket beyazdır (yalnız `sand` gövdede `umber`). Başlık şeridinde yazı rengi şeride göre seçilir (`inkOn`).
+* **Dünya:** fabrika zemini `navy`–`plum` arası koyu tonlardır, açılmamış arsa gri-eflatun beton, çevre duvarı `sand`/`copper`/`brown` tuğla.
+
+**Şehir arka planı** (`factory_backdrop.png`) yalnızca 16 ana rengi kullanır; ara ton, karışım ve gradyan içermez (betik bunu doğrular).
+
+**Kapsam dışı:** makine, bant, eşya, roket ve uçuş sprite'ları kendi renklerini korur; bu palet arayüz ve fabrikanın çevresi içindir.
 
 **Yakınlaştırma istisnası (DEC-043):** fabrika haritasının + / − düğmeleri %6,25'lik adımlarla çalışır; ara kademelerde pikseller tam katlara oturmaz. Hassas ayar için bilerek kabul edilmiştir; tekerlek, iki parmak ve otomatik sığdırma tam kademelerde kalır.
 
@@ -67,7 +93,7 @@ Tüm arayüz ve oyun nesneleri bu merkezi renk ailesini kullanır (`src/ui/theme
 
 ## 4. Kontur ve Gölgelendirme Kuralları
 
-* **Dış Kontur (Outline):** Tüm sprite ve interaktif butonlar `1px` kalınlığında koyu lacivert/siyah (`#0c1020` veya `#181926`) piksel kontura sahiptir. Asla yumuşak blur gölge verilmez.
+* **Dış Kontur (Outline):** Arayüz öğeleri ve şehir çizimi `1px` kalınlığında en koyu kahve (`umber`, `#201300`) kontura sahiptir; şehirde soğuk renkli yapılar `navy` kontur alabilir. Oyun sprite'ları kendi koyu konturlarını korur. Asla yumuşak blur gölge verilmez.
 * **Işık Açısı:** Sol-üstten sağ-alta 45° yönlü ışık kabul edilir.
   - Üst ve sol kenarlar: `1px` açık renk vurgu (`#ffffff` %20-40 alfa veya açık palet tonu).
   - Alt ve sağ kenarlar: `1px` koyu gölge şeridi (`#000000` %30 alfa).
@@ -79,9 +105,9 @@ Tüm arayüz ve oyun nesneleri bu merkezi renk ailesini kullanır (`src/ui/theme
 
 * **Yazı Tipi Ailesi:** Temiz, yüksek okunabilirlikli Sans-Serif (`Arial, Helvetica, sans-serif` veya gelecekte pixel font `Press Start 2P / Silkscreen`).
 * **Hiyerarşi & Minimum Boyutlar:**
-  - Ana Başlıklar & HUD Sayıları: `18px – 24px`, Kalın (Bold), `#f5f6fa` / `#ffd166`.
+  - Ana Başlıklar & HUD Sayıları: `18px – 24px`, Kalın (Bold); açık zeminde `umber`, konturlu sayılarda `white` / `sand`.
   - Kart Başlıkları & Buton Etiketleri: `12px – 15px`, Kalın (Bold).
-  - Stat Metinleri & İkincil Bilgiler: `10px – 11.5px`, `#8c9bb3`.
+  - Stat Metinleri & İkincil Bilgiler: `10px – 11.5px`, açık zeminde `brown`.
   - Minimum Mobil Metin Sınırı: **Hiçbir metin `9px` altına inemez.**
 * **Sayı Formatı:**
   - `formatNumber` yardımcısı kullanılır (`1.20e3`, `4.50M` gibi standart kısaltmalar).
@@ -92,23 +118,25 @@ Tüm arayüz ve oyun nesneleri bu merkezi renk ailesini kullanır (`src/ui/theme
 ## 6. UI Bileşen Kütüphanesi Standartları
 
 ### A. Düğmeler (Buttons)
-* **Normal / Satın Alınabilir:** Yeşil (`#2ecc71`) gövde, koyu yazı (`#0f0e17`), üstte 1px parlama.
-* **Devre Dışı / Yetersiz Kaynak:** Koyu çelik zemin (`#22293e`), sınır `#3d4e7a`, metin `#a4b0be`, fiyat sarı `#ffd166`.
-* **Hover:** 1.04x ölçekleme veya ton açılması (`#34d178`).
-* **Basılı (Active/Down):** 0.96x ölçekleme, 1px aşağı kayma.
-* **Maksimum Seviye (Maxed):** Nötr grafit (`#34495e`), gri metin (`#95a5a6`), 'TAMAM' / 'MAKSİMUM'.
+* **Gövdeler (ana paletin orta tonları):** ana eylem `green`, ikincil `plum`, roket `blue`, fabrika `copper`, ödül/reklam `sand`, tehlike `purple`. Üstte ailenin açık tonuyla 1px parlama, altta koyusuyla dudak, çevrede `umber` kontur.
+* **Etiket:** beyaz; yalnızca `sand` gövdede `umber`.
+* **Devre Dışı / Yetersiz Kaynak:** soluk açık kahve, düz gövde; etiket `faded` (okunur kalacak kadar koyu). Fiyat her zaman görünür.
+* **Hover:** gövde vurgu tonuna doğru açılır. **Basılı:** gövde 2px aşağı iner, dudak incelir.
+* **Seçili:** `umber` çerçeve. **Odak (klavye):** `plum` çerçeve.
 
 ### B. Paneller & Kartlar (Cards & Panels)
-* Çok katmanlı piksel çerçeve: Dış koyu çerçeve (`#242f4c`), gövde dolgusu (`#141a2e`), sol tarafta durum/seviye rozeti, sağ tarafta işlem butonu.
+* Pencere: krem dolgu, `umber` kontur, `sand`/`copper` şerit, `brown` iç çizgi, köşelerde perçin. Kart: açık krem dolgu, `brown` çerçeve, sol-üstte ışık. İç bölme: bir ton koyu (`tan`), içe gömük.
+* Başlık şeridi ekranın vurgu rengini taşır (hangar mavi, makine bakır, katalog yeşil, onay mor); başlık yazısı şeride göre beyaz ya da `umber`.
 
 ### C. İlerleme & Durum Çubukları (Progress Bars)
-* Beveled (eğimli) piksel çerçeve (`#222233`), içi renkli dolgu:
-  - Can (HP): Yeşil (`#2ecc71`) -> Düşükte Kırmızı (`#e74c3c`).
-  - Nitro / Boost: Canlı Siyanür (`#00d2d3`).
-  - Hedef / Milestone: Endüstriyel Altın (`#ffd166`) / Turuncu (`#f4a261`).
+* `umber` oluk, içi düz renk dolgu:
+  - Can (HP): `green`; hasar ve tehlike `purple`.
+  - Nitro / Boost: `blue`.
+  - Hedef / ilerleme: `sand`.
 
-### D. Bildirimler ve Toast'lar
-* Ekranın üst-orta çeyreğinde, koyu lacivert gövde (`#0e1220`, %95 alfa), `2px` yeşil veya altın piksel konturlu kutu, 800ms fade-out.
+### D. Bildirimler, Rozetler
+* Bildirim ve öğretici kutusu: açık krem dolgu, `umber` kontur, `brown` iç çizgi.
+* Rozet (chip): `umber` dolgu, vurgunun açık tonunda kontur ve yazı (`mint`, `sky`, `sand`, `pink`).
 
 ---
 
@@ -117,7 +145,7 @@ Tüm arayüz ve oyun nesneleri bu merkezi renk ailesini kullanır (`src/ui/theme
 | Dosya Yolu (public/assets/...) | Boyut / Frame | Mevcut Görev | İleride Kullanım Alanı |
 |---|---|---|---|
 | `factory_bg.png` | 32×32 karo | Fabrika arka plan endüstriyel çelik duvar kaplaması | Duvar eklentileri |
-| `factory_floor.png` | 32×32 karo | Fabrika tabanı zemin ızgara levhaları | Zemin boyama/kaplama |
+| `factory_floor.png` | 64×32 karo | Fabrika tabanı: lacivert–koyu mor levhalar, üstte açık eflatun ray (`tools/generate_theme_assets.py`) | Zemin boyama/kaplama |
 | `conveyor_belt.png` | 32×24 karo | Canlı animasyonlu endüstriyel taşıma bandı | Hızlı bant yükseltmesi |
 | `factory_intake.png` | 48×56 piksel | Çelik hammadde giriş bunker hunisi ve hidrolik piston | Maden deposu |
 | `shipping_crate.png` | 44×44 piksel | Sarı/siyah ikaz şeritli çelik sevkiyat sandığı | Otomatik paketleme kasası |
@@ -142,7 +170,7 @@ Tüm arayüz ve oyun nesneleri bu merkezi renk ailesini kullanır (`src/ui/theme
 | `btn_launch_normal/hover/pressed.png` | 40×32 (9-slice) | Hangar içi dev fırlatma konsolu butonu | Acil kalkış butonu |
 | `btn_tab_active/inactive.png` | 32×24 (9-slice) | Fabrika ve Roket sekmeleri butonları | Ek menü sekmeleri |
 | `ui_bar_slot.png` & `ui_bar_fill_*.png` | 32×12 / 16×8 | HP, Boost ve Milestone ilerleme çubuğu çerçeve ve dolguları | Isı, kalkan göstergeleri |
-| `icon_*.png` (coin, gear, trophy...) | 16×16 piksel | Merkezi UI ikon seti (sikke, dişli, roket, kupa, ayarlar) | Mini HUD ikonları |
+| `icon_*.png` (coin, gear, trophy...) | 16×16 piksel | Merkezi UI ikon seti (sikke, dişli, roket, kupa, ayarlar); elle çizilmiştir, renkleri `tools/recolor_ui_icons.py` ile palete çekilir | Mini HUD ikonları |
 | `pixelart/coins/spr_coin_ama.png` | 64×16 (4f: 16×16) | Altın dönen sikke: HUD, sevkiyat jetonu, uçuş parçası | Görev ödülleri, mağaza |
 | `pixelart/coins/spr_coin_azu.png` | 64×16 (4f: 16×16) | Mavi sikke/kristal: Nitro enerji orbu | Özel araştırma para birimi |
 | `pixelart/coins/spr_coin_roj.png` | 64×16 (4f: 16×16) | Kırmızı sikke/cevher | Yüksek riskli asteroit madeni |
@@ -163,7 +191,10 @@ Tüm arayüz ve oyun nesneleri bu merkezi renk ailesini kullanır (`src/ui/theme
 | `rocket_tank_*.png` (1-3) | 16×16 | Harici nitro yakıt tankı | Kimyasal yakıt tankları |
 | `launch_pad.png` | 48×48 | Eski tek rampa çizimi; artık yüklenmiyor | — |
 | `launch_pads/launch_pad_1..10.png` | 48×48 | Rampanın her seviyesinin görünümü (sarı kule → tank → çelik → ikinci kule → anten → enerji rayı → plazma → altın); `tools/generate_launch_pad.py` | — |
-| `ui/bar_bg.png`, `ui/dock_bg.png`, `ui/pattern.png`, `factory_backdrop.png` | 32×32 / 64×64 | Tema dokuları: pirinç şeritli çubuklar, panellerin ince ızgarası, fabrikanın çevresindeki teknik çizim zemini; `tools/generate_theme_assets.py` (kart, iç bölme, pencere, bildirim ve zemin karosunu da üretir) | — |
+| `ui/bar_bg.png`, `ui/dock_bg.png`, `ui/pattern.png` | 32×32 | Tema dokuları: kenarı şeritli açık kahve çubuklar, panellerin ince ızgarası; `tools/generate_theme_assets.py` (kart, iç bölme, pencere, bildirim, zemin, beton, duvar ve patron portresini de üretir) | — |
+| `factory_backdrop.png` | 1024×1024 karo (indeksli, 16 renk) | Fabrikanın çevresindeki minyatür sanayi şehri: 3/4 bakış, bulvarlar, 16 ada (çelik fabrikası, tank sahası, depolar, santral, konteyner sahası, yük garı, silolar, atölyeler, güneş tarlası, gaz tesisi, araç deposu, idari bina, park, işçi evleri). Kesintisiz döşenir; `tools/generate_city_backdrop.py` | Yeni ada türleri |
+| `factory_concrete.png`, `factory_fence_h/v.png` | 32×32 / 8×6 | Açılmamış arsanın gri-eflatun betonu ve tuğla çevre duvarı | — |
+| `boss.png` | 32×32 | Giriş ekranındaki patron portresi (beyaz baret, koyu mor ceket) | — |
 | `obstacle_asteroid.png` | 24×24 | Kırık kraterli uzay asteroiti | Parçalanabilir asteroitler |
 | `obstacle_drone.png` | 24×24 | Kırmızı gözlü devriye dronu | Ateş eden düşman dronları |
 | `obstacle_debris.png` | 24×24 | Uydu hurda enkazı | Manyetik hurda madenciliği |
@@ -201,8 +232,8 @@ Tüm arayüz ve oyun nesneleri bu merkezi renk ailesini kullanır (`src/ui/theme
 
 Herhangi bir UI veya görsel görev tamamlandığında şunları doğrula:
 - [ ] Yeni görsel `public/assets/pixelart/` veya standart dizinde raster PNG olarak mı yer alıyor?
-- [ ] Renkler `src/ui/theme.ts` palet sabitlerinden mi alındı? (Rastgele hex kodu yazılmadı mı?)
+- [ ] Renkler `src/ui/theme.ts` (`BASE`, `TONE`, `SEMANTIC`) ya da `tools/palette.py` içinden mi alındı? (Serbest hex yazılmadı mı?)
 - [ ] Phaser doku ayarlarında `pixelArt: true` ve `roundPixels: true` korundu mu?
 - [ ] Masaüstü (1920×1080) ve Mobil (dar dikey) ekranlarda metinler ve butonlar kesintisiz okunabiliyor mu?
-- [ ] Butonların satın alınabilir (yeşil) ve satın alınamaz (koyu çelik) durumları açıkça ayırt ediliyor mu?
+- [ ] Butonların satın alınabilir (yeşil) ve satın alınamaz (soluk açık kahve) durumları açıkça ayırt ediliyor mu?
 - [ ] Dokular bulanıklaşmadan keskin piksel görünümünü koruyor mu?

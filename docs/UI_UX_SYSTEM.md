@@ -111,18 +111,20 @@ Ek kırılımlar bileşenlerin içindedir: katalog 1 / 2 / 3 sütun (560 ve 900 
 
 ## 7. Renk Sistemi
 
-Renkler `theme.ts` içindeki `PALETTE`'ten gelir; bileşenler doğrudan palet yerine **anlamsal** adları (`SEMANTIC`) kullanır.
+Renkler `theme.ts` içindeki 16 renkli ana paletten (`BASE`) ve onun adlandırılmış karışımlarından (`TONE`) gelir (DEC-048; tablo: `ART_DIRECTION.md` §2). Bileşenler doğrudan palet yerine **anlamsal** adları (`SEMANTIC`) kullanır.
 
 | Anlam | Renk | Kullanım |
 |---|---|---|
-| `primary` | yeşil | Ekranın ana eylemi, satın alınabilir, olumlu sonuç |
-| `secondary` | mavi-gri | Nötr eylem, vazgeçme, araç düğmeleri |
-| `money` | altın | Para, fiyat, ödül, ilerleme dolgusu |
-| `factory` | kehribar | Elle üretim, sevkiyat |
-| `rocket` | camgöbeği | Hangar, uçuş, nitro |
-| `warning` | turuncu | Uyarı, kilitli içerik |
-| `danger` | kırmızı | Söküm, sıfırlama, hata, çakılma |
-| `disabled` | koyu gri | Kullanılamayan düğme |
+| `primary` | yeşil (`green`) | Ekranın ana eylemi, satın alınabilir, olumlu sonuç |
+| `secondary` | koyu mor (`plum`) | Nötr eylem, vazgeçme, araç düğmeleri |
+| `money` | açık kahve (`sand`) | Para, fiyat, ödül, ilerleme dolgusu |
+| `factory` | bakır (`copper`) | Elle üretim, sevkiyat |
+| `rocket` | mavi (`blue`) | Hangar, uçuş, nitro |
+| `warning` | bakır (`copper`) | Uyarı, kilitli içerik |
+| `danger` | mor (`purple`) | Söküm, sıfırlama, hata, çakılma (palette kırmızı yoktur) |
+| `disabled` | soluk açık kahve | Kullanılamayan düğme |
+
+Üç yardımcı işlev renk seçimini tek yerde tutar: `brightOf(mürekkep)` konturlu / koyu zemindeki yazının açık karşılığını, `onDark(vurgu)` koyu rozet içindeki açık tonu, `inkOn(dolgu)` düz renk dolgunun üstündeki yazı rengini (beyaz ya da koyu) verir.
 
 Renk tek başına bilgi taşımaz: her durumun yanında simge ya da metin vardır (kilit simgesi, "Çalışıyor" yazısı, onay işareti).
 
@@ -246,13 +248,13 @@ Fare ya da dokunma kullanılınca odak halkası gizlenir. Her tuş olayı tam bi
 
 ## 15. Arayüz Dokuları
 
-`python3 tools/generate_ui_assets.py` komutu `public/assets/ui/` altına 48 PNG üretir (Pillow gerekir):
+`python3 tools/generate_ui_assets.py` komutu `public/assets/ui/` altına 56 PNG üretir (Pillow gerekir):
 
 - Düğmeler: `btn_{primary,secondary,rocket,factory,gold,danger}_{normal,hover,pressed}.png`, `btn_disabled_normal.png` — 24x24, 9 dilim (4/4/4/6).
-- 22 beyaz, renklendirilebilir 16x16 simge.
+- 30 adet 16x16 simge (çoğu beyaz ve renklendirilebilir).
 - Çerçeve, ince çerçeve, rozet, başlık şeridi, tek piksel dolgu, kaydırma tutamacı, seviye noktası.
 
-Dokular `theme.ts` içindeki `UI_TEXTURES` listesinden yüklenir; yeni doku eklenirken betik ve liste birlikte güncellenir. Renkler betikte de `theme.ts` paletiyle aynıdır.
+Dokular `theme.ts` içindeki `UI_TEXTURES` listesinden yüklenir; yeni doku eklenirken betik ve liste birlikte güncellenir. Betikler renkleri `tools/palette.py` içinden alır; o dosya `theme.ts` içindeki `BASE` ve `TONE` tablolarının karşılığıdır.
 
 ---
 

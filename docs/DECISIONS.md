@@ -352,17 +352,17 @@
 * **Gerekçe:** Kullanıcı isteği (2026-10-12). Ciro hedeflerine dokunulmadı çünkü istek parça adetleriyle sınırlıydı; 4. ve 6. aşamalar artık adetten çok ciroya bağlı olabilir.
 
 ### [DEC-045] Arayüz Teması: Krem + Açık Kahve; Fabrikanın Çevresi: Beton Arsa ve Sanayi Şehri
-* **Tarih:** 2026-10-13
+* **Tarih:** 2026-10-12
 * **Karar (DEC-042'nin yerini alır):**
   1. Arayüz zeminleri açıktır: pencereler krem, kartlar açık krem, iç bölmeler ve çubuklar ten rengi/açık kahve; çerçeveler koyu kahve, perçinler pirinç. Lacivert panel dolgusu kalmadı.
   2. Zemin açıldığı için panel üstü yazılar koyudur ("mürekkep" tonları: `SEMANTIC.*Hex`). Konturlu yazılar, dünyadaki yazılar ve renkli düğmeler parlak tonlarda kalır (`brightOf`). Sayısal `SEMANTIC` renkleri (ikon, çubuk, rozet) değişmedi.
   3. Fabrikanın çevresi üç katmandır: genişleyebileceği ama açılmamış arsa **gri beton**, arsanın kenarı tuğla duvar, dışı kuşbakışı **minyatür sanayi ve şehir** çizimi (yollar, fabrikalar, depolar, tanklar, evler, park, otopark). Etkileşimli değildir.
   4. Geniş yatay ekranda dünya, ortadaki araç çubuğu tablasının arkasında ekranın altına kadar uzanır.
-* **Gerekçe:** Kullanıcı isteği (2026-10-13). Dokular: `tools/generate_theme_assets.py`.
+* **Gerekçe:** Kullanıcı isteği (2026-10-12). Dokular: `tools/generate_theme_assets.py`.
 * **Sınır:** Bütün pencereler tek tek yeniden çekilmedi (ana ekran, hangar, katalog, lider tablosu, giriş ekranı, uçuş ekranı görüldü). Dünyadaki rozetler (parsel, makine seviyesi) lacivert kaldı.
 
 ### [DEC-046] Giriş Ekranı ve Lider Tablosu
-* **Tarih:** 2026-10-13
+* **Tarih:** 2026-10-12
 * **Karar:**
   1. **Giriş ekranı:** sayfa her açıldığında bir kez; şehir manzarasının önünde patron, tek cümlelik mesaj ve "Oyna". Kayıt sıfırlanınca yeniden gösterilmez. Ardından masaüstünde ilk açılışta kontrol şeması gelir.
   2. **Lider tablosu** rekor mesafeye göre sıralar; HUD'daki rekor bölümünden (dar ekranda kupa düğmesinden) ve hangardan açılır. Sağlayıcı tabanlıdır (`docs/LEADERBOARD.md`): kendi skor sunucusu (`VITE_LEADERBOARD_URL`) · geliştirme sürümünde "ÖRNEK VERİ" uyarılı örnek pilotlar · sunucu yokken yerel tablo (yalnız oyuncu ve menzil hedefleri). **Uydurma oyuncular gerçek gibi gösterilmez.**
@@ -371,8 +371,28 @@
 * **Açık (kullanıcıya ait):** skor sunucusu seçimi ve hesabı; CrazyGames davet başvurusu; oyuncu adının nasıl belirleneceği.
 
 ### [DEC-047] Dokunma ve Küçük Ekran Düzeltmeleri
-* **Tarih:** 2026-10-13
+* **Tarih:** 2026-10-12
 * **Karar:** Pencere açıkken kamera hiçbir girdi almaz (her girdi olayında sorulur; Ayarlar açıkken oyun döngüsü durduğu için kamera kapatılmıyordu). Ses satırında sessize alma ve seviye yan yanadır. Yatay telefondaki dikey araç çubuğu etiketlerini her zaman gösterir (ikon küçülür, aralık daralır). Tarayıcı destekliyorsa HUD'da tam ekran düğmesi belirir; sayfa ana ekrana eklenirse çubuksuz açılır. 2–6. aşama adet hedefleri 20 / 15 / 20 / 20 (DEC-044'ü günceller).
 * **Sınır:** Tarayıcının adres çubuğu betikle gizlenemez; tam ekran ancak oyuncunun dokunuşuyla ve tarayıcı izin veriyorsa (iPhone Safari vermez) açılır.
 * **Takviye reklam düğmesi:** öğretici bitene ve fabrika gelir üretene kadar bilerek gizlidir; ayrıca rozetle birlikte üst çubuğa sığmıyorsa gösterilmez.
+
+### [DEC-048] Görsel Kimlik: 16 Renkli Ana Palet ve Minyatür Sanayi Şehri
+* **Tarih:** 2026-10-12
+* **Karar (DEC-045'in tema ve çevre maddelerinin yerini alır):**
+  1. Oyunun arayüzü ve fabrikanın çevresi kullanıcının verdiği **16 renkli paletten** doğar (`theme.ts` → `BASE`, `tools/palette.py`; tablo `ART_DIRECTION.md` §2). Bir renk ya bu 16 renkten biridir ya da ikisinin adlandırılmış karışımıdır (`TONE`); kodda ve betiklerde serbest hex kalmadı.
+  2. **Şehir arka planı** kullanıcının verdiği çizim örneğinin diliyle yeniden çizildi: 3/4 kuşbakışı (çatı üstte, ön cephe altta), 1 piksel koyu kontur, sol üstten ışık, noktalı çim, noktalı kaldırım, kesik çizgili yol. Yalnızca 16 ana rengi kullanır (ara ton yok; betik doğrular). 1024×1024, kesintisiz döşenir; 16 ada: çelik fabrikası (2), tank sahası, depolar, santral, konteyner sahası, yük garı, silolar, atölyeler, güneş tarlası, gaz tesisi, araç deposu, idari bina, park, işçi evleri (2).
+  3. Karo, arsanın kenarları bulvarların orta refüjüne gelecek biçimde hizalanır: arsanın dört yanında yol kalır, hiçbir yapı duvarla kesilmez. Açılmamış genişleme alanı şehir çiziminde yer almaz; ayrı beton katmanıdır.
+  4. Açılmamış arsa "gri beton" olarak kalır, ama gri artık paletten türer (koyu mor + beyaz: gri-eflatun). Fabrika zemini lacivert–koyu mor tonlarındadır.
+* **Kapsam dışı (bilerek):** makine, bant, eşya, roket ve uçuş sprite'ları kendi renklerini korur. Ekonomi, mekanik ve düzen değişmedi.
+* **Gerekçe:** Kullanıcı isteği ve iki görsel referans (palet, çizim örneği), 2026-10-12.
+
+### [DEC-049] Arayüz Renk Rolleri (16 Renkli Paletle)
+* **Tarih:** 2026-10-12
+* **Karar:**
+  1. **Yüzeyler:** pencere krem, kart açık krem, iç bölme ve çubuklar açık kahve (hepsi `sand` + `white` karışımı); çerçeve `brown`, kontur `umber`.
+  2. **Vurgular** ana paletin orta tonlarıdır: ana eylem `green`, nötr `plum`, para `sand`, fabrika ve uyarı `copper`, roket `blue`, tehlike `purple`. Açık zemindeki vurgulu yazı bir koyusu, koyu rozet içindeki yazı bir açığıdır.
+  3. **Düğme etiketi beyazdır** (yalnız `sand` gövdede koyu). Orta tonlu gövdelerde beyaz yazı koyudan daha iyi okunur; önceki temadaki parlak gövde + koyu yazı düzeni bırakıldı.
+  4. **Devre dışı düğme** soluk açık kahvedir, etiketi ve fiyatı okunur kalacak kadar koyudur.
+  5. Dünyadaki parsel etiketi arayüz kartlarıyla aynı dile geçti (krem zemin, koyu yazı). Deneme reklam katmanı (DOM) ve sayfa arka planı da palettedir.
+* **Varsayım (kullanıcı onayı bekler):** palette kırmızı olmadığı için **tehlike rengi mordur** (söküm, sıfırlama, hasar, çakılma). Renk tek başına bilgi taşımadığı için (çöp kutusu simgesi, "SÖK"/"SIFIRLA" yazısı) işlev bozulmaz; yine de kırmızı istenirse palete 17. renk eklemek gerekir. Nötr düğmenin koyu mor olması da benim seçimimdir (kahve alternatifi bakır "ÜRET" düğmesine çok yakın duruyordu).
 
