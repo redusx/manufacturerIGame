@@ -121,7 +121,8 @@ Renkler `theme.ts` içindeki 16 renkli ana paletten (`BASE`) ve onun adlandırı
 | `factory` | bakır (`copper`) | Elle üretim, sevkiyat |
 | `rocket` | mavi (`blue`) | Hangar, uçuş, nitro |
 | `warning` | bakır (`copper`) | Uyarı, kilitli içerik |
-| `danger` | mor (`purple`) | Söküm, sıfırlama, hata, çakılma (palette kırmızı yoktur) |
+| `danger` | mor (`purple`) | Sıfırlama, hata, hasar, çakılma (palette kırmızı yoktur) |
+| `remove` | kırmızı (palet dışı tek renk, `EXTRA.red`) | Yalnızca **Sök** ve **Kapat** düğmeleri ile söküm aracının göstergeleri (DEC-051) |
 | `disabled` | soluk açık kahve | Kullanılamayan düğme |
 
 Üç yardımcı işlev renk seçimini tek yerde tutar: `brightOf(mürekkep)` konturlu / koyu zemindeki yazının açık karşılığını, `onDark(vurgu)` koyu rozet içindeki açık tonu, `inkOn(dolgu)` düz renk dolgunun üstündeki yazı rengini (beyaz ya da koyu) verir.
@@ -157,7 +158,7 @@ Uzun metin sığmazsa önce yazı küçültülür (`UiLayer.fit`, en az 12; hang
 
 ## 10. Düğme Hiyerarşisi
 
-Tek bileşen: `UiButton`. Türler: `primary`, `secondary`, `gold` (parayla kestirme), `rocket`, `factory`, `danger`. Kullanılamayan düğme `disabled` dokusuna geçer.
+Tek bileşen: `UiButton`. Türler: `primary`, `secondary`, `gold` (parayla kestirme ve reklam), `rocket`, `factory`, `danger`, `remove` (Sök ve Kapat; kırmızı). Kullanılamayan düğme `disabled` dokusuna geçer.
 
 - **Durumlar:** normal, üzerinde (fare), basılı (2 piksel aşağı kayar), seçili (altın çerçeve), odakta (beyaz halka), devre dışı.
 - Düğme **bırakışta** tetiklenir; basıştan sonra 10 birimden fazla sürüklenirse iptal olur (kaydırma sırasında yanlış basış olmaz).
@@ -173,6 +174,8 @@ Bütün pencereler `UiModal`'dan türer; kendi karartmasını, başlığını, k
 - **Dikey ekranda** alttan açılan tam genişlikte sayfa; **yatay ekranda** ortalanmış panel.
 - Başlık ve alt düğme şeridi sabittir; yalnızca gövde kayar (sürükleme, tekerlek, PageUp/PageDown/Home/End). Kaydırma olduğunda sağda altın tutamaç görünür.
 - Kapatma: X düğmesi, dışarıya (karartmaya) dokunma, Esc. Kapatılamayan tek pencere uçuş raporudur.
+- Üst üste açık pencerelerde girdiyi (kaydırma, Enter, Esc) **ekranda üstte duran** pencere alır: yığın açılış sırasına göre değil, pencerenin çizim katmanına (`depth`) göre sıralanır. Aynı katmanda sonradan açılan üsttedir.
+- İçeriği ekrana göre değişen pencere `maxContentWidth()` ile genişliğini, `bodyHeightLimit()` ile kaydırmadan sığan yüksekliği öğrenir (ör. giriş ekranı kısa yatay ekranda manzarayı sola, yazıyı sağa alır).
 - Pencere açıkken dünya girdisi ve araç kısayolları kapalıdır. Pencereler yığın hâlinde açılabilir (ör. Ayarlar → silme onayı); girdiyi en üstteki alır.
 - Pencere açılınca ekrandaki eski bildirim kaldırılır.
 - Geri alınamayan ya da pahalı eylemler `UiConfirmDialog` ile sorulur: kaydı sıfırlama, fabrika zeminindeki rozetten parsel satın alma. Tehlikeli onayda Enter "Vazgeç"i seçer.
@@ -248,9 +251,9 @@ Fare ya da dokunma kullanılınca odak halkası gizlenir. Her tuş olayı tam bi
 
 ## 15. Arayüz Dokuları
 
-`python3 tools/generate_ui_assets.py` komutu `public/assets/ui/` altına 56 PNG üretir (Pillow gerekir):
+`python3 tools/generate_ui_assets.py` komutu `public/assets/ui/` altına 59 PNG üretir (Pillow gerekir):
 
-- Düğmeler: `btn_{primary,secondary,rocket,factory,gold,danger}_{normal,hover,pressed}.png`, `btn_disabled_normal.png` — 24x24, 9 dilim (4/4/4/6).
+- Düğmeler: `btn_{primary,secondary,rocket,factory,gold,danger,remove}_{normal,hover,pressed}.png`, `btn_disabled_normal.png` — 24x24, 9 dilim (4/4/4/6).
 - 30 adet 16x16 simge (çoğu beyaz ve renklendirilebilir).
 - Çerçeve, ince çerçeve, rozet, başlık şeridi, tek piksel dolgu, kaydırma tutamacı, seviye noktası.
 

@@ -1,6 +1,6 @@
 # ECONOMY.md — Manufacturer Ekonomi ve Değer Modeli
 
-> Oyundaki güncel değerleri anlatır (son eşitleme: 2026-10-08, M9-F). Kaynak her zaman koddur:
+> Oyundaki güncel değerleri anlatır (son eşitleme: 2026-10-12, beşinci liste). Kaynak her zaman koddur:
 > `ItemRegistry.ts`, `RecipeRegistry.ts`, `MachineRegistry.ts`, `MilestoneManager.ts`, `FactoryEconomy.ts`,
 > `RocketHangarBridge.ts`, `RangeLadder.ts`, `PlacementMath.ts`, `IncomeBoost.ts`, `AdService.ts`.
 > Gerekçeler için `DECISIONS.md` DEC-011 … DEC-019 ve DEC-028 … DEC-033. Tabloları yeniden üretmek için:
@@ -18,7 +18,7 @@
 | Kaynak | Kural |
 |---|---|
 | İhracat | Sandığa ulaşan eşyanın baz değeri × gelir çarpanı, kuruşa yuvarlanır. Ana gelir budur. |
-| Tıklama | Sabit $1; hiçbir çarpan büyütmez (DEC-013). |
+| Tıklama (ÜRET) | Aşamaya göre artar (DEC-050): 1.–10. aşamada basış başına $1 · 2 · 3 · 5 · 8 · 12 · 18 · 25 · 35 · 50; on aşama bitince $75. Gelir çarpanı ve menzil ödülleri büyütmez. Sıradaki değer aşama ödülünde yazar. |
 | Aşama ödülü | Aşama tamamlanınca bir kez; yeni açılan şeyi almaya yetecek kadar. |
 | Uçuş primi | Fabrikanın o anki $/sn geliri × kazanılan süre (en fazla 180 sn, taban $1/sn). Süre, roket sınıfının hız çarpanına bölünmüş mesafeden hesaplanır. |
 | Çevrimdışı gelir | Kayıt anındaki (takviyesiz) $/sn × geçen süre × %50. Süre sınırı 4 saat; 10 km basamağıyla 8, 40 km basamağıyla 12 saat. |
@@ -57,7 +57,7 @@ Diğerleri: cam blok 3 · çerçeve 4 · plastik 3 (2 pelet) · kart tabanı 4 �
 | Fırlatma rampası | Sv.2–10 (yalnız nakit): 10K · 60K · 400K · 2,5M · 15M · 90M · 500M · 2,5B · 10B. Mükemmel fırlatma bölgesi: çubuğun %8 · 12 · 17 · 23 · 30 · 38 · 48 · 60 · 78 · 100'ü. Reklam izleyerek %20 indirimli alınabilir (R6) |
 | Gelir takviyesi (nakit) | Fabrikanın 5 dakikalık takviyesiz geliri (en az $100) → +10 dk |
 
-Söküm iadesi %100'dür. Hammadde girişi de sökülebilir: iade, o hammaddenin en son kurulan girişinin bedelidir (bedelsiz verilen ilk demir girişinin iadesi yoktur, yenisi yine bedelsizdir).
+Söküm iadesi, makineye **gerçekten ödenen** paranın %100'üdür: reklam indirimiyle (R7) ödenmemiş tutar iade edilmez, yoksa "indirimli yükselt, sök" döngüsü para kazandırırdı. Hammadde girişi de sökülebilir: iade, o hammaddenin en son kurulan girişinin bedelidir (bedelsiz verilen ilk demir girişinin iadesi yoktur, yenisi yine bedelsizdir).
 
 ## 6. Aşamalar
 
@@ -134,9 +134,10 @@ En değerli iki ürün hammadde başına ≈ $48 getirir; 1 hammadde/sn'lik hat 
 | R1 | Çevrimdışı kazanç penceresi | Kazanç ×2 | — | Normal topla |
 | R2 | Uçuş raporu | Prim ×3 | 3 dk | Normal dön |
 | R3 | Takviye penceresi | +10 dk gelir ×2 | 5 dk | Nakitle al |
-| R4 | Hangar | Parçası toplanan modüllerden en düşük seviyelisinin eksiklerinin %15'i | 10 dk | Üret veya hızlı inşa |
+| R4 | Hangar, her modülün kendi kartı | Düğmesine basılan modülün eksik parçalarının %15'i (her parçadan en az 1). TOPLA açık olması gerekmez | 10 dk (dört modül için ortak) | Üret veya hızlı inşa |
 | R5 | Parsel satın alma onayı | O parselde %15 indirim ($30.000 ve üstü) | Parsel başına 1 | Tam fiyat |
 | R6 | Hangar, rampa kartı | Rampanın sıradaki seviyesi %20 indirimli alınır (reklam bitince hemen satın alınır) | Yok | Tam fiyat |
+| R7 | Makine penceresi, "Yükselt"in yanı | Makinenin sıradaki seviyesi %20 indirimli alınır (reklam bitince hemen satın alınır). İndirimle ödenmeyen tutar söküm iadesine girmez | Yok | Tam fiyat |
 
 ## 11. Tempo Tahmini (model; ölçüm değildir)
 
@@ -165,4 +166,4 @@ Gerçek oyuncu verisi yoktur. Planın hedefi (reklamsız 8–10 saat) modelde ya
 
 1. Rokete giden yol fabrikadan geçer: uçuş ve hızlı inşa hiçbir zaman üretimin yerini almaz.
 2. Her yeni makine adımı geliri belirgin artırır.
-3. Çıkmaz yoktur: tıklama ve ücretsiz başlangıç girişi her zaman çalışır, söküm tam iade eder.
+3. Çıkmaz yoktur: tıklama ve ücretsiz başlangıç girişi her zaman çalışır, söküm ödenen parayı tam iade eder.

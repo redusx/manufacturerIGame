@@ -396,3 +396,33 @@
   5. Dünyadaki parsel etiketi arayüz kartlarıyla aynı dile geçti (krem zemin, koyu yazı). Deneme reklam katmanı (DOM) ve sayfa arka planı da palettedir.
 * **Varsayım (kullanıcı onayı bekler):** palette kırmızı olmadığı için **tehlike rengi mordur** (söküm, sıfırlama, hasar, çakılma). Renk tek başına bilgi taşımadığı için (çöp kutusu simgesi, "SÖK"/"SIFIRLA" yazısı) işlev bozulmaz; yine de kırmızı istenirse palete 17. renk eklemek gerekir. Nötr düğmenin koyu mor olması da benim seçimimdir (kahve alternatifi bakır "ÜRET" düğmesine çok yakın duruyordu).
 
+### [DEC-050] ÜRET Düğmesinin Kazancı Aşamalarla Artar
+* **Tarih:** 2026-10-12
+* **Karar (DEC-013'ü günceller):** Basış başına kazanç sabit $1 değildir; içinde bulunulan aşamaya göre artar: 1.–10. aşamada $1 · 2 · 3 · 5 · 8 · 12 · 18 · 25 · 35 · 50, on aşama bitince $75 (`CLICK_POWER_BY_STAGE`). Sıradaki değer aşama ödülünde ("Üret $2/basış") ve aşama tamamlanma bildiriminde yazar.
+* **Değişmeyen:** Gelir çarpanı ve menzil ödülleri tıklamayı büyütmez; geç oyunda ana gelir yine fabrikadır (DEC-013'ün amacı). Tıklama ciroya yazılmaya devam eder.
+* **Varsayım:** Sayılar benim önerimdir. Ölçü: her aşamada bir basış, o aşamanın tek hattının yaklaşık bir saniyelik geliri kadardır (1. aşamadaki oran korunur). Elde oynayışla ölçülmedi.
+
+### [DEC-051] Sök ve Kapat Kırmızıdır (Palet Dışı Tek Renk)
+* **Tarih:** 2026-10-12
+* **Karar (DEC-049'un "tehlike rengi mor" maddesini bu iki işlev için değiştirir):** Kullanıcı isteğiyle söküm ve kapatma kırmızıya döndü; bunun için 16 renkli paletin dışına çıkıldı (`EXTRA.red`).
+  1. Yeni düğme türü `remove`: makine ve giriş pencerelerindeki **SÖK**, araç çubuğundaki **SÖK**, bütün pencerelerin **kapat (X)** düğmesi ve araç bağlam çubuğundaki iptal (X). Gövde kırmızı, yazı ve simge beyaz.
+  2. Söküm aracının kendi göstergeleri de kırmızıdır (bağlam çubuğunun çerçevesi ve simgesi, dünyadaki söküm vurgusu ve kıvılcımı): aynı işlev iki ayrı renkle gösterilmesin diye.
+  3. Diğer tehlikeli eylemler mor kalır: "Kaydı Sıfırla", onay pencereleri, hasar, çakılma, tıkalı makine.
+* **Fark (önceki tasarıma göre):** Eski tasarımda araç çubuğundaki Sök ve pencerelerin Kapat düğmesi nötr gövdeli, kırmızı simgeliydi. Yeni nötr gövde koyu mor olduğu için kırmızı simge onun üstünde zayıf kalıyordu; ikisi de kırmızı gövdeli, beyaz simgeli yapıldı.
+
+### [DEC-052] Reklam Düğmeleri: Bileşen Başına Kargo, Makine Yükseltme İndirimi (R7)
+* **Tarih:** 2026-10-12
+* **Karar:**
+  1. **Parça kargosu (R4)** tek ortak düğme değildir: her modül kartının kendi **KARGO** düğmesi vardır ve kargo o modüle gelir. Düğme yalnız eksik parçası olan, kilitli olmayan modülde çıkar; TOPLA'nın açık olması gerekmez. Bekleme süresi (10 dk) dört modül için ortaktır; süre dolana dek düğmeler görünür ama pasiftir.
+  2. **Makine yükseltme indirimi (R7):** makine penceresinde "Yükselt"in yanında reklam düğmesi; izlenince sıradaki seviye **%20 indirimli** hemen alınır. İndirimli bedele para yetiyorsa etkindir, yetmiyorsa görünür ama pasiftir. Bekleme süresi yoktur.
+  3. **İade istismarı kapalı:** indirimle ödenmeyen tutar makinenin hesabına yazılır (`ProductionEngine.machineDiscounts`, kayıtta `adDiscount`) ve söküm iadesinden düşülür. Oyuncu ödediğini geri alır, fazlasını değil.
+  4. Dar pencerede (dikey telefon) makine penceresinin alt bölümü iki satırdır: üstte Sök ve Taşı, altta Yükselt ile indirim düğmesi.
+* **Varsayım:** %20 oranı (rampa indirimiyle aynı) ve bekleme süresinin olmaması benim seçimimdir. Kargonun bekleme süresini modül başına ayırmadım; ekonomi değişmesin diye ortak bıraktım.
+
+### [DEC-053] Giriş Ekranı Kısa Yatay Ekranda Yan Yana; Pencere Yığını Katmana Göre
+* **Tarih:** 2026-10-12
+* **Karar:**
+  1. Kısa yatay ekranda (yatay tutulan telefon, tarayıcı çubukları açık) giriş penceresi genişler: manzara solda, yazı sağda, "Oyna" altta. Diğer düzenlerde manzara üstte kalır ama yer daralınca kısalır; yazı ve düğme her zaman görünür.
+  2. Pencere yığını açılış sırasına göre değil **çizim katmanına** göre sıralanır: ekranda üstte duran pencere girdiyi alır. Kök neden: kayıtlı oyuncuda giriş ekranından 0,4 sn sonra açılan çevrimdışı kazanç penceresi (daha alt katman) yığının tepesine geçiyor, giriş ekranı kaydırılamıyordu.
+  3. Hedef kartındaki "Sefer", Seferler listesindeki sıradaki hedef, uçuş raporundaki sıradaki hedef ve "Hangara Git" düğmeleri yeni hangar simgesini kullanır. Roketin kendisini anlatan yerlerde (roket sınıfı, uçuş kontrolleri) roket simgesi kalır.
+

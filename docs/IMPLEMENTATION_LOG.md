@@ -1437,3 +1437,23 @@ Kararlar: DEC-048, DEC-049. Kullanıcı iki referans verdi: 16 renkli palet ve b
 
 **Denenmeyenler:** fiziksel telefon; gerçek kayıt yazma (denemede kapalıydı; kayıt kodu değişmedi); dokunmatik girdi (bu işte yalnız fareyle tıklandı); söküm ve bant modlarında yalnız çubuklara bakıldı, söküm ya da bant çizimi yapılmadı; tablet boyutu; makine bilgi penceresi (katalogdaki "i"); renk körlüğü denetimi.
 
+### [2026-10-12] — Beşinci Liste (6 madde)
+
+Kararlar: DEC-050 … DEC-053.
+
+- **Giriş penceresi (1):** `StartScreenModal` kısa yatay ekranda yan yana düzene geçer; `UiModal`'a `maxContentWidth()` ve `bodyHeightLimit()` eklendi. Kaydırılamama sorununun kök nedeni `UiLayer.pushModal`'daydı: yığın açılış sırasına göreydi, sonradan açılan çevrimdışı kazanç penceresi girdiyi alıyordu. Yığın artık çizim katmanına göre sıralı (`modalDepth`).
+- **Hangar ikonları (2):** `ObjectiveCard`, `RangeLadderModal`, `LeaderboardModal`, `FlightReportModal`.
+- **Bileşen başına kargo (3):** `RocketHangarView` (`buildCargoButton`; dar kartta ana düğmenin yanında, geniş kartta altında). Köprüdeki `getCargoModule` kaldırıldı.
+- **Makine yükseltme indirimi (4):** yeni reklam yerleşimi `machine_discount`; `FactoryEconomy.getMachineUpgradeCost(…, discount)`, `getMachineRefund`; `ProductionEngine` makine başına indirim tutarını tutar ve kayda yazar (`adDiscount`); `DemolishMath` ve `MachineInspectorHelper` iadeyi buna göre hesaplar; `MachineInspectorModal` alt bölümü (tek satır / iki satır); `GameScene.requestMachineDiscount`.
+- **ÜRET kazancı (5):** `CLICK_POWER_BY_STAGE`, `EconomyManager.setClickPower`; aşama ödülü metinlerinde "Üret $N/basış".
+- **Kırmızı Sök ve Kapat (6):** `EXTRA.red`, `remove` düğme türü ve dokuları, beyaz çarpı ikonu; söküm aracının göstergeleri.
+
+**Doğrulama:** `npm test` 262/262, `npx tsc --noEmit` temiz, `npm run build` başarılı. Yeni test eklenmedi; depoya girmeyen geçici bir betikle şunlar denetlendi: iki indirimli + bir tam bedelli yükseltmeden sonra iade = gerçekten ödenen ($446; tam yatırım $499), indirim kaydı kayıt/yükleme turundan sağ çıkıyor, alanı olmayan eski kayıt yükleniyor, söküm kaydı siliyor. Tarayıcıda (uygulama içi bölme):
+- 667×280: eski kodda yalnız manzara sığıyordu (içerik 180, görünen 144) ve çevrimdışı pencere açılınca tekerlek kaydırmıyordu; yeni kodda bütün içerik görünüyor, giriş ekranı girdiyi kaybetmiyor. 560×250 ("Çok Büyük" ölçek, en küçük yatay arayüz) ve 375×700 dikeyde de sığıyor; "Oyna" gerçek tıklamayla kapattı.
+- Kargo: İtici Motor kartındaki düğmeye gerçek tıklama, deneme reklamı, yalnız o modülün eksikleri azaldı (9→7, 15→12; gövde parçası değişmedi); dört düğme de "9:55 sonra" ile pasifleşti.
+- Makine indirimi: gerçek tıklama, deneme reklamı, Sv.1→2, $92 ödendi (tam bedel $115), pencerede iade "+$192"; Sök'e basınca kasaya tam $192 girdi.
+- ÜRET: 1. aşamada +$1, on aşama bitmişken +$75; Aşamalar penceresinde ödül satırları.
+- Kırmızı Sök/Kapat ve söküm modu; hangar ikonları (hedef kartı, Seferler, lider tablosu, uçuş raporu). Makine penceresi ve hangar kartları 375×700 dikeyde.
+
+**Denenmeyenler:** fiziksel telefon ve dokunmatik girdi; 2.–10. aşamaların ara tıklama değerleri oyun içinde (tablo betikle denetlendi); reklamın başarısız olduğu ya da sunulamadığı durumda indirim ve kargo düğmeleri; gerçek CrazyGames reklamı (yerelde SDK'nın deneme reklamı çalıştı); kayıt dosyasına gerçek yazma (denemede kapalıydı).
+

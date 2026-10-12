@@ -42,6 +42,8 @@ Oyunun bütün arayüzü ve fabrikanın çevresi tek bir 16 renkli paletten doğ
 
 **Kural:** bir renk ya bu 16 renkten biridir ya da ikisinin **adlandırılmış karışımıdır** (`TONE`). Kodda ve betiklerde serbest hex yazılmaz.
 
+**Tek istisna (DEC-051):** söküm ve kapatma **kırmızıdır** (`EXTRA.red` `#e74c3c`, açığı `#f29488`, koyusu `#a5281b`). Yalnızca "Sök" ve "Kapat" düğmelerinde (`remove` türü) ve söküm aracının kendi göstergelerinde kullanılır; diğer tehlikeli eylemler (kaydı sıfırlama, onay pencereleri, hasar) paletin moruyla kalır.
+
 ### Türetilmiş tonlar (`TONE`)
 
 | Ton | Karışım | Kullanım |
@@ -118,7 +120,7 @@ Oyunun bütün arayüzü ve fabrikanın çevresi tek bir 16 renkli paletten doğ
 ## 6. UI Bileşen Kütüphanesi Standartları
 
 ### A. Düğmeler (Buttons)
-* **Gövdeler (ana paletin orta tonları):** ana eylem `green`, ikincil `plum`, roket `blue`, fabrika `copper`, ödül/reklam `sand`, tehlike `purple`. Üstte ailenin açık tonuyla 1px parlama, altta koyusuyla dudak, çevrede `umber` kontur.
+* **Gövdeler (ana paletin orta tonları):** ana eylem `green`, ikincil `plum`, roket `blue`, fabrika `copper`, ödül/reklam `sand`, tehlike `purple`. Sök ve Kapat: palet dışı kırmızı, beyaz simge. Üstte ailenin açık tonuyla 1px parlama, altta koyusuyla dudak, çevrede `umber` kontur.
 * **Etiket:** beyaz; yalnızca `sand` gövdede `umber`.
 * **Devre Dışı / Yetersiz Kaynak:** soluk açık kahve, düz gövde; etiket `faded` (okunur kalacak kadar koyu). Fiyat her zaman görünür.
 * **Hover:** gövde vurgu tonuna doğru açılır. **Basılı:** gövde 2px aşağı iner, dudak incelir.
