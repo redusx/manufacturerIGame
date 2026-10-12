@@ -98,7 +98,7 @@ export class DemolishTool {
       .text(0, 0, '', {
         fontFamily: FONT_FAMILY,
         fontSize: '10px',
-        color: PALETTE.dangerRedHex,
+        color: PALETTE.removeRedHex,
         stroke: SEMANTIC.outlineHex,
         strokeThickness: 3,
       })
@@ -313,7 +313,7 @@ export class DemolishTool {
       return;
     }
 
-    const dangerColor = PALETTE.dangerRed;
+    const dangerColor = PALETTE.removeRed;
     this.highlightGraphics.fillStyle(dangerColor, 0.4);
     this.highlightGraphics.lineStyle(1.5, dangerColor, 0.95);
 
@@ -405,7 +405,7 @@ export class DemolishTool {
           const spark = this.scene.add
             .sprite(tileCenter.x, tileCenter.y, 'star_pixel')
             .setDepth(140)
-            .setTint(PALETTE.dangerRed);
+            .setTint(PALETTE.removeRed);
 
           const angle = Math.random() * Math.PI * 2;
           const dist = 14 + Math.random() * 10;

@@ -67,7 +67,7 @@ export class ToolContextBar {
 
     const action = (
       icon: string,
-      variant: 'primary' | 'secondary' | 'danger',
+      variant: 'primary' | 'secondary' | 'remove',
       onClick: () => void,
       iconTint?: number,
     ): UiButton => {
@@ -87,7 +87,7 @@ export class ToolContextBar {
 
     this.rotateButton = action(uiIcon('rotate'), 'secondary', callbacks.onRotate, 0xffffff);
     this.confirmButton = action('icon_check', 'primary', callbacks.onConfirm);
-    this.cancelButton = action('icon_close', 'danger', callbacks.onCancel);
+    this.cancelButton = action('icon_close', 'remove', callbacks.onCancel);
   }
 
   get visible(): boolean {
@@ -128,7 +128,7 @@ export class ToolContextBar {
 
     const w = this.barWidth;
     const centerY = BAR_HEIGHT / 2;
-    const accent = state.tone === 'demolish' ? SEMANTIC.danger : SEMANTIC.primary;
+    const accent = state.tone === 'demolish' ? SEMANTIC.remove : SEMANTIC.primary;
 
     this.bg.setSize(w, BAR_HEIGHT);
     this.frame.setSize(w, BAR_HEIGHT).setTint(accent);
@@ -139,7 +139,7 @@ export class ToolContextBar {
     if (state.rotating) {
       this.cancelButton.setVariant('primary').setIcon('icon_check');
     } else {
-      this.cancelButton.setVariant('danger').setIcon('icon_close');
+      this.cancelButton.setVariant('remove').setIcon('icon_close');
     }
     right -= ACTION_SIZE + SPACE.xs + 2;
 

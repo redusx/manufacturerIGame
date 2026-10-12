@@ -23,6 +23,7 @@ const PLACEMENT_LABELS: Readonly<Record<AdPlacementId, string>> = {
   parts_cargo: 'Parça kargosu',
   plot_discount: 'Parsel indirimi',
   pad_discount: 'Rampa indirimi',
+  machine_discount: 'Makine yükseltme indirimi',
 };
 
 export interface MockAdOptions {

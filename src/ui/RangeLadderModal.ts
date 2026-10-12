@@ -10,7 +10,7 @@
 import Phaser from 'phaser';
 import { RANGE_LADDER, RangeLadder, type RangeRung } from '../flight/RangeLadder.ts';
 import { formatDistance } from '../utils/format.ts';
-import { SEMANTIC, SPACE } from './theme.ts';
+import { SEMANTIC, SPACE, uiIcon } from './theme.ts';
 import { UiButton } from './system/UiButton.ts';
 import type { UiLayer } from './system/UiLayer.ts';
 import { UiModal } from './system/UiModal.ts';
@@ -121,7 +121,7 @@ export class RangeLadderModal extends UiModal {
     let cursor = pad - 2;
 
     // Durum: ikon + metin (yalnız renkle anlatılmaz)
-    const statusIcon = isDone ? 'icon_check' : isCurrent ? 'icon_rocket' : 'icon_flag';
+    const statusIcon = isDone ? 'icon_check' : isCurrent ? uiIcon('hangar') : 'icon_flag';
     const statusColor = isDone ? SEMANTIC.primaryHex : isCurrent ? SEMANTIC.rocketHex : SEMANTIC.textMuted;
     const statusLabel = isDone ? 'Tamamlandı' : isCurrent ? 'Sıradaki hedef' : 'İleride';
     const icon = scene.add.image(pad + 8, cursor + 9, statusIcon).setOrigin(0.5);
@@ -209,7 +209,7 @@ export class RangeLadderModal extends UiModal {
       height,
       variant: 'primary',
       label: 'HANGARA GİT',
-      icon: 'icon_rocket',
+      icon: uiIcon('hangar'),
       iconScale: 1.5,
       onClick: () => {
         this.close();

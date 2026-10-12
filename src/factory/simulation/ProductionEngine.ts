@@ -35,6 +35,13 @@ export class ProductionEngine {
   /** Makine yükseltme seviyeleri (instanceId -> level) (1 = taban seviye) */
   private machineLevels = new Map<string, number>();
 
+  /**
+   * Reklam indirimiyle yapılan yükseltmelerde ödenmeyen toplam tutar (instanceId -> $).
+   * Söküm iadesi makineye gerçekten ödenen parayı geri verir; indirim iade edilmez,
+   * yoksa "indirimli yükselt, sök" döngüsü para basardı.
+   */
+  private machineDiscounts = new Map<string, number>();
+
   constructor(
     grid: GridMap,
     logistics: LogisticsNetwork,
@@ -130,6 +137,7 @@ export class ProductionEngine {
     this.grid.removeMachine(instanceId);
     this.machines.delete(instanceId);
     this.machineLevels.delete(instanceId);
+    this.machineDiscounts.delete(instanceId);
     return true;
   }
 
@@ -171,6 +179,17 @@ export class ProductionEngine {
     const next = current + 1;
     this.setMachineLevel(instanceId, next);
     return next;
+  }
+
+  /** Makinenin yükseltmelerinde reklam indirimiyle ödenmeyen toplam tutar */
+  getMachineDiscount(instanceId: string): number {
+    return this.machineDiscounts.get(instanceId) ?? 0;
+  }
+
+  /** İndirimli bir yükseltmede ödenmeyen tutarı makinenin hesabına yazar */
+  addMachineDiscount(instanceId: string, amount: number): void {
+    if (!this.machines.has(instanceId) || !(amount > 0)) return;
+    this.machineDiscounts.set(instanceId, this.getMachineDiscount(instanceId) + amount);
   }
 
   /**
@@ -435,6 +454,8 @@ export class ProductionEngine {
     for (const machine of this.machines.values()) {
       const state = machine.serialize();
       state.level = this.getMachineLevel(machine.instanceId);
+      const discount = this.getMachineDiscount(machine.instanceId);
+      if (discount > 0) state.adDiscount = discount;
       list.push(state);
     }
     return list;
@@ -447,6 +468,7 @@ export class ProductionEngine {
     }
     this.machines.clear();
     this.machineLevels.clear();
+    this.machineDiscounts.clear();
 
     for (const state of states) {
       const def = this.machineRegistry.getOrThrow(state.defId);
@@ -456,6 +478,9 @@ export class ProductionEngine {
         this.recipeRegistry,
       );
       this.addMachine(entity, state.level || 1);
+      if (state.adDiscount && state.adDiscount > 0) {
+        this.machineDiscounts.set(entity.instanceId, state.adDiscount);
+      }
     }
   }
 }

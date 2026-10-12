@@ -153,7 +153,12 @@ export class DemolishMath {
       const machine = engine.getMachine(cell.machineInstanceId);
       if (machine) {
         const level = engine.getMachineLevel(machine.instanceId);
-        const refundAmount = economy.getTotalMachineInvestment(machine.def.baseCost, level);
+        // İade, reklam indirimiyle ödenmemiş tutarı içermez
+        const refundAmount = economy.getMachineRefund(
+          machine.def.baseCost,
+          level,
+          engine.getMachineDiscount(machine.instanceId),
+        );
 
         const rotDir = PlacementMath.rotationDegToDirection(machine.rotation);
         const effFootprint = PlacementMath.getEffectiveFootprint(
@@ -260,7 +265,11 @@ export class DemolishMath {
       const machine = engine.getMachine(info.instanceId);
       if (machine) {
         // Sermaye iadesi yap
-        const refund = economy.refundMachine(machine.def.baseCost, info.level);
+        const refund = economy.refundMachine(
+          machine.def.baseCost,
+          info.level,
+          engine.getMachineDiscount(info.instanceId),
+        );
         // Motordan ve ızgaradan kaldır
         engine.removeMachine(info.instanceId);
 

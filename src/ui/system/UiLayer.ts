@@ -50,6 +50,8 @@ export interface UiModalHandle {
   getFocusables(): UiFocusable[];
   /** Odaklanan öğe görünür alana kaydırılsın */
   revealFocus?(target: UiFocusable): void;
+  /** Pencerenin çizim katmanı: üstte çizilen pencere girdiyi de alır (verilmezse 0) */
+  readonly modalDepth?: number;
 }
 
 /**
@@ -358,7 +360,13 @@ export class UiLayer {
 
   pushModal(modal: UiModalHandle): void {
     if (!this.modalStack.includes(modal)) {
-      this.modalStack.push(modal);
+      // Yığın çizim katmanına göre sıralı tutulur: ekranda üstte duran pencere girdiyi alır.
+      // Sıra yalnız açılış anına bağlı olsaydı, giriş ekranının altında sonradan açılan
+      // çevrimdışı kazanç penceresi kaydırmayı ve Enter'ı giriş ekranından çalardı.
+      const depth = modal.modalDepth ?? 0;
+      let index = this.modalStack.length;
+      while (index > 0 && (this.modalStack[index - 1].modalDepth ?? 0) > depth) index--;
+      this.modalStack.splice(index, 0, modal);
       this.setFocus(null);
       for (const listener of this.modalOpenListeners) listener();
     }

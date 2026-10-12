@@ -137,6 +137,8 @@ export interface MachineEntityState {
   outputBuffer: Record<string, number>;
   /** İncremental makine geliştirme seviyesi (varsayılan 1) */
   level?: number;
+  /** Reklam indirimiyle ödenmeyen toplam yükseltme tutarı; söküm iadesinden düşülür (varsayılan 0) */
+  adDiscount?: number;
 }
 
 /** 5. ÇALIŞMA ZAMANI KONVEYÖR DURUMU */

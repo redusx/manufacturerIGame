@@ -13,7 +13,7 @@
 import Phaser from 'phaser';
 import type { MachineEntity } from '../simulation/MachineEntity.ts';
 import type { ProductionEngine } from '../simulation/ProductionEngine.ts';
-import type { FactoryEconomy } from '../simulation/FactoryEconomy.ts';
+import { MACHINE_UPGRADE_AD_DISCOUNT, type FactoryEconomy } from '../simulation/FactoryEconomy.ts';
 import { RecipeRegistry, defaultRecipeRegistry } from '../simulation/RecipeRegistry.ts';
 import { ItemRegistry, defaultItemRegistry } from '../simulation/ItemRegistry.ts';
 import {
@@ -51,6 +51,13 @@ export interface MachineInspectorModalConfig {
   onDemolishRequested?: (machine: MachineEntity) => void;
   /** Makine yeni bir yere taşınmak isteniyor (ücretsiz; seviye ve depo korunur) */
   onMoveRequested?: (machine: MachineEntity) => void;
+  /** Yükseltmeyi reklam izleyerek indirimli alma (R7); verilmezse düğme hiç çizilmez */
+  adDiscount?: {
+    /** Düğme gösterilsin mi? Reklam sunulamıyorsa çizilmez */
+    isOffered: () => boolean;
+    /** Reklamı gösterir; izlenirse makineyi indirimli bedelle yükseltir */
+    onRequest: (machine: MachineEntity) => void;
+  };
   onClose?: () => void;
 }
 
@@ -63,6 +70,8 @@ interface BufferRow {
 
 /** Canlı değerlerin yenilenme aralığı (ms) */
 const LIVE_REFRESH_INTERVAL_MS = 100;
+/** Bu genişliğin altında dört eylem düğmesi tek satıra sığmaz (dikey telefon) */
+const SINGLE_ROW_MIN_WIDTH = 400;
 
 /** Durum yalnız renkle değil, ikon ve metinle de anlatılır */
 const STATUS_ICONS: Readonly<Record<string, string>> = {
@@ -91,6 +100,7 @@ export class MachineInspectorModal extends UiModal {
   private cycleBar: UiProgressBar | null = null;
   private bufferRows: BufferRow[] = [];
   private upgradeButton: UiButton | null = null;
+  private adUpgradeButton: UiButton | null = null;
 
   constructor(
     layer: UiLayer,
@@ -123,6 +133,7 @@ export class MachineInspectorModal extends UiModal {
     this.cycleBar = null;
     this.bufferRows = [];
     this.upgradeButton = null;
+    this.adUpgradeButton = null;
     this.callbacks.onClose?.();
   }
 
@@ -146,6 +157,8 @@ export class MachineInspectorModal extends UiModal {
       data.activeRecipeId ?? '-',
       data.inputBuffers.map((b) => b.itemId).join(','),
       data.outputBuffers.map((b) => b.itemId).join(','),
+      // Reklam sunulur ya da sunulmaz olunca alt eylem alanı yeniden kurulur
+      this.callbacks.adDiscount?.isOffered() ?? false,
     ].join('|');
   }
 
@@ -193,6 +206,7 @@ export class MachineInspectorModal extends UiModal {
     }
 
     this.upgradeButton?.setEnabled(data.canAffordUpgrade);
+    this.adUpgradeButton?.setEnabled(data.canAffordAdUpgrade);
   }
 
   /** Dolu çıktı deposu (hat tıkalı) kırmızı gösterilir */
@@ -211,8 +225,9 @@ export class MachineInspectorModal extends UiModal {
     this.statusChip = null;
     this.statusHint = null;
     this.cycleBar = null;
-    // Önceki kurulumun düğmesi yok edildi; yenisi buildFooter'da kurulana dek kimse ona dokunmasın
+    // Önceki kurulumun düğmeleri yok edildi; yenileri buildFooter'da kurulana dek kimse onlara dokunmasın
     this.upgradeButton = null;
+    this.adUpgradeButton = null;
     if (!data || !this.targetMachine) return 0;
     this.structureSignature = this.signatureOf(data);
 
@@ -433,36 +448,58 @@ export class MachineInspectorModal extends UiModal {
     const data = this.inspect();
     if (!data) return 0;
 
-    const height = 48;
     const gap = SPACE.sm;
-    const demolishWidth = Math.max(84, Math.round(width * 0.27));
-    const moveWidth = Math.max(72, Math.round(width * 0.22));
-    const upgradeWidth = width - demolishWidth - moveWidth - gap * 2;
+    const ad = this.callbacks.adDiscount;
+    const showAd = ad !== undefined && ad.isOffered();
+    // Geniş pencerede dört düğme tek satırdadır: Sök · Taşı · Yükselt · reklamla indirim.
+    // Dar pencerede (dikey telefon) Sök ve Taşı üst satıra çıkar; Yükselt ile indirim
+    // düğmesi yine aynı satırda, başparmağın altında kalır.
+    const twoRows = showAd && width < SINGLE_ROW_MIN_WIDTH;
+    const topHeight = 44;
+    const height = 48;
+    const rowY = twoRows ? topHeight + gap + height / 2 : height / 2;
 
-    const demolishButton = new UiButton(this.layer, demolishWidth / 2, height / 2, {
+    let demolishWidth: number;
+    let moveWidth: number;
+    let upgradeX: number;
+    let upgradeWidth: number;
+    let adWidth = 0;
+    if (twoRows) {
+      demolishWidth = Math.round((width - gap) / 2);
+      moveWidth = width - gap - demolishWidth;
+      adWidth = Math.max(104, Math.round(width * 0.4));
+      upgradeWidth = width - gap - adWidth;
+      upgradeX = upgradeWidth / 2;
+    } else {
+      demolishWidth = Math.max(84, Math.round(width * (showAd ? 0.2 : 0.27)));
+      moveWidth = Math.max(72, Math.round(width * (showAd ? 0.17 : 0.22)));
+      adWidth = showAd ? Math.max(104, Math.round(width * 0.25)) : 0;
+      upgradeWidth = width - demolishWidth - moveWidth - gap * 2 - (showAd ? adWidth + gap : 0);
+      upgradeX = demolishWidth + moveWidth + gap * 2 + upgradeWidth / 2;
+    }
+    const sideHeight = twoRows ? topHeight : height;
+    const sideY = twoRows ? topHeight / 2 : height / 2;
+
+    const demolishButton = new UiButton(this.layer, demolishWidth / 2, sideY, {
       width: demolishWidth,
-      height,
-      variant: 'danger',
+      height: sideHeight,
+      variant: 'remove',
       label: 'SÖK',
       sublabel: `+$${formatNumber(data.demolishRefund)} iade`,
       silent: true,
       onClick: () => this.demolish(),
     });
 
-    const moveButton = new UiButton(this.layer, demolishWidth + gap + moveWidth / 2, height / 2, {
+    const moveButton = new UiButton(this.layer, demolishWidth + gap + moveWidth / 2, sideY, {
       width: moveWidth,
-      height,
+      height: sideHeight,
       variant: 'secondary',
       label: 'TAŞI',
       sublabel: 'Ücretsiz',
       onClick: () => this.move(),
     });
 
-    this.upgradeButton = new UiButton(
-      this.layer,
-      demolishWidth + moveWidth + gap * 2 + upgradeWidth / 2,
-      height / 2,
-      {
+    this.upgradeButton = new UiButton(this.layer, upgradeX, rowY, {
       width: upgradeWidth,
       height,
       variant: 'primary',
@@ -470,13 +507,33 @@ export class MachineInspectorModal extends UiModal {
       sublabel: `$${formatNumber(data.upgradeCost)}`,
       silent: true,
       onClick: () => this.upgrade(),
-        onDisabledClick: () => this.callbacks.onUpgradeDenied?.(),
-      },
-    );
+      onDisabledClick: () => this.callbacks.onUpgradeDenied?.(),
+    });
     this.upgradeButton.setEnabled(data.canAffordUpgrade);
-
     footer.add([demolishButton, moveButton, this.upgradeButton]);
-    return height;
+
+    if (showAd && ad) {
+      // Reklamla indirim: Yükselt'in hemen yanında, video simgeli ayrı düğme. İndirimli
+      // bedele para yetiyorsa etkindir; yetmiyorsa görünür ama pasiftir.
+      const machine = this.targetMachine;
+      this.adUpgradeButton = new UiButton(this.layer, upgradeX + upgradeWidth / 2 + gap + adWidth / 2, rowY, {
+        width: adWidth,
+        height,
+        variant: 'gold',
+        icon: uiIcon('video'),
+        label: `%${Math.round(MACHINE_UPGRADE_AD_DISCOUNT * 100)} İNDİRİM`,
+        sublabel: `$${formatNumber(data.upgradeAdCost)}`,
+        textVariant: 'buttonSmall',
+        onClick: () => {
+          if (machine) ad.onRequest(machine);
+        },
+        onDisabledClick: () => this.callbacks.onUpgradeDenied?.(),
+      });
+      this.adUpgradeButton.setEnabled(data.canAffordAdUpgrade);
+      footer.add(this.adUpgradeButton);
+    }
+
+    return twoRows ? topHeight + gap + height : height;
   }
 
   protected primaryButton(): UiButton | null {

@@ -9,6 +9,7 @@
 
 import Phaser from 'phaser';
 import type { MilestoneManager, MilestoneProgress } from '../factory/progression/MilestoneManager.ts';
+import { getClickPowerForStage } from '../data/MachineData.ts';
 import { formatNumber } from '../utils/format.ts';
 import { formatMilestoneReward } from './ObjectiveCard.ts';
 import { SEMANTIC, SPACE, uiIcon } from './theme.ts';
@@ -102,7 +103,7 @@ export class StagesModal extends UiModal {
         });
       }
 
-      const reward = formatMilestoneReward(milestone.reward);
+      const reward = formatMilestoneReward(milestone.reward, getClickPowerForStage(index + 1));
       if (reward) {
         const rewardText = layer.text(pad, cursor, `Ödül: ${reward}`, 'caption', {
           color: isDone ? SEMANTIC.textMuted : SEMANTIC.moneyHex,

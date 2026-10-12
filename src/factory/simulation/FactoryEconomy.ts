@@ -51,6 +51,9 @@ export function machineUpgradeFactor(currentLevel: number): number {
   return Math.pow(MACHINE_UPGRADE_GROWTH, gentle) * Math.pow(MACHINE_UPGRADE_STEEP_GROWTH, steep);
 }
 
+/** Reklam izleyerek makine yükseltmesinde alınan indirim (R7) */
+export const MACHINE_UPGRADE_AD_DISCOUNT = 0.2;
+
 /** Reklam izleyerek kazanılan parsel ("müteahhit") indirimi (M9-E R5) */
 export const PLOT_AD_DISCOUNT = 0.15;
 /** İndirim yalnızca bu bedelden pahalı parsellere sunulur */
@@ -305,9 +308,11 @@ export class FactoryEconomy {
   /**
    * Bir makineyi mevcut seviyesinden bir sonraki seviyeye yükseltme maliyeti:
    * Maliyet = round(baseCost * (1.15)^currentLevel)
+   * `discount` verilirse (ör. reklam indirimi 0,2) bedel o oranda düşer.
    */
-  getMachineUpgradeCost(baseCost: number, currentLevel: number): number {
-    return Math.max(1, Math.round(baseCost * machineUpgradeFactor(currentLevel)));
+  getMachineUpgradeCost(baseCost: number, currentLevel: number, discount = 0): number {
+    const full = Math.max(1, Math.round(baseCost * machineUpgradeFactor(currentLevel)));
+    return discount > 0 ? Math.max(1, Math.round(full * (1 - discount))) : full;
   }
 
   /**
@@ -323,11 +328,19 @@ export class FactoryEconomy {
   }
 
   /**
-   * Makine yıkıldığında %100 tam sermaye iadesi yapar.
+   * Makinenin söküm iadesi: yapılan yatırımın tamamı, eksi reklam indirimiyle hiç
+   * ödenmemiş tutar (`discountSaved`). Oyuncu ödediği parayı geri alır, fazlasını değil.
+   */
+  getMachineRefund(baseCost: number, level: number, discountSaved = 0): number {
+    return Math.max(0, this.getTotalMachineInvestment(baseCost, level) - Math.max(0, discountSaved));
+  }
+
+  /**
+   * Makine yıkıldığında ödenen sermayenin tamamını iade eder.
    * @returns İade edilen toplam sermaye ($)
    */
-  refundMachine(baseCost: number, level: number): number {
-    const refund = this.getTotalMachineInvestment(baseCost, level);
+  refundMachine(baseCost: number, level: number, discountSaved = 0): number {
+    const refund = this.getMachineRefund(baseCost, level, discountSaved);
     this.addMoney(refund, 'REFUND');
     return refund;
   }

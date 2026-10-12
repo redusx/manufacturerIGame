@@ -25,7 +25,9 @@ export type AdPlacementId =
   /** R5: parsel müteahhit indirimi */
   | 'plot_discount'
   /** R6: fırlatma rampası yükseltmesinde indirim */
-  | 'pad_discount';
+  | 'pad_discount'
+  /** R7: makine yükseltmesinde indirim */
+  | 'machine_discount';
 
 export type AdMode = 'mock' | 'crazygames' | 'off';
 
@@ -66,6 +68,7 @@ export const AD_COOLDOWN_SEC: Readonly<Record<AdPlacementId, number>> = {
   parts_cargo: 600,
   plot_discount: 0,
   pad_discount: 0,
+  machine_discount: 0,
 };
 
 export interface AdServiceState {

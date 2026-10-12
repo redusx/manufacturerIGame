@@ -17,8 +17,9 @@ import type {
 } from '../factory/progression/MilestoneManager.ts';
 import { defaultMachineRegistry } from '../factory/simulation/MachineRegistry.ts';
 import { RANGE_LADDER, RangeLadder } from '../flight/RangeLadder.ts';
+import { getClickPowerForStage } from '../data/MachineData.ts';
 import { formatDistance, formatDuration, formatNumber } from '../utils/format';
-import { SEMANTIC, SPACE } from './theme';
+import { SEMANTIC, SPACE, uiIcon } from './theme';
 import type { UiLayer } from './system/UiLayer.ts';
 import { UiProgressBar } from './system/UiWidgets.ts';
 
@@ -50,8 +51,11 @@ const FEATURE_LABELS: Readonly<Record<string, string>> = {
   INTAKE_POLYMER: 'Polimer Girişi',
 };
 
-/** Bir aşama ödülünü kısa, okunur bir listeye çevirir: "$250 · Hidrolik Pres Makinesi" */
-export function formatMilestoneReward(reward: MilestoneReward): string {
+/**
+ * Bir aşama ödülünü kısa, okunur bir listeye çevirir: "$250 · Hidrolik Pres Makinesi".
+ * `clickPowerAfter` verilirse aşama bitince ÜRET düğmesinin ulaşacağı kazanç da eklenir.
+ */
+export function formatMilestoneReward(reward: MilestoneReward, clickPowerAfter?: number): string {
   const parts: string[] = [];
   if (reward.money && reward.money > 0) {
     parts.push(`$${formatNumber(reward.money)}`);
@@ -67,6 +71,9 @@ export function formatMilestoneReward(reward: MilestoneReward): string {
   }
   if (reward.revenueMultiplierBonus && reward.revenueMultiplierBonus > 0) {
     parts.push(`+%${Math.round(reward.revenueMultiplierBonus * 100)} gelir`);
+  }
+  if (clickPowerAfter !== undefined) {
+    parts.push(`Üret $${formatNumber(clickPowerAfter)}/basış`);
   }
   return parts.join(' · ');
 }
@@ -98,7 +105,8 @@ export function buildRangeObjectiveView(bestDistance: number): ObjectiveView {
     reward: `Ödül: ${RangeLadder.describeRewards(next).join(' · ')}`,
     eta: '',
     allDone: false,
-    icon: 'icon_rocket',
+    // Sefer hedefi hangardan uçulur: araç çubuğundaki hangar simgesiyle aynı
+    icon: uiIcon('hangar'),
   };
 }
 
@@ -133,7 +141,8 @@ export function buildObjectiveView(
     if (etaSec < 86400) eta = `~${formatDuration(etaSec)}`;
   }
 
-  const reward = formatMilestoneReward(progress.milestone.reward);
+  // Aşama bitince ÜRET düğmesinin kazancı da artar; ödül satırında görünür
+  const reward = formatMilestoneReward(progress.milestone.reward, getClickPowerForStage(completedCount + 1));
   return {
     stageLabel: `AŞAMA ${completedCount + 1}/${totalCount}`,
     title: pending.description,
@@ -145,9 +154,9 @@ export function buildObjectiveView(
   };
 }
 
-/** Tamamlanan aşama için bildirim metni */
-export function formatMilestoneCompleted(milestone: MilestoneDefinition): string {
-  const reward = formatMilestoneReward(milestone.reward);
+/** Tamamlanan aşama için bildirim metni (`clickPowerAfter`: ÜRET düğmesinin yeni kazancı) */
+export function formatMilestoneCompleted(milestone: MilestoneDefinition, clickPowerAfter?: number): string {
+  const reward = formatMilestoneReward(milestone.reward, clickPowerAfter);
   return reward
     ? `Aşama tamamlandı: ${milestone.name}\nÖdül: ${reward}`
     : `Aşama tamamlandı: ${milestone.name}`;

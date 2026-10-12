@@ -15,7 +15,7 @@
 import Phaser from 'phaser';
 import { EconomyManager } from '../economy/EconomyManager';
 import { SaveManager } from '../save/SaveManager';
-import { AUTO_SAVE_INTERVAL_MS } from '../data/MachineData';
+import { AUTO_SAVE_INTERVAL_MS, getClickPowerForStage } from '../data/MachineData';
 import { formatDistance, formatNumber, formatMoney } from '../utils/format';
 
 import { HUD } from '../ui/HUD';
@@ -69,6 +69,7 @@ import { RocketHangarView } from '../ui/RocketHangarView';
 import { RocketHangarBridge, type RocketModuleCategory } from '../factory/simulation/RocketHangarBridge';
 import {
   FactoryEconomy,
+  MACHINE_UPGRADE_AD_DISCOUNT,
   MAX_FACTORY_HEIGHT,
   MAX_FACTORY_WIDTH,
   PLOT_AD_DISCOUNT,
@@ -80,6 +81,7 @@ import { BuildMenuModal, INTAKE_CARD_PREFIX } from '../ui/BuildMenuModal.ts';
 import { DemolishTool } from '../factory/input/DemolishTool.ts';
 import { DemolishMath, type DemolishExecuteResult } from '../factory/input/DemolishMath.ts';
 import { MachineInspectorModal } from '../factory/view/MachineInspectorModal.ts';
+import { MachineInspectorHelper } from '../factory/view/MachineInspectorHelper.ts';
 import { TerminalInspectorModal } from '../ui/TerminalInspectorModal.ts';
 import {
   CONVEYOR_BUILD_COST,
@@ -609,6 +611,10 @@ export class GameScene extends Phaser.Scene {
           this.saveGame();
           sound.playCoin();
         },
+        adDiscount: {
+          isOffered: () => ads.isOffered('machine_discount'),
+          onRequest: (machine) => void this.requestMachineDiscount(machine),
+        },
         onMoveRequested: (machine) => {
           this.startPlacement({
             type: 'MACHINE_MOVE',
@@ -629,7 +635,7 @@ export class GameScene extends Phaser.Scene {
             this.machineStatusIndicator.rebuild();
             sound.playDemolish();
             const worldPos = GridCoordinates.gridToWorldCenter(machine.coord, 32);
-            fx.emitSparkles(this, worldPos.x, worldPos.y, 16, PALETTE.dangerRed);
+            fx.emitSparkles(this, worldPos.x, worldPos.y, 16, PALETTE.removeRed);
             this.saveGame();
             this.notify(`${result.name} söküldü (+$${result.refundAmount} iade)`, 'info');
           }
@@ -660,7 +666,7 @@ export class GameScene extends Phaser.Scene {
           const firstCoord = result.freedCoords[0];
           if (firstCoord) {
             const worldPos = GridCoordinates.gridToWorldCenter(firstCoord, 32);
-            fx.emitSparkles(this, worldPos.x, worldPos.y, 14, PALETTE.dangerRed);
+            fx.emitSparkles(this, worldPos.x, worldPos.y, 14, PALETTE.removeRed);
           }
           this.saveGame();
         },
@@ -715,7 +721,7 @@ export class GameScene extends Phaser.Scene {
         this.onIntakeDemolished(result);
         sound.playDemolish();
         const worldPos = GridCoordinates.gridToWorldCenter(coord, 32);
-        fx.emitSparkles(this, worldPos.x, worldPos.y, 14, PALETTE.dangerRed);
+        fx.emitSparkles(this, worldPos.x, worldPos.y, 14, PALETTE.removeRed);
         this.saveGame();
       },
     });
@@ -1131,6 +1137,8 @@ export class GameScene extends Phaser.Scene {
   private onClickProduce(): void {
     sound.initContext();
     sound.playCoin();
+    // Basış başına kazanç içinde bulunulan aşamaya göre belirlenir (DEC-050)
+    this.economy.setClickPower(getClickPowerForStage(this.milestones.completedCount));
     const gained = this.economy.produceByClick();
     this.manualClicks += 1;
 
@@ -1226,7 +1234,10 @@ export class GameScene extends Phaser.Scene {
       sound.playMilestone();
       fx.emitConfetti(this, this.ui.width / 2, this.hud.bottom + 30, 32, 'ui');
       this.objective.playGoalReachedEffect();
-      this.notify(formatMilestoneCompleted(result.claimedMilestone), 'reward');
+      this.notify(
+        formatMilestoneCompleted(result.claimedMilestone, getClickPowerForStage(this.milestones.completedCount)),
+        'reward',
+      );
       this.saveGame();
     }
   }
@@ -1341,6 +1352,28 @@ export class GameScene extends Phaser.Scene {
     if (this.hangarBridge.upgradeLaunchPad(this.factoryEconomy, LAUNCH_PAD_AD_DISCOUNT)) {
       this.onLaunchPadUpgraded(this.hangarBridge.getLaunchPadLevel());
     }
+  }
+
+  /** R7: reklam izlenirse makinenin sıradaki seviyesi indirimli bedelle alınır */
+  private async requestMachineDiscount(machine: MachineEntity): Promise<void> {
+    const engine = this.productionEngine;
+    const level = engine.getMachineLevel(machine.instanceId);
+    const cost = this.factoryEconomy.getMachineUpgradeCost(machine.def.baseCost, level, MACHINE_UPGRADE_AD_DISCOUNT);
+    if (!this.factoryEconomy.canAfford(cost)) return;
+    if (!(await this.watchAd('machine_discount'))) return;
+    // Reklam sürerken makine sökülmüş olabilir
+    if (!engine.getMachine(machine.instanceId)) return;
+
+    const result = MachineInspectorHelper.performUpgrade(machine, engine, this.factoryEconomy, MACHINE_UPGRADE_AD_DISCOUNT);
+    if (!result.success) {
+      this.notify('Yükseltme için yeterli para yok', 'warning');
+      return;
+    }
+    sound.playUpgrade();
+    fx.emitSparkles(this, this.ui.width / 2, this.ui.height / 2, 16, PALETTE.resourceGold, 'ui');
+    this.saveGame();
+    const percent = Math.round(MACHINE_UPGRADE_AD_DISCOUNT * 100);
+    this.notify(`${machine.def.name} Seviye ${result.newLevel} oldu (%${percent} indirimli: $${formatNumber(result.cost)})`, 'reward');
   }
 
   /** Takviyenin nakit bedeli (takviyesiz gelirden hesaplanır) */
@@ -1940,7 +1973,7 @@ export class GameScene extends Phaser.Scene {
       const target = demolish.targetName;
       this.contextBar.show({
         icon: uiIcon('trash'),
-        iconTint: SEMANTIC.danger,
+        iconTint: SEMANTIC.remove,
         title: target ? `Sök: ${target}` : 'Söküm modu',
         hint: !isTouch
           ? 'Sökmek için tıkla · %100 iade · X: çık'

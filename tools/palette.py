@@ -28,6 +28,13 @@ BASE = {
     "black": 0x000000,
 }
 
+# Paletin dışındaki tek renk (DEC-051): yalnızca "Sök" ve "Kapat" düğmeleri kırmızıdır
+EXTRA = {
+    "red": 0xE74C3C,
+    "red_light": 0xF29488,
+    "red_dark": 0xA5281B,
+}
+
 # Palet görselindeki sıra (soldan sağa); indeksli PNG'ler bu sırayı kullanır
 ORDER = [
     "sand", "copper", "brown", "umber", "olive", "green", "mint", "sky",

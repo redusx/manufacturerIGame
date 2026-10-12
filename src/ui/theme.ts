@@ -32,6 +32,17 @@ export const BASE = {
   black: 0x000000,
 } as const;
 
+/**
+ * Paletin dışındaki tek renk (DEC-051): söküm ve kapatma kırmızıdır. Yalnızca "Sök" ve
+ * "Kapat" düğmelerinde ve söküm aracının kendi göstergelerinde kullanılır; başka hiçbir
+ * yerde kullanılmaz (diğer tehlikeli eylemler paletin moru ile gösterilir).
+ */
+export const EXTRA = {
+  red: 0xe74c3c,
+  redLight: 0xf29488,
+  redDark: 0xa5281b,
+} as const;
+
 /** İki rengin doğrusal karışımı: t=0 -> a, t=1 -> b */
 export function mixColor(a: number, b: number, t: number): number {
   let out = 0;
@@ -106,6 +117,9 @@ export const PALETTE = {
   warningOrangeHex: toHex(BASE.copper),
   dangerRed: BASE.purple,
   dangerRedHex: toHex(BASE.purple),
+  /** Söküm aracının dünyadaki vurgusu (palet dışı kırmızı; bkz. EXTRA) */
+  removeRed: EXTRA.red,
+  removeRedHex: toHex(EXTRA.red),
 
   // Dünyadaki devre dışı rozet
   btnDisabled: TONE.nightDeep,
@@ -230,6 +244,8 @@ export const SEMANTIC = {
   /** Tehlikeli / geri alınamaz eylem, hata, hasar (palette kırmızı yok: mor ailesi) */
   danger: BASE.purple,
   dangerHex: INK.danger,
+  /** Söküm ve kapatma (palet dışı kırmızı; yalnız bu iki işlev için) */
+  remove: EXTRA.red,
   /** Devre dışı */
   disabled: TONE.tan,
   disabledHex: toHex(TONE.tan),
@@ -275,7 +291,7 @@ export const SPACE = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 } as const;
 /** Dokunma hedefinin en küçük kenarı (görsel daha küçük olsa bile basılabilir alan bu kadardır) */
 export const TOUCH_MIN = 44;
 
-export type UiButtonVariant = 'primary' | 'secondary' | 'rocket' | 'factory' | 'gold' | 'danger';
+export type UiButtonVariant = 'primary' | 'secondary' | 'rocket' | 'factory' | 'gold' | 'danger' | 'remove';
 
 /**
  * Düğme varyantlarının etiket rengi. Gövdeler ana paletin orta tonlarıdır (yeşil, mavi,
@@ -289,6 +305,7 @@ export const BUTTON_LABEL_COLORS: Readonly<Record<UiButtonVariant | 'disabled', 
   factory: SEMANTIC.textOnDark,
   gold: SEMANTIC.textOnBright,
   danger: SEMANTIC.textOnDark,
+  remove: SEMANTIC.textOnDark,
   // Devre dışı düğme soluk açık kahvedir; etiketi okunur kalacak kadar koyu
   disabled: toHex(TONE.faded),
 };
@@ -301,6 +318,7 @@ const UI_BUTTON_STATES: ReadonlyArray<[string, readonly string[]]> = [
   ['factory', ['normal', 'hover', 'pressed']],
   ['gold', ['normal', 'hover', 'pressed']],
   ['danger', ['normal', 'hover', 'pressed']],
+  ['remove', ['normal', 'hover', 'pressed']],
   ['disabled', ['normal']],
 ];
 

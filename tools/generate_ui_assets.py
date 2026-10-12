@@ -12,7 +12,7 @@ beyazdır ve kodda `setTint` ile boyanır.
 from pathlib import Path
 from PIL import Image
 
-from palette import BASE, TONE
+from palette import BASE, EXTRA, TONE
 
 OUT = Path(__file__).resolve().parent.parent / "public" / "assets" / "ui"
 
@@ -45,6 +45,8 @@ BUTTON_VARIANTS = {
     "factory": (BASE["copper"], BASE["sand"], BASE["brown"]),
     "gold": (BASE["sand"], TONE["cream_light"], BASE["copper"]),
     "danger": (BASE["purple"], BASE["pink"], BASE["plum"]),
+    # Sök ve Kapat: paletin dışındaki tek renk
+    "remove": (EXTRA["red"], EXTRA["red_light"], EXTRA["red_dark"]),
     "disabled": (TONE["disabled"], TONE["disabled_light"], TONE["disabled_lip"]),
 }
 

@@ -68,6 +68,8 @@ export abstract class UiModal implements UiModalHandle {
   private panelW = 0;
   private panelH = 0;
   private viewportH = 0;
+  private availableHeight = 0;
+  private bottomPad = 0;
   private bodyHeight = 0;
   private scrollY = 0;
   private contentLeft = 0;
@@ -149,7 +151,8 @@ export abstract class UiModal implements UiModalHandle {
       this.closeButton = new UiButton(layer, 0, 0, {
         width: 36,
         height: 36,
-        variant: 'secondary',
+        // Kapat düğmesi kırmızıdır (DEC-051)
+        variant: 'remove',
         icon: 'icon_close',
         iconScale: 1.5,
         onClick: () => this.requestClose(),
@@ -184,6 +187,20 @@ export abstract class UiModal implements UiModalHandle {
     return null;
   }
 
+  /** İçeriğin en fazla genişliği; ekran düzenine göre değişecekse alt sınıf ezer */
+  protected maxContentWidth(): number {
+    return this.config.maxWidth ?? 420;
+  }
+
+  /**
+   * İçeriğin kaydırmadan sığabileceği en büyük yükseklik (alt eylem alanının yüksekliği
+   * `footerHeight` ise). `buildBody` içinde, düzeni ekrana sığdırmak için kullanılır.
+   */
+  protected bodyHeightLimit(footerHeight = 0): number {
+    const footer = footerHeight > 0 ? footerHeight + SPACE.sm : 0;
+    return Math.max(40, this.availableHeight - HEADER_HEIGHT - BODY_TOP_GAP - footer - this.bottomPad);
+  }
+
   /** Pencere açıldıktan hemen sonra */
   protected onOpened(): void {}
 
@@ -196,6 +213,11 @@ export abstract class UiModal implements UiModalHandle {
 
   get isOpen(): boolean {
     return this.opened;
+  }
+
+  /** Çizim katmanı; pencere yığını buna göre sıralanır (UiLayer.pushModal) */
+  get modalDepth(): number {
+    return this.config.depth ?? 200;
   }
 
   open(): void {
@@ -288,7 +310,7 @@ export abstract class UiModal implements UiModalHandle {
     if (!this.opened) return;
     const m = this.layer.metrics;
     const sheet = m.mode === 'portrait';
-    const maxWidth = this.config.maxWidth ?? 420;
+    const maxWidth = this.maxContentWidth();
 
     let availableHeight: number;
     if (sheet) {
@@ -307,12 +329,15 @@ export abstract class UiModal implements UiModalHandle {
       availableHeight = m.height - m.safe.top - m.safe.bottom - margin * 2;
     }
 
+    const bottomPad = PADDING + (sheet ? m.safe.bottom : 0);
+    this.availableHeight = availableHeight;
+    this.bottomPad = bottomPad;
+
     this.body.removeAll(true);
     this.footer.removeAll(true);
     this.bodyHeight = Math.ceil(this.buildBody(this.body, this.contentWidth));
     const footerContent = Math.ceil(this.buildFooter(this.footer, this.contentWidth));
     const footerHeight = footerContent > 0 ? footerContent + SPACE.sm : 0;
-    const bottomPad = PADDING + (sheet ? m.safe.bottom : 0);
 
     const chrome = HEADER_HEIGHT + BODY_TOP_GAP + footerHeight + bottomPad;
     this.viewportH = Math.max(40, Math.min(this.bodyHeight, availableHeight - chrome));

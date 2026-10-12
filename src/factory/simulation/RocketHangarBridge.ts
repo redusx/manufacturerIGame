@@ -394,19 +394,6 @@ export class RocketHangarBridge {
     return MODULE_CATEGORIES.filter((cat) => this.collecting[cat]);
   }
 
-  /**
-   * Parça kargosunun (reklam ödülü) gideceği modül: işaretli ve eksik parçası olanların
-   * en düşük seviyelisi (roket sınıfını tutan modül). Yoksa null.
-   */
-  getCargoModule(): RocketModuleCategory | null {
-    let best: RocketModuleCategory | null = null;
-    for (const cat of MODULE_CATEGORIES) {
-      if (!this.collecting[cat] || !this.canGrantPartsCargo(cat)) continue;
-      if (best === null || this.getModuleLevel(cat) < this.getModuleLevel(best)) best = cat;
-    }
-    return best;
-  }
-
   /** Modül için gerekli tüm parçalar hangarda mevcut mu? */
   hasRequiredParts(category: RocketModuleCategory): boolean {
     const cost = this.getUpgradeCost(category);

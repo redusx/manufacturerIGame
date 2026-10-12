@@ -38,8 +38,8 @@ RAMPS = {
     "grey": [B["umber"], B["plum"], T["steel"], T["steel_light"], B["white"]],
 }
 KNOWN = {channels(v) for v in list(B.values()) + list(T.values())}
-# Dosyaya özel aile tonları: kapatma çarpısı koyu mor düğmenin üstünde durur, açık olmalı
-FILE_RAMPS = {"icon_close.png": {"purple": [B["pink"], B["white"]]}}
+# Dosyaya özel aile tonları: kapatma çarpısı kırmızı düğmenin üstünde durur, beyaz olmalı
+FILE_RAMPS = {"icon_close.png": {"purple": [B["white"]]}}
 
 
 def family(r: int, g: int, b: int) -> str:

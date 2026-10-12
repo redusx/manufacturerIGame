@@ -142,7 +142,7 @@ export class FlightReportModal extends UiModal {
       );
       const targetH = head.height + 2 + detail.height + SPACE.sm * 2;
       body.add(createInset(scene, 0, y, width, targetH));
-      body.add(scene.add.image(SPACE.md + 6, y + SPACE.sm + head.height / 2, 'icon_rocket').setOrigin(0.5));
+      body.add(scene.add.image(SPACE.md + 6, y + SPACE.sm + head.height / 2, uiIcon('hangar')).setOrigin(0.5));
       body.add([head, detail]);
       y += targetH + SPACE.sm;
     }

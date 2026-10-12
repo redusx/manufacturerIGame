@@ -10,7 +10,7 @@
 import Phaser from 'phaser';
 import type { LeaderboardEntry, LeaderboardSnapshot } from '../leaderboard/LeaderboardService.ts';
 import { formatDistance } from '../utils/format.ts';
-import { SEMANTIC, SPACE } from './theme.ts';
+import { SEMANTIC, SPACE, uiIcon } from './theme.ts';
 import { UiButton } from './system/UiButton.ts';
 import { UiLayer } from './system/UiLayer.ts';
 import { UiModal } from './system/UiModal.ts';
@@ -164,7 +164,7 @@ export class LeaderboardModal extends UiModal {
       height,
       variant: 'rocket',
       label: 'HANGARA GİT',
-      icon: 'icon_rocket',
+      icon: uiIcon('hangar'),
       onClick: () => {
         this.close();
         onOpenHangar();

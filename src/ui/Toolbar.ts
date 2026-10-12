@@ -10,7 +10,7 @@
  * ====================================================================== */
 
 import Phaser from 'phaser';
-import { SEMANTIC, SPACE, onDark, uiIcon } from './theme';
+import { SEMANTIC, SPACE, uiIcon } from './theme';
 import { UiButton } from './system/UiButton.ts';
 import type { UiLayer } from './system/UiLayer.ts';
 
@@ -70,7 +70,7 @@ export class Toolbar {
     const make = (
       label: string,
       icon: string,
-      variant: 'primary' | 'secondary' | 'rocket' | 'factory',
+      variant: 'primary' | 'secondary' | 'rocket' | 'factory' | 'remove',
       onClick: () => void,
       extra: { iconTint?: number; silent?: boolean; onDisabledClick?: () => void } = {},
     ): UiButton => {
@@ -97,10 +97,8 @@ export class Toolbar {
     });
     this.beltButton = make('BANT', uiIcon('belt'), 'secondary', callbacks.onBelt);
     this.buildButton = make('İNŞA', 'icon_factory', 'primary', callbacks.onBuild);
-    this.demolishButton = make('SÖK', uiIcon('trash'), 'secondary', callbacks.onDemolish, {
-      // Koyu mor düğmenin üstünde tehlike renginin açık tonu okunur
-      iconTint: onDark(SEMANTIC.danger),
-    });
+    // Sök düğmesi kırmızıdır (DEC-051); simgesi beyaz kalır
+    this.demolishButton = make('SÖK', uiIcon('trash'), 'remove', callbacks.onDemolish);
     this.hangarButton = make('HANGAR', uiIcon('hangar'), 'rocket', callbacks.onHangar, {
       onDisabledClick: callbacks.onHangarLocked,
     });

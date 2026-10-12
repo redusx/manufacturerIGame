@@ -153,7 +153,7 @@ export class TerminalInspectorModal extends UiModal {
         new UiButton(this.layer, demolishWidth / 2, height / 2, {
           width: demolishWidth,
           height,
-          variant: 'danger',
+          variant: 'remove',
           label: 'SÖK',
           sublabel: refund > 0 ? `+$${formatNumber(refund)} iade` : 'İade yok',
           silent: true,

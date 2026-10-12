@@ -17,7 +17,7 @@ import { ItemRegistry, defaultItemRegistry } from '../simulation/ItemRegistry.ts
 import { RecipeRegistry, defaultRecipeRegistry } from '../simulation/RecipeRegistry.ts';
 import { MachineEntity } from '../simulation/MachineEntity.ts';
 import { ProductionEngine } from '../simulation/ProductionEngine.ts';
-import { FactoryEconomy } from '../simulation/FactoryEconomy.ts';
+import { FactoryEconomy, MACHINE_UPGRADE_AD_DISCOUNT } from '../simulation/FactoryEconomy.ts';
 import { PALETTE, TONE } from '../../ui/theme.ts';
 
 export interface InspectorBufferItem {
@@ -55,6 +55,9 @@ export interface MachineInspectorData {
   speedDiffText: string;
   upgradeCost: number;
   canAffordUpgrade: boolean;
+  /** Reklam izlenirse ödenecek indirimli yükseltme bedeli */
+  upgradeAdCost: number;
+  canAffordAdUpgrade: boolean;
   activeRecipeId: string | null;
   activeRecipeName: string;
   availableRecipes: InspectorRecipeInfo[];
@@ -151,6 +154,8 @@ export class MachineInspectorHelper {
     const nextSpeedMultiplier = 1.0 + level * 0.2; // Seviye+1 çarpanı
     const upgradeCost = economy.getMachineUpgradeCost(machine.def.baseCost, level);
     const canAffordUpgrade = economy.canAfford(upgradeCost);
+    const upgradeAdCost = economy.getMachineUpgradeCost(machine.def.baseCost, level, MACHINE_UPGRADE_AD_DISCOUNT);
+    const canAffordAdUpgrade = economy.canAfford(upgradeAdCost);
 
     // Durum bilgisi
     const statusMeta = this.getStatusMeta(machine.status);
@@ -257,7 +262,11 @@ export class MachineInspectorHelper {
 
     // İade: söküm yalnızca makineye yapılan yatırımı geri öder (tampondaki eşyalar ödenmez).
     // Burada gösterilen tutar DemolishMath'in gerçekten ödediği tutarla aynı olmalıdır.
-    const demolishRefund = economy.getTotalMachineInvestment(machine.def.baseCost, level);
+    const demolishRefund = economy.getMachineRefund(
+      machine.def.baseCost,
+      level,
+      engine.getMachineDiscount(machine.instanceId),
+    );
 
     return {
       instanceId: machine.instanceId,
@@ -277,6 +286,8 @@ export class MachineInspectorHelper {
       speedDiffText: `${this.formatSpeed(speedMultiplier)} -> ${this.formatSpeed(nextSpeedMultiplier)} (+%20 Hız)`,
       upgradeCost,
       canAffordUpgrade,
+      upgradeAdCost,
+      canAffordAdUpgrade,
       activeRecipeId: machine.activeRecipeId,
       activeRecipeName,
       availableRecipes,
@@ -287,15 +298,19 @@ export class MachineInspectorHelper {
   }
 
   /**
-   * Makineyi 1 seviye yükseltir, parayı cüzdandan düşer.
+   * Makineyi 1 seviye yükseltir, parayı cüzdandan düşer. `discount` verilirse (reklam
+   * indirimi) bedel o oranda düşer ve ödenmeyen tutar makinenin hesabına yazılır:
+   * söküm iadesi bu tutarı içermez.
    */
   static performUpgrade(
     machine: MachineEntity,
     engine: ProductionEngine,
     economy: FactoryEconomy,
+    discount = 0,
   ): UpgradeResult {
     const currentLevel = engine.getMachineLevel(machine.instanceId);
-    const cost = economy.getMachineUpgradeCost(machine.def.baseCost, currentLevel);
+    const fullCost = economy.getMachineUpgradeCost(machine.def.baseCost, currentLevel);
+    const cost = economy.getMachineUpgradeCost(machine.def.baseCost, currentLevel, discount);
 
     if (!economy.canAfford(cost)) {
       return {
@@ -319,6 +334,7 @@ export class MachineInspectorHelper {
     }
 
     const newLevel = engine.upgradeMachine(machine.instanceId);
+    engine.addMachineDiscount(machine.instanceId, fullCost - cost);
     const newSpeedMultiplier = engine.getSpeedMultiplier(machine.instanceId);
 
     return {

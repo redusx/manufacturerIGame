@@ -63,9 +63,15 @@ export class EconomyManager {
    * Eylemler
    * ============================================================ */
 
+  /** Basış başına kazancı ayarlar (aşamalar ilerledikçe sahne günceller; DEC-050) */
+  setClickPower(value: DecimalSource): void {
+    const dec = D(value);
+    if (dec.gt(0)) this._clickPower = dec;
+  }
+
   /**
-   * Tıklama ile üretim. Sabit değerlidir; hedef çarpanları tıklamayı büyütmez
-   * (DEC-013: tıklama yalnız erken oyunda yardımcıdır, fabrika büyüdükçe önemi azalır).
+   * Tıklama ile üretim. Değeri aşamaya göre belirlenir (`setClickPower`); gelir çarpanı
+   * ve menzil ödülleri tıklamayı büyütmez (DEC-013: geç oyunda ana gelir fabrikadır).
    */
   produceByClick(): Decimal {
     const gained = this._clickPower;
