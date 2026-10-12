@@ -98,17 +98,6 @@ export class SettingsPanel extends UiModal {
     // --- Ses -------------------------------------------------------------
     body.add(createDivider(scene, 0, y, width));
     y += SPACE.md;
-    const muted = sound.isMuted();
-    y = this.addToggleRow(body, width, y, {
-      label: 'Ses efektleri',
-      icon: uiIcon(muted ? 'sound_off' : 'sound_on'),
-      on: !muted,
-      onToggle: () => {
-        const nowMuted = sound.toggleMute();
-        if (!nowMuted) sound.playClick();
-        this.rebuild();
-      },
-    });
     y = this.addVolumeRow(body, width, y);
 
     // --- Tam ekran (tarayıcı destekliyorsa) -------------------------------
@@ -210,15 +199,15 @@ export class SettingsPanel extends UiModal {
   }
 
   /**
-   * Ses seviyesi: eksi/artı düğmeleri %5'lik adımlarla, çubuğa dokunmak veya çubukta
+   * Ses: sessize alma düğmesi ile seviye denetimi tek satırdadır. Soldaki hoparlör
+   * düğmesi sesi açıp kapatır; eksi/artı %5'lik adımlarla, çubuğa dokunmak veya çubukta
    * sürüklemek doğrudan ayarlar. Değer anında uygulanır ve saklanır.
    */
   private addVolumeRow(body: Phaser.GameObjects.Container, width: number, y: number): number {
     const scene = this.scene;
     const layer = this.layer;
     const labelY = y + 10;
-    body.add(scene.add.image(8, labelY, uiIcon('sound_on')).setOrigin(0.5));
-    body.add(layer.text(24, labelY, 'Ses seviyesi', 'bodyBold').setOrigin(0, 0.5));
+    body.add(layer.text(0, labelY, 'Ses', 'bodyBold').setOrigin(0, 0.5));
     const percentText = layer
       .text(width, labelY, '', 'bodyBold', { color: SEMANTIC.moneyHex })
       .setOrigin(1, 0.5);
@@ -226,28 +215,48 @@ export class SettingsPanel extends UiModal {
 
     const rowY = y + 20 + SPACE.xs;
     const buttonSize = 40;
-    const barX = buttonSize + SPACE.sm;
-    const barWidth = width - (buttonSize + SPACE.sm) * 2;
+    const gap = SPACE.xs + 2;
+    // Sıra: [hoparlör] [−] [çubuk] [+]
+    const minusX = buttonSize + gap;
+    const barX = minusX + buttonSize + gap;
+    const barWidth = width - barX - buttonSize - gap;
     const barHeight = 14;
-    const barY = rowY + (buttonSize - barHeight) / 2;
-    const bar = new UiProgressBar(scene, barX, barY, barWidth, barHeight, 'green');
+    const bar = new UiProgressBar(scene, barX, rowY + (buttonSize - barHeight) / 2, barWidth, barHeight, 'green');
     body.add(bar);
 
+    const muteButton = new UiButton(layer, buttonSize / 2, rowY + buttonSize / 2, {
+      width: buttonSize,
+      height: buttonSize,
+      variant: sound.isMuted() ? 'secondary' : 'primary',
+      icon: uiIcon(sound.isMuted() ? 'sound_off' : 'sound_on'),
+      silent: true,
+      onClick: () => {
+        const nowMuted = sound.toggleMute();
+        if (!nowMuted) sound.playClick();
+        show();
+      },
+    });
+    body.add(muteButton);
+
     const show = (): void => {
+      const muted = sound.isMuted();
       const volume = sound.getVolume();
-      bar.setProgress(volume);
-      percentText.setText(`%${Math.round(volume * 100)}`);
+      bar.setProgress(muted ? 0 : volume);
+      percentText.setText(muted ? 'Kapalı' : `%${Math.round(volume * 100)}`);
+      muteButton.setVariant(muted ? 'secondary' : 'primary').setIcon(uiIcon(muted ? 'sound_off' : 'sound_on'));
     };
     const apply = (volume: number): void => {
       const snapped = Math.round(Phaser.Math.Clamp(volume, 0, 1) / VOLUME_STEP) * VOLUME_STEP;
-      if (Math.abs(snapped - sound.getVolume()) < 1e-6) return;
+      // Seviyeyi değiştirmek sessizi de kaldırır: oyuncu sesi duymak için ayarlıyordur
+      if (Math.abs(snapped - sound.getVolume()) < 1e-6 && !sound.isMuted()) return;
       sound.setVolume(snapped);
+      if (sound.isMuted()) sound.setMuted(false);
       sound.playClick();
       show();
     };
 
     body.add(
-      new UiButton(layer, buttonSize / 2, rowY + buttonSize / 2, {
+      new UiButton(layer, minusX + buttonSize / 2, rowY + buttonSize / 2, {
         width: buttonSize,
         height: buttonSize,
         variant: 'secondary',

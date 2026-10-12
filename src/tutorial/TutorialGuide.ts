@@ -109,7 +109,7 @@ const STEPS: readonly TutorialStep[] = [
   },
   {
     id: 'stage2',
-    text: () => 'Demir tozu sattıkça hedef ilerler. 35 adet satınca yeni makine açılacak: Fırın.',
+    text: () => 'Demir tozu sattıkça hedef ilerler. 20 adet satınca yeni makine açılacak: Fırın.',
     highlight: () => 'objective',
     isDone: (ctx) => ctx.completedStages >= 2,
   },
@@ -129,7 +129,7 @@ const STEPS: readonly TutorialStep[] = [
   },
   {
     id: 'stage3',
-    text: () => 'Külçe tozdan pahalıya satılır. 20 külçe satınca ilk parsel hazır olacak.',
+    text: () => 'Külçe tozdan pahalıya satılır. 15 külçe satınca ilk parsel hazır olacak.',
     highlight: () => 'objective',
     isDone: (ctx) => ctx.completedStages >= 3,
   },
@@ -156,7 +156,7 @@ const STEPS: readonly TutorialStep[] = [
   },
   {
     id: 'stage5',
-    text: () => '25 levha satınca Hassas Kesici açılacak. Makineleri yükseltmek ve hattı çoğaltmak işi hızlandırır.',
+    text: () => '20 levha satınca Hassas Kesici açılacak. Makineleri yükseltmek ve hattı çoğaltmak işi hızlandırır.',
     highlight: () => 'objective',
     isDone: (ctx) => ctx.completedStages >= 5,
   },
@@ -169,7 +169,7 @@ const STEPS: readonly TutorialStep[] = [
   },
   {
     id: 'stage6',
-    text: () => '25 dişli ve $2.500 ciro: ROKET HANGARI açılacak. Az kaldı!',
+    text: () => '20 dişli ve $2.500 ciro: ROKET HANGARI açılacak. Az kaldı!',
     highlight: () => 'objective',
     isDone: (ctx) => ctx.hangarUnlocked,
   },

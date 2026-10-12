@@ -33,6 +33,12 @@ export class HUD {
   private readonly recordIcon: Phaser.GameObjects.Image;
   private readonly recordText: Phaser.GameObjects.Text;
   private readonly settingsButton: UiButton;
+  /**
+   * Tam ekran düğmesi: yatay tutulan telefonda tarayıcı çubukları yüksekliğin çoğunu
+   * alır. Tarayıcı izin veriyorsa (iPhone Safari vermez) tek dokunuşla tam ekrana geçilir.
+   */
+  private readonly fullscreenButton: UiButton;
+  private showFullscreen = false;
   /** Para ve gelir bölümünün tamamı basılabilir: Takviye penceresini açar */
   private readonly incomeZone: Phaser.GameObjects.Zone;
   /**
@@ -98,6 +104,18 @@ export class HUD {
     this.root.add(this.settingsButton);
     layer.registerFocusable(this.settingsButton);
 
+    this.fullscreenButton = new UiButton(layer, 0, 0, {
+      width: 40,
+      height: 40,
+      variant: 'gold',
+      icon: uiIcon('fullscreen'),
+      onClick: () => {
+        void document.documentElement.requestFullscreen?.().catch(() => undefined);
+      },
+    });
+    this.fullscreenButton.setVisible(false);
+    this.root.add(this.fullscreenButton);
+
     this.incomeZone = scene.add.zone(0, 0, 100, HUD_BAR_HEIGHT).setOrigin(0, 0);
     this.root.add(this.incomeZone);
 
@@ -136,6 +154,14 @@ export class HUD {
     this.rightEdge = m.width - m.safe.right - SPACE.sm;
     // Rekor ikincil bilgidir: dar ekranda para ve gelire yer açmak için gizlenir
     this.showRecord = m.width >= 560;
+    // Tam ekran düğmesi yalnız işe yaradığı yerde görünür: dokunmatik, kısa yatay ekran,
+    // tarayıcı destekliyor ve henüz tam ekranda değil
+    this.showFullscreen =
+      m.mode === 'landscapeCompact' &&
+      this.layer.scene.sys.game.device.input.touch &&
+      typeof document !== 'undefined' &&
+      document.fullscreenEnabled === true &&
+      document.fullscreenElement === null;
 
     this.bg.setPosition(0, 0).setSize(m.width, this.barBottom);
     this.pattern.setPosition(1, 2).setSize(m.width - 2, this.barBottom - 6);
@@ -172,7 +198,12 @@ export class HUD {
 
   /** Metin genişlikleri değişince blokları yeniden dizer; sığmayan gelir rozeti gizlenir */
   private reposition(): void {
-    const settingsLeft = this.rightEdge - 40 - SPACE.sm;
+    let settingsLeft = this.rightEdge - 40 - SPACE.sm;
+    this.fullscreenButton.setVisible(this.showFullscreen);
+    if (this.showFullscreen) {
+      this.fullscreenButton.setPosition(settingsLeft - 20, this.centerY);
+      settingsLeft -= 40 + SPACE.sm;
+    }
 
     let rightStart = settingsLeft;
     const recordVisible = this.showRecord && this.bestDistance > 0;

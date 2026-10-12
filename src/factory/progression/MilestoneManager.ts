@@ -116,8 +116,8 @@ export const DEFAULT_MILESTONES: readonly MilestoneDefinition[] = Object.freeze(
       {
         type: 'EXPORT_SPECIFIC_ITEM',
         targetItemId: 'iron_powder',
-        targetValue: 35,
-        description: '35 adet Demir Tozu ihraç et',
+        targetValue: 20,
+        description: '20 adet Demir Tozu ihraç et',
       },
     ],
     reward: {
@@ -140,8 +140,8 @@ export const DEFAULT_MILESTONES: readonly MilestoneDefinition[] = Object.freeze(
       {
         type: 'EXPORT_SPECIFIC_ITEM',
         targetItemId: 'iron_ingot',
-        targetValue: 20,
-        description: '20 adet Demir Külçe ihraç et',
+        targetValue: 15,
+        description: '15 adet Demir Külçe ihraç et',
       },
     ],
     reward: {
@@ -189,8 +189,8 @@ export const DEFAULT_MILESTONES: readonly MilestoneDefinition[] = Object.freeze(
       {
         type: 'EXPORT_SPECIFIC_ITEM',
         targetItemId: 'iron_plate',
-        targetValue: 25,
-        description: '25 adet Çelik Levha ihraç et',
+        targetValue: 20,
+        description: '20 adet Çelik Levha ihraç et',
       },
     ],
     reward: {
@@ -210,8 +210,8 @@ export const DEFAULT_MILESTONES: readonly MilestoneDefinition[] = Object.freeze(
       {
         type: 'EXPORT_SPECIFIC_ITEM',
         targetItemId: 'steel_gear',
-        targetValue: 25,
-        description: '25 adet Hassas Dişli ihraç et',
+        targetValue: 20,
+        description: '20 adet Hassas Dişli ihraç et',
       },
       {
         type: 'TOTAL_EARNED',

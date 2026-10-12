@@ -94,6 +94,16 @@ export class CameraController {
   /** Etkinlik durumu (Modal pencereler açıkken kamera durdurulabilir) */
   private enabled = true;
 
+  /**
+   * Kamera girdisi geçici olarak kapalı mı? (ör. bir pencere açık). Sahne verir; her
+   * girdi olayında sorulur, böylece pencere açıldığı anda dünya kaymaz veya yakınlaşmaz.
+   */
+  public isInputBlocked?: () => boolean;
+
+  private get isInputActive(): boolean {
+    return this.enabled && !(this.isInputBlocked?.() ?? false);
+  }
+
   /** Olay dinleyicisi referansları (Temiz imha için) */
   private onWheelBound: (
     pointer: Phaser.Input.Pointer,
@@ -245,7 +255,7 @@ export class CameraController {
     _deltaX: number,
     deltaY: number,
   ): void {
-    if (!this.enabled || !this.isPointerInViewport(pointer)) return;
+    if (!this.isInputActive || !this.isPointerInViewport(pointer)) return;
 
     const direction = deltaY < 0 ? 1 : -1;
     this.zoomStepAtPointer(direction, pointer.x, pointer.y);
@@ -269,7 +279,7 @@ export class CameraController {
     if (!this.isMultiTouch) {
       this.gestureConsumed = false;
     }
-    if (!this.enabled || !this.isPointerInViewport(pointer)) return;
+    if (!this.isInputActive || !this.isPointerInViewport(pointer)) return;
 
     // Farede kamera sağ (veya orta) tuş basılı tutularak kaydırılır; sol tuş seçim,
     // yerleştirme ve çizim içindir. Dokunmatikte tek parmak kaydırır (araç etkin değilse).
@@ -287,7 +297,7 @@ export class CameraController {
   }
 
   private handlePointerMove(pointer: Phaser.Input.Pointer): void {
-    if (!this.enabled || !this.isDragging || this.pinch) return;
+    if (!this.isInputActive || !this.isDragging || this.pinch) return;
 
     // Fare hareket farkını zoom faktörüne bölerek kameraya uygula
     const dx = (this.dragStartPointerX - pointer.x) / this.camera.zoom;
@@ -508,7 +518,11 @@ export class CameraController {
     const centerPos = CameraMath.computeCenterPosition(focusWidth, focusHeight, viewport);
     // Alttaki boş şerit kadar yukarı ortala (şeridin yarısı kadar dünya kayması)
     const insetShift = this.fitInsetBottom / 2 / this.camera.zoom;
-    this.setScroll(centerPos.x, centerPos.y + insetShift);
+    // Fabrika kullanılabilir alana sığmıyorsa üst satırı görünür kalsın: içerik, görüş
+    // alanının üst kenarından yukarı taşacak kadar kaydırılmaz.
+    const marginWorld = (CameraController.FIT_MARGIN_PX * this.pixelScale) / this.camera.zoom;
+    const topVisibleScroll = -marginWorld - (viewport.height * (1 - 1 / this.camera.zoom)) / 2;
+    this.setScroll(centerPos.x, Math.min(centerPos.y + insetShift, topVisibleScroll));
   }
 
   /**
@@ -573,7 +587,7 @@ export class CameraController {
    */
   update(deltaSec: number): void {
     this.updatePinch();
-    if (!this.enabled || !this.enableKeyboard) return;
+    if (!this.isInputActive || !this.enableKeyboard) return;
 
     let moveX = 0;
     let moveY = 0;
@@ -609,7 +623,7 @@ export class CameraController {
     const input = this.scene.input;
     const a = input.pointer1;
     const b = input.pointer2;
-    const active = this.enabled && Boolean(a?.isDown && b?.isDown);
+    const active = this.isInputActive && Boolean(a?.isDown && b?.isDown);
 
     if (!active || !a || !b) {
       if (this.pinch) {

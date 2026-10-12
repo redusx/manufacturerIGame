@@ -647,6 +647,10 @@ export class GameScene extends Phaser.Scene {
     );
     this.demolishTool.isInputBlocked = isToolInputBlocked;
 
+    // Pencere açıkken (Ayarlar dahil: o sırada oyun döngüsü durur) dünya girdi almaz;
+    // kaydırma, tekerlek ve iki parmak hareketi yalnızca açık pencereye aittir.
+    this.cameraController.isInputBlocked = () => this.ui.isModalOpen;
+
     // Yerleşim veya Yıkım modunda tek parmak/sol tık kamera değil araç içindir
     this.cameraController.canPan = () => !this.placementController.isActive && !this.demolishTool.isActive;
 

@@ -64,11 +64,11 @@ Söküm iadesi %100'dür. Hammadde girişi de sökülebilir: iade, o hammaddenin
 | # | Koşul | Ödül |
 |---|---|---|
 | 1 | $50 ciro | $100 |
-| 2 | 35 demir tozu | $150, Fırın |
-| 3 | 20 demir külçe | $250, ek demir girişi |
+| 2 | 20 demir tozu | $150, Fırın |
+| 3 | 15 demir külçe | $250, ek demir girişi |
 | 4 | Parsel 1 + $600 ciro | $300, Pres |
-| 5 | 25 demir levha | $400, Kesici, ayırıcı/birleştirici |
-| 6 | 25 çelik dişli + $2.500 ciro | $1.000, Hangar, bakır girişi |
+| 5 | 20 demir levha | $400, Kesici, ayırıcı/birleştirici |
+| 6 | 20 çelik dişli + $2.500 ciro | $1.000, Hangar, bakır girişi |
 | 7 | Parsel 2 + 40 bakır tel | $1.500, Montaj |
 | 8 | 30 elektrik motoru + $8.000 ciro | $2.500 |
 | 9 | Parsel 3 + 20 çerçeve | $4.000, Rafineri, kum ve polimer girişi |

@@ -192,6 +192,14 @@ export class UiButton extends Phaser.GameObjects.Container implements UiFocusabl
     return this;
   }
 
+  /** İkonun ölçeğini değiştirir (kısa düğmede ikon küçülür ki etiket sığsın) */
+  setIconScale(scale: number): this {
+    if (!this.scene || !this.iconImage || this.iconImage.scaleX === scale) return this;
+    this.iconImage.setScale(scale);
+    this.layoutContent();
+    return this;
+  }
+
   /** Etiketi gizler veya geri getirir; gizliyken ikon düğmenin ortasına oturur */
   setLabelVisible(visible: boolean): this {
     if (!this.scene || this.labelHidden === !visible) return this;

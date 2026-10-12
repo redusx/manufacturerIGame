@@ -73,18 +73,18 @@ describe('MilestoneManager Headless Progression Tests', () => {
     assert.strictEqual(manager.completedCount, 1);
     assert.strictEqual(manager.isMilestoneCompleted('milestone_01_first_ore'), true);
 
-    // 2. Active milestone should now be Milestone 2 (60 iron_powder)
+    // 2. Active milestone should now be Milestone 2 (20 iron_powder)
     const m2 = manager.getCurrentMilestone();
     assert.ok(m2);
     assert.strictEqual(m2.id, 'milestone_02_crushed_powder');
     assert.strictEqual(manager.isMachineUnlocked('smelter'), false);
 
-    // Record export of 30 iron_powder (50%)
-    manager.recordExport('iron_powder', 30);
+    // Record export of 10 iron_powder (50%)
+    manager.recordExport('iron_powder', 10);
     assert.strictEqual(manager.canClaimCurrentMilestone(economy), false);
 
-    // Record export of 30 more (100%)
-    manager.recordExport('iron_powder', 30);
+    // Record export of 10 more (100%)
+    manager.recordExport('iron_powder', 10);
     assert.strictEqual(manager.canClaimCurrentMilestone(economy), true);
 
     // Claim Milestone 2 -> Should unlock smelter!

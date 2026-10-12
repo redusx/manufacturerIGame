@@ -35,8 +35,10 @@ export interface ToolbarRect {
 
 const BUTTON_HEIGHT = 52;
 const BUTTON_GAP = 6;
-/** Dikey çubukta düğme bundan kısaysa ikon ve etiket birlikte sığmaz; yalnız ikon gösterilir */
-const ICON_ONLY_BELOW = 40;
+/** Dikey çubukta düğme bundan kısaysa sıkışık düzene geçilir (küçük ikon, dar aralık) */
+const COMPACT_BELOW = 44;
+/** Küçük ikon + etiketin sığdığı en kısa düğme; bunun altında yalnız ikon kalır */
+const LABEL_MIN_HEIGHT = 32;
 
 export class Toolbar {
   private readonly layer: UiLayer;
@@ -131,7 +133,11 @@ export class Toolbar {
       // Sağ kenarda dikey: yatay telefonda başparmağın altında, fabrikanın üstünü kapatmaz
       const top = m.safe.top + 48 + SPACE.xs;
       const available = m.height - top - m.safe.bottom - SPACE.xs;
-      const buttonH = Math.min(BUTTON_HEIGHT, Math.floor((available - (count - 1) * BUTTON_GAP - SPACE.sm) / count));
+      // Kısa ekranda (yatay telefon, tarayıcı çubukları açık) düğmeler sıkışır: aralık daralır
+      // ve ikon bir kademe küçülür; etiketler her zaman okunur kalır.
+      const roomy = Math.floor((available - (count - 1) * BUTTON_GAP - SPACE.sm) / count) >= COMPACT_BELOW;
+      const gap = roomy ? BUTTON_GAP : 3;
+      const buttonH = Math.min(BUTTON_HEIGHT, Math.floor((available - (count - 1) * gap - (roomy ? SPACE.sm : 0)) / count));
       const buttonW = 64;
       const width = buttonW + SPACE.sm * 2 + m.safe.right;
       const x = m.width - width;
@@ -139,14 +145,13 @@ export class Toolbar {
       this.bg.setPosition(x, top).setSize(width + 6, m.height - top + 6);
       this.syncPattern();
 
-      const totalH = count * buttonH + (count - 1) * BUTTON_GAP;
+      const totalH = count * buttonH + (count - 1) * gap;
       const startY = top + (available - totalH) / 2 + buttonH / 2;
-      // Çok kısa ekranda (yatay telefon, büyük ölçek) düğmeler ikonla kalır
-      const showLabels = buttonH >= ICON_ONLY_BELOW;
       this.buttons.forEach((button, i) => {
-        button.setLabelVisible(showLabels);
+        button.setIconScale(roomy ? 1.5 : 1);
+        button.setLabelVisible(buttonH >= LABEL_MIN_HEIGHT);
         button.resize(buttonW, buttonH);
-        button.setPosition(x + SPACE.sm + buttonW / 2, Math.round(startY + i * (buttonH + BUTTON_GAP)));
+        button.setPosition(x + SPACE.sm + buttonW / 2, Math.round(startY + i * (buttonH + gap)));
       });
       return;
     }
@@ -177,6 +182,7 @@ export class Toolbar {
     const startX = m.safe.left + sidePad + (usable - totalW) / 2 + buttonW / 2;
     const centerY = y + SPACE.sm + BUTTON_HEIGHT / 2;
     this.buttons.forEach((button, i) => {
+      button.setIconScale(1.5);
       button.setLabelVisible(true);
       button.resize(buttonW, BUTTON_HEIGHT);
       button.setPosition(Math.round(startX + i * (buttonW + gap)), centerY);
