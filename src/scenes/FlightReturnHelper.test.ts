@@ -12,6 +12,10 @@ import {
   FLIGHT_DISTANCE_MILESTONES,
 } from './FlightReturnHelper.ts';
 import { FactoryEconomy } from '../factory/simulation/FactoryEconomy.ts';
+import { setLocale } from '../i18n/i18n.ts';
+
+// Bu testler oyuncuya görünen metinleri Türkçe olarak doğrular
+setLocale('tr');
 
 describe('FlightReturnHelper Headless Unit Tests', () => {
   it('Should calculate reward breakdown correctly and clamp negative values to zero', () => {
@@ -145,7 +149,7 @@ describe('FlightReturnHelper Headless Unit Tests', () => {
     });
 
     assert.strictEqual(vm.distanceText, '550 m');
-    assert.strictEqual(vm.durationText, '14.2 sn');
+    assert.strictEqual(vm.durationText, '14,2 sn');
     assert.strictEqual(vm.maxAltitudeText, '120 m');
     assert.strictEqual(vm.maxSpeedText, '210 km/s');
     assert.strictEqual(vm.isNewBestDistance, true);

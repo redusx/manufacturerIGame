@@ -10,6 +10,7 @@ import Phaser from 'phaser';
 import { SEMANTIC, SPACE, uiIcon } from './theme.ts';
 import { UiButton } from './system/UiButton.ts';
 import type { UiLayer } from './system/UiLayer.ts';
+import { t } from '../i18n/i18n.ts';
 
 export interface ZoomControlsCallbacks {
   onZoomIn: () => void;
@@ -80,7 +81,7 @@ export class ZoomControls {
   update(percent: number, canZoomIn: boolean, canZoomOut: boolean): void {
     if (percent !== this.shownPercent) {
       this.shownPercent = percent;
-      this.label.setText(`%${percent}`);
+      this.label.setText(t('common.percent', { n: percent }));
     }
     this.inButton.setEnabled(canZoomIn);
     this.outButton.setEnabled(canZoomOut);

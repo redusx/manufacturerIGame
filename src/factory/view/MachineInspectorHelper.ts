@@ -19,6 +19,7 @@ import { MachineEntity } from '../simulation/MachineEntity.ts';
 import { ProductionEngine } from '../simulation/ProductionEngine.ts';
 import { FactoryEconomy, MACHINE_UPGRADE_AD_DISCOUNT } from '../simulation/FactoryEconomy.ts';
 import { PALETTE, TONE } from '../../ui/theme.ts';
+import { t } from '../../i18n/i18n.ts';
 
 export interface InspectorBufferItem {
   itemId: string;
@@ -86,26 +87,26 @@ export class MachineInspectorHelper {
     switch (status) {
       case 'PROCESSING':
         return {
-          label: 'Çalışıyor',
+          label: t('inspector.status.processing'),
           colorHex: PALETTE.successGreenHex,
           colorInt: PALETTE.successGreen,
         };
       case 'WAITING_INPUT':
         return {
-          label: 'Girdi Bekliyor',
+          label: t('inspector.status.waiting'),
           colorHex: PALETTE.warningOrangeHex,
           colorInt: PALETTE.warningOrange,
         };
       case 'BLOCKED_OUTPUT':
         return {
-          label: 'Çıkış Tıkalı',
+          label: t('inspector.status.blocked'),
           colorHex: PALETTE.dangerRedHex,
           colorInt: PALETTE.dangerRed,
         };
       case 'IDLE':
       default:
         return {
-          label: 'Boşta / Bekliyor',
+          label: t('inspector.status.idle'),
           colorHex: PALETTE.textMuted,
           colorInt: TONE.mist,
         };

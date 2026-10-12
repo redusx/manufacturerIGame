@@ -12,11 +12,12 @@ import type { MachineDefinition } from '../factory/types.ts';
 import { defaultItemRegistry } from '../factory/simulation/ItemRegistry.ts';
 import { defaultRecipeRegistry } from '../factory/simulation/RecipeRegistry.ts';
 import { MACHINE_SPRITE_TILE, machineThumbScale } from '../factory/view/MachineSprites.ts';
-import { formatNumber } from '../utils/format.ts';
+import { formatFixed, formatNumber } from '../utils/format.ts';
 import { SEMANTIC, SPACE } from './theme.ts';
 import type { UiLayer } from './system/UiLayer.ts';
 import { UiModal } from './system/UiModal.ts';
 import { createCard, createDivider, createInset } from './system/UiWidgets.ts';
+import { t } from '../i18n/i18n.ts';
 
 /** Katalogun üstünde açılırlar */
 const INFO_DEPTH = 260;
@@ -35,11 +36,13 @@ function itemIcon(scene: Phaser.Scene, itemId: string): Phaser.GameObjects.Image
 
 /** Kuruşlu fiyatlar yuvarlanmadan gösterilir ($0.50) */
 function formatPrice(value: number): string {
-  return Number.isInteger(value) ? formatNumber(value) : value.toFixed(2);
+  return Number.isInteger(value) ? formatNumber(value) : formatFixed(value, 2);
 }
 
 function describeStacks(stacks: ReadonlyArray<{ itemId: string; count: number }>): string {
-  return stacks.map((stack) => `${stack.count}× ${itemName(stack.itemId)}`).join('  +  ');
+  return stacks
+    .map((stack) => t('common.countItem', { count: stack.count, item: itemName(stack.itemId) }))
+    .join('  +  ');
 }
 
 export class MachineInfoModal extends UiModal {
@@ -81,7 +84,7 @@ export class MachineInfoModal extends UiModal {
       layer.text(
         textX,
         y + headH - 22,
-        `Alan ${def.width}x${def.height}  ·  Bedel $${formatNumber(def.baseCost)}`,
+        t('info.areaCost', { size: `${def.width}x${def.height}`, cost: formatNumber(def.baseCost) }),
         'captionBold',
         { color: SEMANTIC.moneyHex },
       ),
@@ -93,7 +96,7 @@ export class MachineInfoModal extends UiModal {
     const hint = layer.text(
       0,
       y,
-      `Yeşil ok girdi (${inputs}), turuncu ok çıktı (${outputs}) yönüdür. Girdi her kenardan alınır; ürün yalnızca turuncu oktan çıkar.`,
+      t('info.ports', { inputs, outputs }),
       'caption',
       { color: SEMANTIC.textMuted, wrapWidth: width },
     );
@@ -101,7 +104,7 @@ export class MachineInfoModal extends UiModal {
     y += hint.height + SPACE.md;
 
     // --- Reçeteler: girdi -> çıktı, adetleriyle -----------------------------
-    const title = layer.text(0, y, 'ÜRETEBİLDİKLERİ', 'captionBold', { color: SEMANTIC.moneyHex });
+    const title = layer.text(0, y, t('info.canMake'), 'captionBold', { color: SEMANTIC.moneyHex });
     body.add(title);
     body.add(createDivider(scene, title.width + SPACE.sm, y + 8, width - title.width - SPACE.sm));
     y += 22;
@@ -116,11 +119,11 @@ export class MachineInfoModal extends UiModal {
 
       const outIcon = main ? itemIcon(scene, main.itemId) : null;
       const outName = layer.text(pad + 22, 0, main ? itemName(main.itemId) : recipe.name, 'bodyBold');
-      const inText = layer.text(pad, 0, `Girdi: ${describeStacks(recipe.inputs)}`, 'caption', {
+      const inText = layer.text(pad, 0, t('info.input', { list: describeStacks(recipe.inputs) }), 'caption', {
         color: SEMANTIC.textPrimary,
         wrapWidth: inner,
       });
-      const outText = layer.text(pad, 0, `Çıktı: ${describeStacks(recipe.outputs)}`, 'caption', {
+      const outText = layer.text(pad, 0, t('info.output', { list: describeStacks(recipe.outputs) }), 'caption', {
         color: SEMANTIC.primaryHex,
         wrapWidth: inner,
       });
@@ -129,7 +132,11 @@ export class MachineInfoModal extends UiModal {
       const rateText = layer.text(
         pad,
         0,
-        `Çevrim ${recipe.processingTimeSec.toFixed(1)} sn  ·  ${perSec.toFixed(2)} adet/sn  ·  birim $${formatPrice(value)}`,
+        t('info.cycle', {
+          seconds: formatFixed(recipe.processingTimeSec, 1),
+          rate: formatFixed(perSec, 2),
+          price: formatPrice(value),
+        }),
         'caption',
         { color: SEMANTIC.textMuted, wrapWidth: inner },
       );
@@ -157,17 +164,20 @@ export class MachineInfoModal extends UiModal {
   }
 }
 
-const TIER_TITLES: readonly string[] = [
-  'HAMMADDELER',
-  'İŞLENMİŞ MALZEMELER',
-  'PARÇALAR',
-  'BİLEŞENLER',
-  'ROKET SİSTEMLERİ',
-];
+/** Fiyat listesindeki kademe başlıkları (hammaddeden roket sistemlerine) */
+function tierTitles(): readonly string[] {
+  return [
+    t('prices.tier.raw'),
+    t('prices.tier.processed'),
+    t('prices.tier.parts'),
+    t('prices.tier.components'),
+    t('prices.tier.rocket'),
+  ];
+}
 
 export class ItemPriceModal extends UiModal {
   constructor(layer: UiLayer) {
-    super(layer, { title: 'Birim Fiyat Listesi', maxWidth: 420, depth: INFO_DEPTH, accent: SEMANTIC.money });
+    super(layer, { title: t('prices.title'), maxWidth: 420, depth: INFO_DEPTH, accent: SEMANTIC.money });
   }
 
   protected buildBody(body: Phaser.GameObjects.Container, width: number): number {
@@ -178,7 +188,7 @@ export class ItemPriceModal extends UiModal {
     const note = layer.text(
       0,
       y,
-      'Sevkiyat sandığına ulaşan her ürünün temel satış fiyatı. Gelir çarpanın varsa bu fiyatın üstüne eklenir.',
+      t('prices.intro'),
       'caption',
       { color: SEMANTIC.textMuted, wrapWidth: width },
     );
@@ -186,7 +196,7 @@ export class ItemPriceModal extends UiModal {
     y += note.height + SPACE.md;
 
     const rowH = 26;
-    TIER_TITLES.forEach((tierTitle, tier) => {
+    tierTitles().forEach((tierTitle, tier) => {
       const items = defaultItemRegistry.getByTier(tier);
       if (items.length === 0) return;
 

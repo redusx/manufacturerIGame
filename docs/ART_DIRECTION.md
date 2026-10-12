@@ -105,7 +105,7 @@ Oyunun bütün arayüzü ve fabrikanın çevresi tek bir 16 renkli paletten doğ
 
 ## 5. Tipografi ve Okunabilirlik Standartları
 
-* **Yazı Tipi Ailesi:** Temiz, yüksek okunabilirlikli Sans-Serif (`Arial, Helvetica, sans-serif` veya gelecekte pixel font `Press Start 2P / Silkscreen`).
+* **Yazı Tipi Ailesi:** Temiz, yüksek okunabilirlikli Sans-Serif (`Arial, Helvetica, sans-serif` veya gelecekte pixel font `Press Start 2P / Silkscreen`). Latin dışı yazılar (Japonca, Korece, Çince, Devanagari, Bengal, Arap) için aile, cihazın sistem yazı tiplerine düşer (`src/ui/theme.ts` → `FONT_FAMILY`, DEC-055); oyuna yazı tipi dosyası eklenmedi. Piksel yazı tipine geçilecekse bu yazıları da kapsaması gerekir.
 * **Hiyerarşi & Minimum Boyutlar:**
   - Ana Başlıklar & HUD Sayıları: `18px – 24px`, Kalın (Bold); açık zeminde `umber`, konturlu sayılarda `white` / `sand`.
   - Kart Başlıkları & Buton Etiketleri: `12px – 15px`, Kalın (Bold).

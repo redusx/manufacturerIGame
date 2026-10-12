@@ -21,6 +21,7 @@ import {
   MAX_OFFLINE_SECONDS,
   OFFLINE_EFFICIENCY,
 } from '../data/MachineData.ts';
+import { t } from '../i18n/i18n.ts';
 
 export const MIN_OFFLINE_SECONDS = 10;
 
@@ -59,7 +60,7 @@ export interface OfflineEarningsReport {
 export function formatOfflineDuration(seconds: number): string {
   const total = Math.max(0, Math.floor(seconds));
   if (total < 60) {
-    return `${total} saniye`;
+    return t('unit.longS', { s: total });
   }
   const hours = Math.floor(total / 3600);
   const minutes = Math.floor((total % 3600) / 60);
@@ -67,15 +68,15 @@ export function formatOfflineDuration(seconds: number): string {
 
   if (hours > 0) {
     if (minutes > 0) {
-      return `${hours} saat ${minutes} dakika`;
+      return t('unit.longHM', { h: hours, m: minutes });
     }
-    return `${hours} saat`;
+    return t('unit.longH', { h: hours });
   }
 
   if (remainingSec > 0) {
-    return `${minutes} dakika ${remainingSec} saniye`;
+    return t('unit.longMS', { m: minutes, s: remainingSec });
   }
-  return `${minutes} dakika`;
+  return t('unit.longM', { m: minutes });
 }
 
 /**
@@ -88,28 +89,28 @@ export function getWelcomeMessage(
 ): { title: string; message: string } {
   if (wasCapped) {
     return {
-      title: 'UZUN BİR MOLA!',
-      message: `Makinelerin maksimum ${formatOfflineDuration(maxCapSeconds)}lik çevrimdışı kapasitesini doldurdu.`,
+      title: t('offline.capped.title'),
+      message: t('offline.capped.message', { duration: formatOfflineDuration(maxCapSeconds) }),
     };
   }
 
   if (elapsedSeconds >= 7200) {
     return {
-      title: 'TEKRAR HOŞ GELDİN!',
-      message: 'Sen yokken montaj hatları tam gaz çalışmaya devam etti.',
+      title: t('offline.long.title'),
+      message: t('offline.long.message'),
     };
   }
 
   if (elapsedSeconds >= 600) {
     return {
-      title: 'FABRİKA RAPORU',
-      message: 'Mola verdiğin sırada makinelerin yeni kaynaklar üretti.',
+      title: t('offline.medium.title'),
+      message: t('offline.medium.message'),
     };
   }
 
   return {
-    title: 'KISA BİR MOLA',
-    message: 'Konveyör hatları senin yokluğunda durmaksızın çalıştı.',
+    title: t('offline.short.title'),
+    message: t('offline.short.message'),
   };
 }
 
@@ -139,8 +140,8 @@ export function calculateOfflineReport(
       formattedDuration: formatOfflineDuration(elapsedSeconds),
       formattedBaseEarnings: '0',
       formattedDoubledEarnings: '0',
-      welcomeTitle: 'HOŞ GELDİN',
-      welcomeMessage: 'Yeni bir çevrimdışı gelir bulunmuyor.',
+      welcomeTitle: t('offline.none.title'),
+      welcomeMessage: t('offline.none.message'),
       isEligible: false,
     };
   }

@@ -16,6 +16,7 @@ import { UiButton } from './system/UiButton.ts';
 import type { UiLayer } from './system/UiLayer.ts';
 import { UiModal } from './system/UiModal.ts';
 import { UiProgressBar, createInset } from './system/UiWidgets.ts';
+import { t } from '../i18n/i18n.ts';
 
 export interface BoostModalState {
   /** Takviyenin kalan süresi (saniye); etkin değilse 0 */
@@ -50,7 +51,7 @@ export class BoostModal extends UiModal {
   private structureSignature = '';
 
   constructor(layer: UiLayer, config: BoostModalConfig) {
-    super(layer, { title: 'Takviye', maxWidth: 400, accent: SEMANTIC.money });
+    super(layer, { title: t('boost.title'), maxWidth: 400, accent: SEMANTIC.money });
     this.callbacks = config;
   }
 
@@ -79,11 +80,13 @@ export class BoostModal extends UiModal {
 
   private applyLiveValues(state: BoostModalState): void {
     this.statusText?.setText(
-      state.remainingSec > 0 ? `×${BOOST_MULTIPLIER} · ${formatAdCooldown(state.remainingSec)}` : 'Etkin değil',
+      state.remainingSec > 0
+        ? t('boost.active', { factor: BOOST_MULTIPLIER, time: formatAdCooldown(state.remainingSec) })
+        : t('boost.inactive'),
     );
     this.statusBar?.setProgress(Phaser.Math.Clamp(state.remainingSec / BOOST_MAX_SECONDS, 0, 1));
     if (this.adButton && state.adCooldownSec > 0) {
-      this.adButton.setSublabel(`${formatAdCooldown(state.adCooldownSec)} sonra`);
+      this.adButton.setSublabel(t('common.inTime', { time: formatAdCooldown(state.adCooldownSec) }));
     }
   }
 
@@ -99,7 +102,7 @@ export class BoostModal extends UiModal {
     const intro = layer.text(
       0,
       y,
-      `Takviye etkinken fabrikanın ihracat geliri ×${BOOST_MULTIPLIER} olur. Süre yalnızca oyun açıkken işler; en fazla ${MAX_MINUTES} dakika biriktirilir.`,
+      t('boost.info', { factor: BOOST_MULTIPLIER, minutes: MAX_MINUTES }),
       'body',
       { color: SEMANTIC.textMuted, wrapWidth: width },
     );
@@ -111,7 +114,7 @@ export class BoostModal extends UiModal {
     body.add(createInset(scene, 0, y, width, statusHeight));
     body.add(
       layer
-        .text(width / 2, y + 16, 'GELİR TAKVİYESİ', 'captionBold', { color: SEMANTIC.textMuted })
+        .text(width / 2, y + 16, t('boost.heading'), 'captionBold', { color: SEMANTIC.textMuted })
         .setOrigin(0.5),
     );
     this.statusText = layer
@@ -126,7 +129,7 @@ export class BoostModal extends UiModal {
     y += statusHeight + SPACE.md;
 
     if (!state.canAdd) {
-      const full = layer.text(0, y, `Takviye dolu. Kalan süre ${MAX_MINUTES - GRANT_MINUTES} dakikanın altına inince yenisini alabilirsin.`, 'caption', {
+      const full = layer.text(0, y, t('boost.full', { minutes: MAX_MINUTES - GRANT_MINUTES }), 'caption', {
         color: SEMANTIC.warningHex,
         wrapWidth: width,
       });
@@ -144,13 +147,13 @@ export class BoostModal extends UiModal {
         height: buttonHeight,
         variant: 'gold',
         icon: uiIcon('video'),
-        label: `REKLAM İZLE: +${GRANT_MINUTES} DK`,
-        sublabel: coolingDown ? `${formatAdCooldown(state.adCooldownSec)} sonra` : 'Ücretsiz',
+        label: t('boost.watchAd', { minutes: GRANT_MINUTES }),
+        sublabel: coolingDown ? t('common.inTime', { time: formatAdCooldown(state.adCooldownSec) }) : t('common.free'),
         textVariant: 'buttonSmall',
         onClick: () => this.callbacks.onWatchAd(),
         onDisabledClick: () =>
           this.callbacks.onDenied(
-            state.canAdd ? 'Reklam takviyesi biraz sonra yeniden kullanılabilir.' : 'Takviye dolu.',
+            state.canAdd ? t('boost.adSoon') : t('boost.fullShort'),
           ),
       });
       this.adButton.setEnabled(state.canAdd && !coolingDown);
@@ -163,12 +166,14 @@ export class BoostModal extends UiModal {
       width,
       height: buttonHeight,
       variant: 'primary',
-      label: `NAKİTLE AL: +${GRANT_MINUTES} DK`,
+      label: t('boost.buyCash', { minutes: GRANT_MINUTES }),
       sublabel: `$${formatNumber(state.cashPrice)}`,
       textVariant: 'buttonSmall',
       onClick: () => this.callbacks.onBuyWithCash(),
       onDisabledClick: () =>
-        this.callbacks.onDenied(state.canAdd ? `Takviye için $${formatNumber(state.cashPrice)} gerekiyor.` : 'Takviye dolu.'),
+        this.callbacks.onDenied(
+          state.canAdd ? t('boost.needCash', { amount: formatNumber(state.cashPrice) }) : t('boost.fullShort'),
+        ),
     });
     this.cashButton.setEnabled(state.canAdd && state.canAffordCash);
     body.add(this.cashButton);

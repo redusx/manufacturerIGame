@@ -9,6 +9,7 @@
  * ====================================================================== */
 import type { EconomyState } from '../types.ts';
 import { ItemRegistry, defaultItemRegistry } from './ItemRegistry.ts';
+import { t } from '../../i18n/i18n.ts';
 
 export type { EconomyState };
 
@@ -22,16 +23,16 @@ export interface PlotDefinition {
 
 /** Fabrika parsel açılım standartları */
 export const FACTORY_PLOTS: PlotDefinition[] = [
-  { index: 0, name: 'Başlangıç Atölyesi', cost: 0, targetWidth: 8, targetHeight: 8 },
-  { index: 1, name: 'Dökümhane Parseli', cost: 500, targetWidth: 12, targetHeight: 8 },
-  { index: 2, name: 'Mekanik İmalathane Parseli', cost: 2500, targetWidth: 16, targetHeight: 12 },
-  { index: 3, name: 'Montaj Tesisi Parseli', cost: 10000, targetWidth: 20, targetHeight: 16 },
-  { index: 4, name: 'Havacılık Mega Kompleksi', cost: 30000, targetWidth: 24, targetHeight: 24 },
+  { index: 0, get name() { return t('plot.0'); }, cost: 0, targetWidth: 8, targetHeight: 8 },
+  { index: 1, get name() { return t('plot.1'); }, cost: 500, targetWidth: 12, targetHeight: 8 },
+  { index: 2, get name() { return t('plot.2'); }, cost: 2500, targetWidth: 16, targetHeight: 12 },
+  { index: 3, get name() { return t('plot.3'); }, cost: 10000, targetWidth: 20, targetHeight: 16 },
+  { index: 4, get name() { return t('plot.4'); }, cost: 30000, targetWidth: 24, targetHeight: 24 },
   // M9-D: bu parseller ayrıca bir menzil izni ister (RangeLadder.unlocksPlotIndex)
-  { index: 5, name: 'Yörünge Lojistik Parseli', cost: 250000, targetWidth: 28, targetHeight: 24 },
-  { index: 6, name: 'Ay Tedarik Kompleksi', cost: 1500000, targetWidth: 28, targetHeight: 28 },
-  { index: 7, name: 'Mars Sanayi Bölgesi', cost: 6000000, targetWidth: 32, targetHeight: 28 },
-  { index: 8, name: 'Derin Uzay Giga Fabrikası', cost: 25000000, targetWidth: 32, targetHeight: 32 },
+  { index: 5, get name() { return t('plot.5'); }, cost: 250000, targetWidth: 28, targetHeight: 24 },
+  { index: 6, get name() { return t('plot.6'); }, cost: 1500000, targetWidth: 28, targetHeight: 28 },
+  { index: 7, get name() { return t('plot.7'); }, cost: 6000000, targetWidth: 32, targetHeight: 28 },
+  { index: 8, get name() { return t('plot.8'); }, cost: 25000000, targetWidth: 32, targetHeight: 32 },
 ];
 
 /** Makine yükseltme bedelinin seviye başına büyümesi */

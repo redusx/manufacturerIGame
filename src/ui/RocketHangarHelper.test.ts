@@ -10,6 +10,10 @@ import assert from 'node:assert/strict';
 import { RocketHangarHelper } from './RocketHangarHelper.ts';
 import { RocketHangarBridge } from '../factory/simulation/RocketHangarBridge.ts';
 import { FactoryEconomy } from '../factory/simulation/FactoryEconomy.ts';
+import { setLocale } from '../i18n/i18n.ts';
+
+// Bu testler oyuncuya görünen metinleri Türkçe olarak doğrular
+setLocale('tr');
 
 describe('RocketHangarHelper Headless Unit Tests', () => {
   it('Should accurately format individual part requirements with fulfilled and missing states', () => {

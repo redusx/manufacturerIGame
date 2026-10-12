@@ -16,7 +16,7 @@ import Phaser from 'phaser';
 import { EconomyManager } from '../economy/EconomyManager';
 import { SaveManager } from '../save/SaveManager';
 import { AUTO_SAVE_INTERVAL_MS, getClickPowerForStage } from '../data/MachineData';
-import { formatDistance, formatNumber, formatMoney } from '../utils/format';
+import { formatDistance, formatFixed, formatInteger, formatNumber, formatMoney } from '../utils/format';
 
 import { HUD } from '../ui/HUD';
 import { ObjectiveCard, buildObjectiveView, formatMilestoneCompleted } from '../ui/ObjectiveCard.ts';
@@ -100,6 +100,7 @@ import { PALETTE, SEMANTIC, SPACE, UI_TEXTURES, uiIcon } from '../ui/theme';
 import { sound } from '../audio/SoundManager.ts';
 import { fx } from '../effects/PixelParticleManager.ts';
 import { crazyGames, type AdErrorCode } from '../integration/CrazyGamesSDK.ts';
+import { getLocale, joinList, setLocale, t, type LocaleCode } from '../i18n/i18n.ts';
 
 /** Aşama ödülleriyle açılan özelliklerin kimlikleri (bkz. MilestoneManager.DEFAULT_MILESTONES) */
 const HANGAR_FEATURE = 'ROCKET_HANGAR';
@@ -116,19 +117,22 @@ const FACTORY_BACKDROP_TILE = 1024;
 const FACTORY_BACKDROP_LOT_OFFSET = 30;
 /** Arsanın her yanına döşenen karo sayısı (kamera en uzak görünümde de boşluk görmesin) */
 const FACTORY_BACKDROP_RING = 4;
+/** Dil değişince sahne yeniden kurulur; kurulum bitince Ayarlar penceresi yeniden açılır */
+let reopenSettingsAfterRestart = false;
+
 /** Ödül verilmeyen reklam isteğinde oyuncuya gösterilen açıklama (nedeni SDK bildirir) */
 function adFailureMessage(code: AdErrorCode | null): string {
   switch (code) {
     case 'unfilled':
-      return 'Şu an gösterilecek reklam yok; ödül verilmedi. Biraz sonra yeniden dene.';
+      return t('ad.unfilled');
     case 'adCooldown':
-      return 'Reklam çok sık istendi; ödül verilmedi. Biraz sonra yeniden dene.';
+      return t('ad.cooldown');
     case 'adblock':
-      return 'Reklam engelleyici açıkken ödüllü reklam izlenemez; ödül verilmedi.';
+      return t('ad.adblock');
     case 'adsDisabledBasicLaunch':
-      return 'Reklamlar bu sürümde kapalı; ödül verilmedi.';
+      return t('ad.basicLaunch');
     default:
-      return 'Reklam tamamlanamadı; ödül verilmedi.';
+      return t('ad.failed');
   }
 }
 
@@ -427,7 +431,7 @@ export class GameScene extends Phaser.Scene {
     this.gridView = new GridView(this, this.gridMap, this.factoryEconomy);
     this.gridView.getPlotPermitLabel = (plotIndex) => {
       const rung = this.plotManager.getMissingPermit(plotIndex);
-      return rung ? `${formatDistance(rung.targetMeters)} menzil izni gerekli` : null;
+      return rung ? t('plot.permitNeeded', { distance: formatDistance(rung.targetMeters) }) : null;
     };
     this.conveyorRenderer = new ConveyorRenderer(this, this.logistics, this.gridMap);
     this.machineRenderer = new MachineRenderer(this, this.productionEngine);
@@ -505,12 +509,12 @@ export class GameScene extends Phaser.Scene {
       ) {
         this.hangarBridge.depositPart(event.itemId);
         if (this.isCatchingUp) return;
-        fx.emitFloatingText(this, exportWorld.x, exportWorld.y - 12, '→ HANGAR', PALETTE.rocketCyanHex);
+        fx.emitFloatingText(this, exportWorld.x, exportWorld.y - 12, t('hangar.toHangar'), PALETTE.rocketCyanHex);
         if (this.hangarBridge.getOutstandingNeed(event.itemId) === 0) {
           const ready = this.hangarBridge.getModulesCompletedBy(event.itemId);
           if (ready.length > 0) {
             sound.playMilestone();
-            this.notify('Roket parçaları hazır! Hangarı aç ve yükselt.', 'reward');
+            this.notify(t('hangar.partsReady'), 'reward');
           }
           this.saveGame();
         }
@@ -576,25 +580,25 @@ export class GameScene extends Phaser.Scene {
           if (result.itemType === 'INTAKE_NEW') {
             this.gridView.refresh();
             const itemId = this.gridMap.getCell(result.coord.x, result.coord.y)?.intakeData?.itemId ?? '';
-            const name = defaultItemRegistry.get(itemId)?.name ?? 'Hammadde';
-            this.notify(`${name} Girişi kuruldu (-$${result.spentMoney})`, 'success');
+            const item = defaultItemRegistry.get(itemId)?.name ?? t('common.rawMaterial');
+            this.notify(t('notify.intakeBuilt', { item, cost: formatNumber(result.spentMoney) }), 'success');
           } else if (result.itemType === 'INTAKE_MOVE' || this.placementController.currentItem?.type === 'INTAKE_MOVE') {
             this.gridView.refresh();
-            this.notify('Hammadde Girişi taşındı', 'success');
+            this.notify(t('notify.moved', { name: t('logistics.intake') }), 'success');
           } else if (result.itemType === 'EXPORT_MOVE' || this.placementController.currentItem?.type === 'EXPORT_MOVE') {
             this.gridView.refresh();
-            this.notify('Sevkiyat Sandığı taşındı', 'success');
+            this.notify(t('notify.moved', { name: t('logistics.crate') }), 'success');
           } else if (result.itemType === 'MACHINE_MOVE') {
             this.machineRenderer.rebuild();
             this.machineStatusIndicator.rebuild();
-            const movedName = this.productionEngine.getMachine(result.instanceId ?? '')?.def.name ?? 'Makine';
-            this.notify(`${movedName} taşındı`, 'success');
+            const movedName = this.productionEngine.getMachine(result.instanceId ?? '')?.def.name ?? t('common.machine');
+            this.notify(t('notify.moved', { name: movedName }), 'success');
           } else if (result.instanceId) {
             this.machineRenderer.rebuild();
             this.machineStatusIndicator.rebuild();
             const machineDef = this.productionEngine.getMachine(result.instanceId)?.def;
-            const name = machineDef?.name ?? 'Makine';
-            this.notify(`${name} kuruldu (-$${result.spentMoney})`, 'success');
+            const name = machineDef?.name ?? t('common.machine');
+            this.notify(t('notify.built', { name, cost: formatNumber(result.spentMoney) }), 'success');
           } else {
             // Bant sürükleyerek döşenir; her bant için bildirim göstermek ekranı doldurur.
             // Yalnız döşenen hücre ve komşuları yeniden çizilir (büyük fabrikada takılmasın).
@@ -623,9 +627,9 @@ export class GameScene extends Phaser.Scene {
           sound.playUpgrade();
           fx.emitSparkles(this, this.ui.width / 2, this.ui.height / 2, 16, PALETTE.resourceGold, 'ui');
           this.saveGame();
-          this.notify(`${machine.def.name} Seviye ${level} oldu`, 'success');
+          this.notify(t('notify.machineLevel', { name: machine.def.name, n: level }), 'success');
         },
-        onUpgradeDenied: () => this.notify('Yükseltme için yeterli para yok', 'warning'),
+        onUpgradeDenied: () => this.notify(t('notify.noMoneyUpgrade'), 'warning'),
         onRecipeChanged: (_machine, _recipeId) => {
           this.saveGame();
           sound.playCoin();
@@ -656,7 +660,7 @@ export class GameScene extends Phaser.Scene {
             const worldPos = GridCoordinates.gridToWorldCenter(machine.coord, 32);
             fx.emitSparkles(this, worldPos.x, worldPos.y, 16, PALETTE.removeRed);
             this.saveGame();
-            this.notify(`${result.name} söküldü (+$${result.refundAmount} iade)`, 'info');
+            this.notify(t('notify.removedRefund', { name: result.name, amount: formatNumber(result.refundAmount) }), 'info');
           }
         },
       },
@@ -675,7 +679,7 @@ export class GameScene extends Phaser.Scene {
           if (result.targetType === 'MACHINE') {
             this.machineRenderer.rebuild();
             this.machineStatusIndicator.rebuild();
-            this.notify(`${result.name} söküldü (+$${result.refundAmount} iade)`, 'info');
+            this.notify(t('notify.removedRefund', { name: result.name, amount: formatNumber(result.refundAmount) }), 'info');
           } else if (result.targetType === 'INTAKE') {
             this.onIntakeDemolished(result);
           } else {
@@ -691,7 +695,7 @@ export class GameScene extends Phaser.Scene {
         },
         onProtectedClicked: (name) => {
           sound.playDemolish();
-          this.notify(`${name} sökülemez; taşımak için üstüne dokun.`, 'warning');
+          this.notify(t('notify.protected', { name }), 'warning');
         },
       },
     );
@@ -869,7 +873,7 @@ export class GameScene extends Phaser.Scene {
       onHangar: () => this.openHangar(),
       onHangarLocked: () => {
         const stage = this.milestones.getFeatureUnlockStage(HANGAR_FEATURE);
-        this.notify(`Roket Hangarı ${stage}. aşamada açılır.`, 'warning');
+        this.notify(t('hangar.lockedUntilStage', { n: stage ?? '?' }), 'warning');
       },
     });
     this.contextBar = new ToolContextBar(this.ui, {
@@ -923,6 +927,7 @@ export class GameScene extends Phaser.Scene {
         this.saveGame();
         this.layoutAll();
       },
+      onChangeLanguage: (code) => this.changeLanguage(code),
     });
 
     /* Öğretici kutusu */
@@ -933,9 +938,9 @@ export class GameScene extends Phaser.Scene {
       },
       onSkip: () =>
         this.confirmDialog.ask({
-          title: 'Öğretici kapatılsın mı?',
-          message: 'İstediğin zaman Ayarlar > Öğretici ile yeniden başlatabilirsin.',
-          confirmLabel: 'KAPAT',
+          title: t('tutorial.skipTitle'),
+          message: t('tutorial.skipMessage'),
+          confirmLabel: t('common.close'),
           onConfirm: () => {
             this.tutorial.skip();
             this.saveGame();
@@ -950,7 +955,9 @@ export class GameScene extends Phaser.Scene {
         this.economy.addResources(gained);
         this.saveGame();
         this.notify(
-          doubled ? `2X ödül: +$${formatNumber(gained)} kasana eklendi` : `+$${formatNumber(gained)} kasana eklendi`,
+          doubled
+            ? t('offline.collectedDouble', { amount: formatNumber(gained) })
+            : t('offline.collected', { amount: formatNumber(gained) }),
           'reward',
         );
       },
@@ -1000,7 +1007,7 @@ export class GameScene extends Phaser.Scene {
         // Dört modül de bir üst seviyeye çıktıysa roket sınıf atlar: hız çarpanı büyür
         const rocketClass = this.hangarBridge.getRocketClass();
         if (rocketClass > this.lastRocketClass) {
-          this.notify(`Roket ${rocketClass}. sınıf oldu: hız ×${getRangeScale(rocketClass)}`, 'reward');
+          this.notify(t('hangar.classUp', { n: rocketClass, factor: getRangeScale(rocketClass) }), 'reward');
           fx.emitConfetti(this, this.ui.width / 2, this.hud.bottom + 30, 24, 'ui');
         }
         this.lastRocketClass = rocketClass;
@@ -1017,7 +1024,11 @@ export class GameScene extends Phaser.Scene {
 
     /* Giriş ekranı: sayfa her açıldığında bir kez. Ardından masaüstünde ilk açılışta
        kontrol şeması gösterilir (sonra Ayarlar > Kontroller). */
-    if (!this.startScreen.openOnce()) {
+    if (reopenSettingsAfterRestart) {
+      // Dil değişti: oyuncu seçimini yaptığı pencerede, yeni dille kalır
+      reopenSettingsAfterRestart = false;
+      this.settingsPanel.open();
+    } else if (!this.startScreen.openOnce()) {
       this.time.delayedCall(250, () => this.controlsModal.openOnFirstVisit());
     }
 
@@ -1064,11 +1075,14 @@ export class GameScene extends Phaser.Scene {
     this.refreshUI();
 
     const multiplier = this.factoryEconomy ? this.factoryEconomy.revenueMultiplier : 1.0;
-    const bonusText = multiplier > 1.0 ? ` · gelir x${multiplier.toFixed(2)}` : '';
-    const factoryText = factoryEarned > 0 ? `\nSen uçarken fabrika +$${formatNumber(factoryEarned)} kazandı` : '';
+    const bonusText = multiplier > 1.0 ? t('flight.returnedIncome', { factor: formatFixed(multiplier, 2) }) : '';
+    const factoryText =
+      factoryEarned > 0 ? `\n${t('flight.returnedFactory', { amount: formatNumber(factoryEarned) })}` : '';
 
     this.notify(
-      `Uçuş primi +$${formatNumber(totalResources)} (${formatDistance(distance)})${bonusText}${factoryText}`,
+      t('flight.returned', { amount: formatNumber(totalResources), distance: formatDistance(distance) }) +
+        bonusText +
+        factoryText,
       'reward',
     );
 
@@ -1318,17 +1332,18 @@ export class GameScene extends Phaser.Scene {
     const discountPercent = Math.round(PLOT_AD_DISCOUNT * 100);
     const canOfferDiscount = this.factoryEconomy.canDiscountPlot(plotIndex) && ads.canShow('plot_discount');
 
+    const size = `${plot.targetWidth}x${plot.targetHeight}`;
     this.confirmDialog.ask({
       title: plot.name,
-      message:
-        `Fabrika alanı ${plot.targetWidth}x${plot.targetHeight} hücreye genişler. Bedeli $${cost.toLocaleString('en-US')}` +
-        (discounted ? ` (müteahhit indirimi %${discountPercent} uygulandı).` : '.'),
-      confirmLabel: 'SATIN AL',
+      message: discounted
+        ? t('plot.confirmDiscounted', { size, cost: formatInteger(cost), percent: discountPercent })
+        : t('plot.confirmMessage', { size, cost: formatInteger(cost) }),
+      confirmLabel: t('common.buy'),
       onConfirm: () => this.requestPlotUnlock(plotIndex),
       extraAction: canOfferDiscount
         ? {
-            label: `REKLAM İZLE: %${discountPercent} İNDİRİM`,
-            sublabel: `$${Math.round(plot.cost * (1 - PLOT_AD_DISCOUNT)).toLocaleString('en-US')}`,
+            label: t('plot.watchAd', { percent: discountPercent }),
+            sublabel: `$${formatInteger(Math.round(plot.cost * (1 - PLOT_AD_DISCOUNT)))}`,
             icon: uiIcon('video'),
             onClick: () => void this.requestPlotDiscount(plotIndex),
           }
@@ -1351,9 +1366,9 @@ export class GameScene extends Phaser.Scene {
     if (result === 'failed') {
       this.notify(adFailureMessage(crazyGames.lastAdError), 'warning');
     } else if (result === 'cooldown') {
-      this.notify(`Bu reklam ${formatAdCooldown(ads.cooldownRemaining(placement))} sonra yeniden izlenebilir.`, 'warning');
+      this.notify(t('ad.waitPlacement', { time: formatAdCooldown(ads.cooldownRemaining(placement)) }), 'warning');
     } else if (result === 'unavailable') {
-      this.notify('Şu an reklam sunulamıyor.', 'warning');
+      this.notify(t('ad.unavailable'), 'warning');
     }
     return false;
   }
@@ -1365,7 +1380,7 @@ export class GameScene extends Phaser.Scene {
       this.factoryEconomy.applyPlotDiscount(plotIndex);
       this.gridView.syncLockedPlotAffordability();
       this.saveGame();
-      this.notify(`Müteahhit indirimi: parsel bedeli %${Math.round(PLOT_AD_DISCOUNT * 100)} düştü`, 'reward');
+      this.notify(t('plot.discounted', { percent: Math.round(PLOT_AD_DISCOUNT * 100) }), 'reward');
     }
     // İndirim alınsa da alınmasa da karar oyuncunundur: onay yeniden sorulur
     if (!this.plotManager.isPlotUnlocked(plotIndex)) this.askPlotPurchase(plotIndex);
@@ -1377,14 +1392,14 @@ export class GameScene extends Phaser.Scene {
     if (!(await this.watchAd('parts_cargo'))) return;
     const granted = this.hangarBridge.grantPartsCargo(category);
     this.saveGame();
-    const list = granted.map((part) => `${part.count} ${part.itemName}`).join(', ');
-    this.notify(`Parça kargosu geldi: ${list}`, 'reward');
+    const list = joinList(granted.map((part) => t('hangar.cargoPart', { count: part.count, item: part.itemName })));
+    this.notify(t('hangar.cargoArrived', { list }), 'reward');
   }
 
   private onLaunchPadUpgraded(level: number): void {
     sound.playUpgrade();
     fx.emitSparkles(this, this.ui.width / 2, this.ui.height / 2, 20, PALETTE.rocketCyan, 'ui');
-    this.notify(`Fırlatma Rampası Seviye ${level} oldu: mükemmel bölge genişledi`, 'success');
+    this.notify(t('hangar.padUpgraded', { n: level }), 'success');
     this.saveGame();
   }
 
@@ -1410,14 +1425,17 @@ export class GameScene extends Phaser.Scene {
 
     const result = MachineInspectorHelper.performUpgrade(machine, engine, this.factoryEconomy, MACHINE_UPGRADE_AD_DISCOUNT);
     if (!result.success) {
-      this.notify('Yükseltme için yeterli para yok', 'warning');
+      this.notify(t('notify.noMoneyUpgrade'), 'warning');
       return;
     }
     sound.playUpgrade();
     fx.emitSparkles(this, this.ui.width / 2, this.ui.height / 2, 16, PALETTE.resourceGold, 'ui');
     this.saveGame();
     const percent = Math.round(MACHINE_UPGRADE_AD_DISCOUNT * 100);
-    this.notify(`${machine.def.name} Seviye ${result.newLevel} oldu (%${percent} indirimli: $${formatNumber(result.cost)})`, 'reward');
+    this.notify(
+      t('notify.machineLevelAd', { name: machine.def.name, n: result.newLevel, percent, cost: formatNumber(result.cost) }),
+      'reward',
+    );
   }
 
   /** Takviyenin nakit bedeli (takviyesiz gelirden hesaplanır) */
@@ -1436,7 +1454,7 @@ export class GameScene extends Phaser.Scene {
   private buyBoostWithCash(): void {
     if (!this.incomeBoost.canAdd()) return;
     if (!this.factoryEconomy.spendMoney(this.getBoostCashPrice())) {
-      this.notify(`Takviye için $${formatNumber(this.getBoostCashPrice())} gerekiyor.`, 'warning');
+      this.notify(t('boost.needCash', { amount: formatNumber(this.getBoostCashPrice()) }), 'warning');
       return;
     }
     this.grantBoost();
@@ -1448,7 +1466,7 @@ export class GameScene extends Phaser.Scene {
     sound.playUpgrade();
     this.saveGame();
     this.notify(
-      `Gelir takviyesi: ×${BOOST_MULTIPLIER} · ${formatAdCooldown(this.incomeBoost.remaining)}`,
+      t('boost.granted', { factor: BOOST_MULTIPLIER, time: formatAdCooldown(this.incomeBoost.remaining) }),
       'reward',
     );
   }
@@ -1460,8 +1478,8 @@ export class GameScene extends Phaser.Scene {
     this.conveyorRenderer.refreshAround(result.freedCoords);
     this.notify(
       result.refundAmount > 0
-        ? `${result.name} söküldü (+$${formatNumber(result.refundAmount)} iade)`
-        : `${result.name} söküldü`,
+        ? t('notify.removedRefund', { name: result.name, amount: formatNumber(result.refundAmount) })
+        : t('notify.removed', { name: result.name }),
       'info',
     );
   }
@@ -1477,21 +1495,25 @@ export class GameScene extends Phaser.Scene {
       this.cameraController.fitToFactory();
       this.syncWorldTextResolution();
       this.saveGame();
-      this.notify(`${res.plotName} açıldı (${res.newBounds.width}x${res.newBounds.height})`, 'reward');
+      this.notify(t('plot.opened', { name: res.plotName, size: `${res.newBounds.width}x${res.newBounds.height}` }), 'reward');
       return true;
     }
 
     if (res.error === 'PREVIOUS_PLOT_REQUIRED') {
-      this.notify('Önce önceki parseli açmalısın.', 'warning');
+      this.notify(t('plot.previousFirst'), 'warning');
     } else if (res.error === 'RANGE_PERMIT_REQUIRED' && res.permitRung) {
       this.notify(
-        `${res.plotName} için önce ${formatDistance(res.permitRung.targetMeters)} menziline (${res.permitRung.name}) ulaşmalısın.`,
+        t('plot.needRange', {
+          name: res.plotName,
+          distance: formatDistance(res.permitRung.targetMeters),
+          range: res.permitRung.name,
+        }),
         'warning',
       );
     } else if (res.error === 'INSUFFICIENT_FUNDS') {
-      this.notify(`Parsel için $${formatNumber(res.cost)} gerekiyor.`, 'warning');
+      this.notify(t('plot.needMoney', { amount: formatNumber(res.cost) }), 'warning');
     } else if (res.error === 'ALREADY_UNLOCKED') {
-      this.notify('Bu parsel zaten açık.', 'info');
+      this.notify(t('plot.alreadyOpen'), 'info');
     }
     return false;
   }
@@ -1727,7 +1749,7 @@ export class GameScene extends Phaser.Scene {
 
     if (wasCorrupted) {
       this.time.delayedCall(500, () => {
-        this.notify('Eski kayıt biçimi yenilendi.', 'info');
+        this.notify(t('notify.saveMigrated'), 'info');
       });
     }
 
@@ -1819,6 +1841,18 @@ export class GameScene extends Phaser.Scene {
     this.scene.restart();
   }
 
+  /**
+   * Oyuncunun seçtiği dile geçer: seçim saklanır, ilerleme kaydedilir ve sahne yeniden
+   * kurulur; böylece bütün arayüz sayfa yenilenmeden yeni dille çizilir.
+   */
+  private changeLanguage(code: LocaleCode): void {
+    if (code === getLocale()) return;
+    setLocale(code, true);
+    this.saveGame();
+    reopenSettingsAfterRestart = true;
+    this.scene.restart();
+  }
+
   /* ================================================================
    * ARAÇLAR (YERLEŞTİRME / SÖKÜM)
    * ================================================================ */
@@ -1901,7 +1935,7 @@ export class GameScene extends Phaser.Scene {
   private advanceBelt(direction: Direction): void {
     if (!this.beltStep) return;
     if (!this.factoryEconomy.canAfford(CONVEYOR_BUILD_COST)) {
-      this.notify(`Bant için $${CONVEYOR_BUILD_COST} gerekiyor.`, 'warning');
+      this.notify(t('notify.beltCost', { amount: CONVEYOR_BUILD_COST }), 'warning');
       return;
     }
     this.placementController.placeBelt(this.nextCellOf(this.beltStep), direction);
@@ -1999,7 +2033,7 @@ export class GameScene extends Phaser.Scene {
         this.rotationPreview.sync(placement.rotation);
         this.contextBar.show({
           ...context,
-          hint: 'Döndür ile yönü seç, tik ile onayla',
+          hint: t('toolbar.rotateHint'),
           showConfirm: false,
           rotating: true,
         });
@@ -2018,12 +2052,12 @@ export class GameScene extends Phaser.Scene {
       this.contextBar.show({
         icon: uiIcon('trash'),
         iconTint: SEMANTIC.remove,
-        title: target ? `Sök: ${target}` : 'Söküm modu',
+        title: target ? t('context.removeTitle', { name: target }) : t('context.removeMode'),
         hint: !isTouch
-          ? 'Sökmek için tıkla · %100 iade · X: çık'
+          ? t('context.removeHintMouse')
           : target
-            ? 'Onayla ile sök · %100 iade'
-            : 'Sökülecek nesneye dokun',
+            ? t('context.removeHintConfirm')
+            : t('context.removeHintTouch'),
         tone: 'demolish',
         canRotate: false,
         showConfirm: isTouch,
@@ -2040,10 +2074,11 @@ export class GameScene extends Phaser.Scene {
     const placement = this.placementController;
     const needsConfirm = isTouch && placement.needsTouchConfirm;
     const stepHint = !needsConfirm
-      ? 'Bir hücreye tıkla'
+      ? t('context.hint.click')
       : placement.canConfirm
-        ? 'Onayla ile yerleştir'
-        : 'Uygun bir hücreye dokun';
+        ? t('context.hint.confirm')
+        : t('context.hint.touch');
+    const arrowOutHint = isTouch ? t('context.hint.arrowOut', { hint: stepHint }) : t('context.hint.arrowOutMouse');
 
     const base = {
       tone: 'build' as const,
@@ -2053,20 +2088,26 @@ export class GameScene extends Phaser.Scene {
 
     switch (item.type) {
       case 'INTAKE_MOVE':
-        return { ...base, icon: uiIcon('intake'), title: 'Hammadde Girişi taşınıyor', hint: isTouch ? `${stepHint} · ok çıkış yönü` : 'Bir hücreye tıkla · ok çıkış yönü · R: döndür', canRotate: true };
+        return { ...base, icon: uiIcon('intake'), title: t('context.movingIntake'), hint: arrowOutHint, canRotate: true };
       case 'EXPORT_MOVE':
-        return { ...base, icon: uiIcon('crate'), title: 'Sevkiyat Sandığı taşınıyor', hint: stepHint, canRotate: false };
+        return { ...base, icon: uiIcon('crate'), title: t('context.movingCrate'), hint: stepHint, canRotate: false };
       case 'INTAKE_NEW': {
-        const name = defaultItemRegistry.get(item.intakeItemId ?? '')?.name ?? 'Hammadde';
+        const itemName = defaultItemRegistry.get(item.intakeItemId ?? '')?.name ?? t('common.rawMaterial');
         const cost = PlacementMath.getItemCost('INTAKE_NEW', undefined, item.intakeItemId, this.gridMap);
-        return { ...base, icon: uiIcon('intake'), title: `${name} Girişi · $${formatNumber(cost)}`, hint: isTouch ? `${stepHint} · ok çıkış yönü` : 'Bir hücreye tıkla · ok çıkış yönü · R: döndür', canRotate: true };
+        return {
+          ...base,
+          icon: uiIcon('intake'),
+          title: t('context.priced', { name: t('logistics.intakeOf', { item: itemName }), cost: formatNumber(cost) }),
+          hint: arrowOutHint,
+          canRotate: true,
+        };
       }
       case 'MACHINE_MOVE':
         return {
           ...base,
           icon: item.machineDef?.spriteBaseKey ?? 'icon_factory',
-          title: `${item.machineDef?.name ?? 'Makine'} taşınıyor`,
-          hint: isTouch ? `${stepHint} · ücretsiz` : 'Bir hücreye tıkla · ücretsiz · R: döndür',
+          title: t('context.moving', { name: item.machineDef?.name ?? t('common.machine') }),
+          hint: isTouch ? t('context.hint.free', { hint: stepHint }) : t('context.hint.freeMouse'),
           canRotate: true,
         };
       case 'MACHINE': {
@@ -2074,22 +2115,34 @@ export class GameScene extends Phaser.Scene {
         return {
           ...base,
           icon: def?.spriteBaseKey ?? 'icon_factory',
-          title: `${def?.name ?? 'Makine'} · $${formatNumber(def?.baseCost ?? 0)}`,
-          hint: isTouch ? `${stepHint} · yeşil ok giriş, turuncu çıkış` : 'Yeşil ok giriş, turuncu ok çıkış · R: döndür',
+          title: t('context.priced', { name: def?.name ?? t('common.machine'), cost: formatNumber(def?.baseCost ?? 0) }),
+          hint: isTouch ? t('context.hint.arrows', { hint: stepHint }) : t('context.hint.arrowsMouse'),
           canRotate: true,
         };
       }
       case 'SPLITTER':
-        return { ...base, icon: uiIcon('splitter'), title: `Akış Ayırıcı · $${SPLITTER_BUILD_COST}`, hint: isTouch ? stepHint : 'Bir hücreye tıkla · R: döndür', canRotate: true };
+        return {
+          ...base,
+          icon: uiIcon('splitter'),
+          title: t('context.priced', { name: t('logistics.splitter'), cost: SPLITTER_BUILD_COST }),
+          hint: isTouch ? stepHint : t('context.hint.rotateMouse'),
+          canRotate: true,
+        };
       case 'MERGER':
-        return { ...base, icon: uiIcon('merger'), title: `Akış Birleştirici · $${MERGER_BUILD_COST}`, hint: isTouch ? stepHint : 'Bir hücreye tıkla · R: döndür', canRotate: true };
+        return {
+          ...base,
+          icon: uiIcon('merger'),
+          title: t('context.priced', { name: t('logistics.merger'), cost: MERGER_BUILD_COST }),
+          hint: isTouch ? stepHint : t('context.hint.rotateMouse'),
+          canRotate: true,
+        };
       case 'CONVEYOR':
       default:
         return {
           ...base,
           icon: uiIcon('belt'),
-          title: `Konveyör Bandı · $${CONVEYOR_BUILD_COST}`,
-          hint: isTouch ? 'Dokun veya sürükleyerek çiz' : 'Tıkla veya sürükleyerek çiz · R: döndür',
+          title: t('context.priced', { name: t('logistics.conveyor'), cost: CONVEYOR_BUILD_COST }),
+          hint: isTouch ? t('context.hint.beltTouch') : t('context.hint.beltMouse'),
           canRotate: true,
         };
     }

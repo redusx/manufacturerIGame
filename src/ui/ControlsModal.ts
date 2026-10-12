@@ -12,6 +12,7 @@ import { UiButton } from './system/UiButton.ts';
 import type { UiLayer } from './system/UiLayer.ts';
 import { UiModal } from './system/UiModal.ts';
 import { createDivider } from './system/UiWidgets.ts';
+import { t } from '../i18n/i18n.ts';
 
 /** Kontrol şemasının bir kez gösterildiğini saklayan anahtar */
 export const CONTROLS_SEEN_STORAGE_KEY = 'manufacturer_controls_seen_v1';
@@ -28,62 +29,64 @@ interface ControlSection {
   rows: ControlRow[];
 }
 
-const MOUSE_SECTION: ControlSection = {
-  title: 'FARE',
+/* Bölümler işlev olarak tanımlıdır: metinler pencere kurulurken etkin dilden okunur */
+
+const mouseSection = (): ControlSection => ({
+  title: t('controls.section.mouse'),
   icon: uiIcon('mouse'),
   rows: [
-    { keys: ['Sol tık'], text: 'Seç, yerleştir, makine penceresini aç' },
-    { keys: ['Sol tık', 'sürükle'], text: 'Bant modunda hat çiz' },
-    { keys: ['Sağ tuş', 'sürükle'], text: 'Haritayı kaydır' },
-    { keys: ['Tekerlek'], text: 'Yakınlaştır / uzaklaştır (ince ayar: + ve − düğmeleri)' },
-    { keys: ['Sağ tık'], text: 'Etkin aracı bırak' },
+    { keys: [t('controls.key.leftClick')], text: t('controls.mouse.select') },
+    { keys: [t('controls.key.leftClick'), t('controls.key.drag')], text: t('controls.mouse.belt') },
+    { keys: [t('controls.key.rightButton'), t('controls.key.drag')], text: t('controls.mouse.pan') },
+    { keys: [t('controls.key.wheel')], text: t('controls.mouse.zoom') },
+    { keys: [t('controls.key.rightClick')], text: t('controls.mouse.cancel') },
   ],
-};
+});
 
-const KEYBOARD_SECTION: ControlSection = {
-  title: 'KLAVYE',
+const keyboardSection = (): ControlSection => ({
+  title: t('controls.section.keyboard'),
   icon: uiIcon('textsize'),
   rows: [
-    { keys: ['Boşluk', '1'], text: 'Elle üret' },
-    { keys: ['2'], text: 'Bant' },
-    { keys: ['3', 'B'], text: 'İnşa kataloğu' },
-    { keys: ['4', 'X'], text: 'Sök' },
-    { keys: ['5', 'H'], text: 'Hangar' },
-    { keys: ['R'], text: 'Seçili öğeyi döndür' },
-    { keys: ['W', 'A', 'S', 'D'], text: 'Haritayı kaydır (ok tuşları da olur)' },
-    { keys: ['Esc'], text: 'Pencereyi kapat / aracı bırak' },
-    { keys: ['Tab', 'Enter'], text: 'Düğmeler arasında gez ve seç' },
+    { keys: [t('controls.key.space'), '1'], text: t('controls.kb.produce') },
+    { keys: ['2'], text: t('controls.kb.belt') },
+    { keys: ['3', 'B'], text: t('controls.kb.build') },
+    { keys: ['4', 'X'], text: t('controls.kb.remove') },
+    { keys: ['5', 'H'], text: t('controls.kb.hangar') },
+    { keys: ['R'], text: t('controls.kb.rotate') },
+    { keys: ['W', 'A', 'S', 'D'], text: t('controls.kb.pan') },
+    { keys: ['Esc'], text: t('controls.kb.escape') },
+    { keys: ['Tab', 'Enter'], text: t('controls.kb.focus') },
   ],
-};
+});
 
-const TOUCH_SECTION: ControlSection = {
-  title: 'DOKUNMATİK',
+const touchSection = (): ControlSection => ({
+  title: t('controls.section.touch'),
   icon: uiIcon('touch'),
   rows: [
-    { keys: ['Dokun'], text: 'Seç, makine penceresini aç' },
-    { keys: ['Sürükle'], text: 'Haritayı kaydır; bant modunda hat çiz' },
-    { keys: ['İki parmak'], text: 'Yakınlaştır ve kaydır (araç açıkken de)' },
-    { keys: ['Onayla'], text: 'Yerleştirme ve sökümde seçimi uygula' },
+    { keys: [t('controls.key.tap')], text: t('controls.touch.select') },
+    { keys: [t('controls.key.dragTouch')], text: t('controls.touch.pan') },
+    { keys: [t('controls.key.twoFingers')], text: t('controls.touch.zoom') },
+    { keys: [t('controls.key.confirm')], text: t('controls.touch.confirm') },
   ],
-};
+});
 
-const FLIGHT_SECTION_DESKTOP: ControlSection = {
-  title: 'UÇUŞ',
+const flightSectionDesktop = (): ControlSection => ({
+  title: t('controls.section.flight'),
   icon: 'icon_rocket',
   rows: [
-    { keys: ['Boşluk', 'Tık'], text: 'İmleç yeşil bölgedeyken ateşle' },
-    { keys: ['Basılı tut'], text: 'Havada nitro: hızlan ve tırman' },
+    { keys: [t('controls.key.space'), t('controls.key.click')], text: t('controls.flight.fire') },
+    { keys: [t('controls.key.hold')], text: t('controls.flight.nitro') },
   ],
-};
+});
 
-const FLIGHT_SECTION_TOUCH: ControlSection = {
-  title: 'UÇUŞ',
+const flightSectionTouch = (): ControlSection => ({
+  title: t('controls.section.flight'),
   icon: 'icon_rocket',
   rows: [
-    { keys: ['Dokun'], text: 'İmleç yeşil bölgedeyken ateşle' },
-    { keys: ['Basılı tut'], text: 'Havada nitro: hızlan ve tırman' },
+    { keys: [t('controls.key.tap')], text: t('controls.flight.fire') },
+    { keys: [t('controls.key.hold')], text: t('controls.flight.nitro') },
   ],
-};
+});
 
 /** Birincil girdi fare mi? (Masaüstü: kontrol şeması ilk açılışta gösterilir) */
 export function isDesktopInput(): boolean {
@@ -98,7 +101,7 @@ export class ControlsModal extends UiModal {
   private okButton: UiButton | null = null;
 
   constructor(layer: UiLayer) {
-    super(layer, { title: 'Kontroller', maxWidth: 460, depth: 310, accent: SEMANTIC.secondary });
+    super(layer, { title: t('controls.title'), maxWidth: 460, depth: 310, accent: SEMANTIC.secondary });
   }
 
   /** Masaüstünde ve daha önce gösterilmediyse pencereyi açar; açtıysa true döner */
@@ -118,8 +121,8 @@ export class ControlsModal extends UiModal {
   protected buildBody(body: Phaser.GameObjects.Container, width: number): number {
     const desktop = isDesktopInput();
     const sections = desktop
-      ? [MOUSE_SECTION, KEYBOARD_SECTION, FLIGHT_SECTION_DESKTOP]
-      : [TOUCH_SECTION, FLIGHT_SECTION_TOUCH];
+      ? [mouseSection(), keyboardSection(), flightSectionDesktop()]
+      : [touchSection(), flightSectionTouch()];
 
     let y = 0;
     for (const section of sections) {
@@ -191,7 +194,7 @@ export class ControlsModal extends UiModal {
       width: Math.min(width, 240),
       height,
       variant: 'primary',
-      label: 'ANLADIM',
+      label: t('controls.gotIt'),
       onClick: () => this.close(),
     });
     footer.add(this.okButton);

@@ -25,13 +25,26 @@ import {
 } from '../factory/view/MachineSprites.ts';
 import { PALETTE, SEMANTIC, SPACE } from './theme.ts';
 import type { UiLayer } from './system/UiLayer.ts';
+import { t } from '../i18n/i18n.ts';
 
-const DIRECTION_NAMES: Readonly<Record<Direction, string>> = {
-  NORTH: 'kuzey (yukarı)',
-  EAST: 'doğu (sağ)',
-  SOUTH: 'güney (aşağı)',
-  WEST: 'batı (sol)',
-};
+function directionName(direction: Direction): string {
+  switch (direction) {
+    case 'NORTH':
+      return t('rotate.north');
+    case 'EAST':
+      return t('rotate.east');
+    case 'SOUTH':
+      return t('rotate.south');
+    case 'WEST':
+      return t('rotate.west');
+  }
+}
+
+/** Yön adlarını o dilin "ve" bağlacıyla birleştirir */
+function joinDirections(names: readonly string[]): string {
+  const [first = '', second] = names;
+  return second === undefined ? first : t('common.and', { a: first, b: second });
+}
 
 /** Önizlenen şey: makine tanımı veya hammadde girişi */
 export type RotationPreviewSubject =
@@ -65,7 +78,7 @@ export class RotationPreview {
     this.stage = scene.add.container(0, 0);
     this.sprite = scene.add.image(0, 0, PORT_ARROW_OUT).setOrigin(0.5);
     this.stage.add(this.sprite);
-    this.title = layer.text(0, 0, 'YÖN SEÇ', 'heading', { color: SEMANTIC.moneyHex }).setOrigin(0.5);
+    this.title = layer.text(0, 0, t('rotate.title'), 'heading', { color: SEMANTIC.moneyHex }).setOrigin(0.5);
     this.caption = layer
       .text(0, 0, '', 'body', { color: SEMANTIC.textPrimary, align: 'center' })
       .setOrigin(0.5, 0);
@@ -201,17 +214,17 @@ export class RotationPreview {
     const stageHalfH = ((pixelH + 16) * scale) / 2;
     this.title.setPosition(centerX, Math.max(14, centerY - stageHalfH - 14));
 
-    const outputs = ports.filter((port) => port.type === 'OUTPUT').map((port) => DIRECTION_NAMES[port.direction]);
+    const outputs = ports.filter((port) => port.type === 'OUTPUT').map((port) => directionName(port.direction));
     const text =
       subject.kind === 'machine'
-        ? `Turuncu ok: ürün ${outputs.join(' ve ')} yönünde çıkar\nYeşil ok: önerilen giriş`
+        ? t('rotate.machine', { dirs: joinDirections(outputs) })
         : subject.kind === 'intake'
-          ? `Hammadde ${outputs[0]} yönündeki banda verilir`
+          ? t('rotate.intake', { dir: outputs[0] ?? '' })
           : subject.kind === 'belt'
-            ? `Bant ürünü ${outputs[0]} yönüne taşır`
+            ? t('rotate.belt', { dir: outputs[0] ?? '' })
             : subject.kind === 'splitter'
-              ? `Tek giriş (yeşil), iki çıkış: ${outputs.join(' ve ')}`
-              : `İki giriş (yeşil), tek çıkış: ${outputs[0]}`;
+              ? t('rotate.splitter', { dirs: joinDirections(outputs) })
+              : t('rotate.merger', { dir: outputs[0] ?? '' });
     this.caption
       .setWordWrapWidth(m.width - SPACE.lg * 2, true)
       .setText(text)

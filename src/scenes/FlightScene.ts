@@ -54,6 +54,7 @@ import { sound } from '../audio/SoundManager.ts';
 import { fx } from '../effects/PixelParticleManager.ts';
 import { crazyGames } from '../integration/CrazyGamesSDK.ts';
 import { MIDGAME_AD_ENABLED, ads } from '../ads/ads.ts';
+import { t } from '../i18n/i18n.ts';
 
 /** Reklam izlenince uçuş priminin çıktığı kat (M9-E R2) */
 const FLIGHT_AD_BONUS_MULTIPLIER = 3;
@@ -439,11 +440,11 @@ export class FlightScene extends Phaser.Scene {
     const percent = Math.round(launch.power * 100);
 
     if (launch.quality === 'perfect') {
-      this.hud.announce(`Mükemmel fırlatma! Prim +${launch.bonusSeconds} sn`, SEMANTIC.moneyHex);
+      this.hud.announce(t('flight.launch.perfect', { seconds: launch.bonusSeconds }), SEMANTIC.moneyHex);
     } else if (launch.quality === 'good') {
-      this.hud.announce(`İyi fırlatma! %${percent}`, SEMANTIC.primaryHex);
+      this.hud.announce(t('flight.launch.good', { percent }), SEMANTIC.primaryHex);
     } else {
-      this.hud.announce(`Zayıf fırlatma: %${percent}`, SEMANTIC.warningHex);
+      this.hud.announce(t('flight.launch.weak', { percent }), SEMANTIC.warningHex);
     }
     this.hud.hideLaunchMeter();
 
@@ -647,7 +648,7 @@ export class FlightScene extends Phaser.Scene {
 
     this.cameras.main.shake(350, 0.016);
     this.spawnExplosionSparks(this.rocketScreenX, this.rocketScreenY + 10);
-    this.endFlight(true, 'Yere Çakıldı');
+    this.endFlight(true, t('flight.crashGround'));
   }
 
   /* ================================================================
@@ -797,7 +798,7 @@ export class FlightScene extends Phaser.Scene {
         obs.hasBeenDodged = true;
         this.dodgedObstacles++;
         this.flightScore += 20;
-        this.showFloatingNotice(obs.x, obs.y - 15, 'KAÇILDI!', SEMANTIC.primaryHex);
+        this.showFloatingNotice(obs.x, obs.y - 15, t('flight.dodged'), SEMANTIC.primaryHex);
       }
 
       // Ekran dışına çıkınca yok et (yatay veya dikey)
@@ -930,13 +931,13 @@ export class FlightScene extends Phaser.Scene {
     if (item.type === 'gear') {
       this.collectedGears++;
       this.flightScore += 30;
-      this.showFloatingNotice(this.rocketScreenX, this.rocketScreenY - 20, '+1 DİŞLİ', SEMANTIC.moneyHex);
+      this.showFloatingNotice(this.rocketScreenX, this.rocketScreenY - 20, t('flight.gear'), SEMANTIC.moneyHex);
     } else if (item.type === 'crystal') {
       this.collectedCrystals++;
       this.flightScore += 65;
       // Sabit miktarda yakıt ve nitro doldurur (seviyeden bağımsız)
       applyCrystal(this.body, this.stats);
-      this.showFloatingNotice(this.rocketScreenX, this.rocketScreenY - 20, 'YAKIT + NİTRO', SEMANTIC.rocketHex);
+      this.showFloatingNotice(this.rocketScreenX, this.rocketScreenY - 20, t('flight.fuelNitro'), SEMANTIC.rocketHex);
     } else if (item.type === 'repair') {
       this.currentHP = Math.min(this.stats.maxHp, this.currentHP + 35);
       this.showFloatingNotice(this.rocketScreenX, this.rocketScreenY - 20, '+35 HP', SEMANTIC.primaryHex);
@@ -994,7 +995,7 @@ export class FlightScene extends Phaser.Scene {
 
     if (this.currentHP <= 0) {
       this.currentHP = 0;
-      this.endFlight(true, 'Havada Engele Çarptı');
+      this.endFlight(true, t('flight.crashObstacle'));
     }
   }
 
@@ -1034,25 +1035,29 @@ export class FlightScene extends Phaser.Scene {
   }
 
   private showFloatingNotice(x: number, y: number, text: string, color: string): void {
-    const t = this.add.text(x, y, text, {
-      fontFamily: FONT_FAMILY,
-      fontSize: '13px',
-      // Dünyada, koyu gökyüzünün üstünde: mürekkep tonunun parlak karşılığı
-      color: brightOf(color),
-      fontStyle: 'bold',
-      stroke: SEMANTIC.outlineHex,
-      strokeThickness: 3,
-      // Dünyada çizilen yazı, dünya kamerasının zoom'unda keskin üretilir
-      resolution: this.cameras.main.zoom,
-    }).setOrigin(0.5).setDepth(60);
+    const style = UiLayer.localizeStyle(
+      {
+        fontFamily: FONT_FAMILY,
+        fontSize: '13px',
+        // Dünyada, koyu gökyüzünün üstünde: mürekkep tonunun parlak karşılığı
+        color: brightOf(color),
+        fontStyle: 'bold',
+        stroke: SEMANTIC.outlineHex,
+        strokeThickness: 3,
+        // Dünyada çizilen yazı, dünya kamerasının zoom'unda keskin üretilir
+        resolution: this.cameras.main.zoom,
+      },
+      text,
+    );
+    const notice = this.add.text(x, y, text, style).setOrigin(0.5).setDepth(60);
 
     this.tweens.add({
-      targets: t,
+      targets: notice,
       y: y - 25,
       alpha: 0,
       duration: 650,
       ease: 'Quad.easeOut',
-      onComplete: () => t.destroy(),
+      onComplete: () => notice.destroy(),
     });
   }
 

@@ -14,6 +14,7 @@ import { UiButton } from './system/UiButton.ts';
 import type { UiLayer } from './system/UiLayer.ts';
 import { UiModal } from './system/UiModal.ts';
 import { UiChip, createInset } from './system/UiWidgets.ts';
+import { t } from '../i18n/i18n.ts';
 
 export type TerminalType = 'INTAKE' | 'EXPORT' | 'CHOICE';
 
@@ -48,14 +49,14 @@ export class TerminalInspectorModal extends UiModal {
     this.shownCoord = coord;
 
     if (type === 'INTAKE') {
-      const item = this.callbacks.getIntakeItemName?.(coord) ?? 'Hammadde';
-      this.setTitle(`${item} Girişi`);
+      const item = this.callbacks.getIntakeItemName?.(coord) ?? t('common.rawMaterial');
+      this.setTitle(t('logistics.intakeOf', { item }));
       this.setAccent(SEMANTIC.secondary);
     } else if (type === 'EXPORT') {
-      this.setTitle('Sevkiyat Sandığı');
+      this.setTitle(t('terminal.crateTitle'));
       this.setAccent(SEMANTIC.factory);
     } else {
-      this.setTitle('Hangisini taşıyacaksın?');
+      this.setTitle(t('terminal.choiceTitle'));
       this.setAccent(SEMANTIC.secondary);
     }
     this.open();
@@ -72,7 +73,7 @@ export class TerminalInspectorModal extends UiModal {
     const scene = this.scene;
 
     if (this.shownType === 'CHOICE') {
-      const note = layer.text(0, 0, 'Taşımak ücretsizdir. Seçtikten sonra yeni yerini gösterirsin.', 'body', {
+      const note = layer.text(0, 0, t('terminal.choiceNote'), 'body', {
         color: SEMANTIC.textMuted,
         wrapWidth: width,
       });
@@ -93,13 +94,13 @@ export class TerminalInspectorModal extends UiModal {
         body.add(button);
         y += 56 + SPACE.sm;
       };
-      option('HAMMADDE GİRİŞİ', 'Cevherin fabrikaya girdiği yer', uiIcon('intake'), 'INTAKE');
-      option('SEVKİYAT SANDIĞI', 'Ürünlerin satıldığı yer', uiIcon('crate'), 'EXPORT');
+      option(t('terminal.option.intake'), t('terminal.option.intakeSub'), uiIcon('intake'), 'INTAKE');
+      option(t('terminal.option.crate'), t('terminal.option.crateSub'), uiIcon('crate'), 'EXPORT');
       return y - SPACE.sm;
     }
 
     const isIntake = this.shownType === 'INTAKE';
-    const item = this.callbacks.getIntakeItemName?.(this.shownCoord) ?? 'hammadde';
+    const item = this.callbacks.getIntakeItemName?.(this.shownCoord) ?? t('common.rawMaterial');
     const boxH = 72;
     body.add(createInset(scene, 0, 0, width, boxH));
 
@@ -110,22 +111,22 @@ export class TerminalInspectorModal extends UiModal {
     body.add(icon);
 
     const textX = SPACE.md + 48;
-    const headline = isIntake ? `Saniyede 1 ${item}` : 'Buraya ulaşan her ürün satılır';
+    const headline = isIntake ? t('terminal.intakeHeadline', { item }) : t('terminal.crateHeadline');
     const headlineText = layer.text(textX, 16, headline, 'bodyBold', { wrapWidth: width - textX - SPACE.md });
     body.add(headlineText);
 
     const chipY = Math.max(42, 16 + headlineText.height + 6);
     if (isIntake) {
-      body.add(new UiChip(layer, textX, chipY, 'Çalışıyor', SEMANTIC.primary, { icon: 'icon_check' }));
+      body.add(new UiChip(layer, textX, chipY, t('common.working'), SEMANTIC.primary, { icon: 'icon_check' }));
     } else {
       const rate = this.callbacks.getRevenuePerSec?.() ?? 0;
-      body.add(new UiChip(layer, textX, chipY, `+$${formatRate(rate)}/sn`, SEMANTIC.primary, { icon: 'icon_coin' }));
+      body.add(new UiChip(layer, textX, chipY, t('hud.income', { value: formatRate(rate) }), SEMANTIC.primary, { icon: 'icon_coin' }));
     }
 
     let y = Math.max(boxH, chipY + 26) + SPACE.md;
     const help = isIntake
-      ? 'Okun gösterdiği kenara bant döşeyip hammaddeyi makinelere taşı. Daha fazla hammadde için katalogdan yeni giriş kur. Giriş taşınabilir veya sökülebilir; sökünce son kurduğun girişin bedeli iade edilir.'
-      : 'Ürünleri bantla buraya getir; her ürün değeri kadar para kazandırır. Roketin beklediği parçalar satılmaz, hangara gider.';
+      ? t('terminal.intakeHelp')
+      : t('terminal.crateHelp');
     const helpText = layer.text(0, y, help, 'body', { color: SEMANTIC.textMuted, wrapWidth: width });
     body.add(helpText);
     y += helpText.height;
@@ -154,8 +155,8 @@ export class TerminalInspectorModal extends UiModal {
           width: demolishWidth,
           height,
           variant: 'remove',
-          label: 'SÖK',
-          sublabel: refund > 0 ? `+$${formatNumber(refund)} iade` : 'İade yok',
+          label: t('common.remove'),
+          sublabel: refund > 0 ? t('common.refund', { amount: formatNumber(refund) }) : t('common.noRefund'),
           silent: true,
           onClick: () => {
             this.close();
@@ -173,8 +174,8 @@ export class TerminalInspectorModal extends UiModal {
       width: buttonWidth,
       height,
       variant: 'primary',
-      label: 'TAŞI',
-      sublabel: 'Ücretsiz',
+      label: t('common.move'),
+      sublabel: t('common.free'),
       onClick: () => this.relocate(type),
     });
     footer.add(this.relocateButton);
@@ -184,8 +185,8 @@ export class TerminalInspectorModal extends UiModal {
         width: buttonWidth,
         height,
         variant: 'secondary',
-        label: 'YENİ GİRİŞ',
-        sublabel: 'Katalog',
+        label: t('terminal.newIntake'),
+        sublabel: t('terminal.catalog'),
         onClick: () => {
           this.close();
           this.callbacks.onOpenCatalog?.();

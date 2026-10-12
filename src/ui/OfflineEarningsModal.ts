@@ -15,6 +15,7 @@ import { UiButton } from './system/UiButton.ts';
 import type { UiLayer } from './system/UiLayer.ts';
 import { UiModal } from './system/UiModal.ts';
 import { createInset } from './system/UiWidgets.ts';
+import { t } from '../i18n/i18n.ts';
 
 export interface OfflineEarningsModalConfig {
   /** Kazanç toplandı; `doubled` reklamla ikiye katlandıysa true */
@@ -32,7 +33,7 @@ export class OfflineEarningsModal extends UiModal {
   private doublePending = false;
 
   constructor(layer: UiLayer, config: OfflineEarningsModalConfig) {
-    super(layer, { title: 'Fabrika Raporu', maxWidth: 380, depth: 260, accent: SEMANTIC.money });
+    super(layer, { title: t('offline.title'), maxWidth: 380, depth: 260, accent: SEMANTIC.money });
     this.callbacks = config;
   }
 
@@ -82,7 +83,7 @@ export class OfflineEarningsModal extends UiModal {
     // Biriken para: pencerenin en büyük öğesi
     const earnH = 76;
     body.add(createInset(this.scene, 0, y, width, earnH));
-    body.add(layer.text(width / 2, y + 18, 'BİRİKEN KAZANÇ', 'captionBold', { color: SEMANTIC.textMuted }).setOrigin(0.5));
+    body.add(layer.text(width / 2, y + 18, t('offline.heading'), 'captionBold', { color: SEMANTIC.textMuted }).setOrigin(0.5));
     const coin = this.scene.add.image(0, y + 48, 'icon_coin').setOrigin(0.5).setScale(1.5);
     const amount = layer
       .text(0, y + 48, `+$${report.formattedBaseEarnings}`, 'display', { color: SEMANTIC.moneyHex, stroke: true })
@@ -95,8 +96,8 @@ export class OfflineEarningsModal extends UiModal {
 
     // Ayrıntı satırları
     const rows: Array<[string, string, string]> = [
-      [uiIcon('clock'), 'Uzakta kalınan süre', report.formattedDuration],
-      [uiIcon('wrench'), 'Çevrimdışı verim', `%${report.efficiencyPercent}`],
+      [uiIcon('clock'), t('offline.away'), report.formattedDuration],
+      [uiIcon('wrench'), t('offline.efficiency'), t('common.percent', { n: report.efficiencyPercent })],
     ];
     const rowH = 28;
     body.add(createInset(this.scene, 0, y, width, rows.length * rowH + SPACE.sm));
@@ -111,8 +112,8 @@ export class OfflineEarningsModal extends UiModal {
     if (report.wasCapped) {
       y += SPACE.sm;
       // Süre sınırı menzil basamaklarıyla uzar (4 → 8 → 12 saat)
-      const capText = `En fazla ${formatOfflineDuration(report.capSeconds)}lik kazanç birikir.`;
-      const hint = report.capSeconds < MAX_OFFLINE_CAP_HOURS * 3600 ? ' Daha uzak menzil bu süreyi uzatır.' : '';
+      const capText = t('offline.cap', { duration: formatOfflineDuration(report.capSeconds) });
+      const hint = report.capSeconds < MAX_OFFLINE_CAP_HOURS * 3600 ? t('offline.capHint') : '';
       const warning = layer.text(0, y, capText + hint, 'caption', {
         color: SEMANTIC.warningHex,
         wrapWidth: width,
@@ -134,7 +135,7 @@ export class OfflineEarningsModal extends UiModal {
       width,
       height,
       variant: 'primary',
-      label: `TOPLA  +$${report.formattedBaseEarnings}`,
+      label: t('offline.collect', { amount: report.formattedBaseEarnings }),
       onClick: () => this.claim(false),
     });
     footer.add(this.claimButton);
@@ -147,7 +148,7 @@ export class OfflineEarningsModal extends UiModal {
         height,
         variant: 'gold',
         icon: uiIcon('video'),
-        label: `REKLAM İZLE: 2X  +$${report.formattedDoubledEarnings}`,
+        label: t('offline.watchAd', { amount: report.formattedDoubledEarnings }),
         textVariant: 'buttonSmall',
         onClick: () => void this.claimDoubled(),
       });

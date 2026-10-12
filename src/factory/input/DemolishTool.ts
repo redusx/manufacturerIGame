@@ -23,6 +23,9 @@ import {
 } from './DemolishMath.ts';
 import { PALETTE, SEMANTIC, FONT_FAMILY } from '../../ui/theme.ts';
 import { isPointerInsideViewport, isPointerOverUi, pointerToGrid } from './WorldPointer.ts';
+import { t } from '../../i18n/i18n.ts';
+import { UiLayer } from '../../ui/system/UiLayer.ts';
+import { formatNumber } from '../../utils/format.ts';
 
 /** Hiçbir hücreyi göstermeyen koordinat (dokunmatikte ilk dokunuşa kadar hedef yok) */
 const NO_COORD: GridCoord = { x: -1, y: -1 };
@@ -95,13 +98,21 @@ export class DemolishTool {
     this.highlightGraphics = this.scene.add.graphics();
 
     this.badgeText = this.scene.add
-      .text(0, 0, '', {
-        fontFamily: FONT_FAMILY,
-        fontSize: '10px',
-        color: PALETTE.removeRedHex,
-        stroke: SEMANTIC.outlineHex,
-        strokeThickness: 3,
-      })
+      .text(
+        0,
+        0,
+        '',
+        UiLayer.localizeStyle(
+          {
+            fontFamily: FONT_FAMILY,
+            fontSize: '10px',
+            color: PALETTE.removeRedHex,
+            stroke: SEMANTIC.outlineHex,
+            strokeThickness: 3,
+          },
+          '',
+        ),
+      )
       .setOrigin(0.5, 1.2)
       .setVisible(false);
 
@@ -353,7 +364,7 @@ export class DemolishTool {
     }
 
     // Yıkım rozeti: Ad ve İade Tutarı
-    const label = `SÖK: ${info.name} (+$${info.refundAmount})`;
+    const label = t('context.removeLabel', { name: info.name, amount: formatNumber(info.refundAmount) });
     this.badgeText
       .setPosition(topCenterX, topMinY - 6)
       .setText(label)
@@ -370,15 +381,24 @@ export class DemolishTool {
       this.originY,
     );
 
+    const refundLabel = t('common.refund', { amount: formatNumber(result.refundAmount) });
     const floatingText = this.scene.add
-      .text(center.x, center.y, `+$${result.refundAmount} iade`, {
-        fontFamily: FONT_FAMILY,
-        fontSize: '11px',
-        color: PALETTE.resourceGoldHex,
-        fontStyle: 'bold',
-        stroke: SEMANTIC.outlineHex,
-        strokeThickness: 3,
-      })
+      .text(
+        center.x,
+        center.y,
+        refundLabel,
+        UiLayer.localizeStyle(
+          {
+            fontFamily: FONT_FAMILY,
+            fontSize: '11px',
+            color: PALETTE.resourceGoldHex,
+            fontStyle: 'bold',
+            stroke: SEMANTIC.outlineHex,
+            strokeThickness: 3,
+          },
+          refundLabel,
+        ),
+      )
       .setOrigin(0.5)
       .setDepth(150);
 

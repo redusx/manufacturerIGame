@@ -6,6 +6,9 @@
  * fabrika ekonomisine geri akar.
  * ====================================================================== */
 
+import { t } from '../i18n/i18n.ts';
+import { formatFixed } from '../utils/format.ts';
+
 /** Bir roket modülünün ulaşabileceği en yüksek seviye */
 export const MAX_ROCKET_LEVEL = 10;
 
@@ -26,7 +29,9 @@ export interface RocketUpgradeDef {
 export const ROCKET_UPGRADES: readonly RocketUpgradeDef[] = [
   {
     id: 'hull',
-    name: 'Gövde Zırhı',
+    get name() {
+      return t('rocket.hull.name');
+    },
     category: 'hull',
     description: 'Roketin engellere karşı dayanıklılığını artırır; ileri bölgelerde engeller daha sert vurur.',
     baseCost: 150,
@@ -35,12 +40,14 @@ export const ROCKET_UPGRADES: readonly RocketUpgradeDef[] = [
     spritePrefix: 'rocket_hull_',
     getStatText: (level) => {
       const hp = getMaxHullHP(level);
-      return `Zırh: ${hp} HP | Engel hasarı ÷${getHullDamageDivisor(level).toFixed(1)}`;
+      return t('rocket.hull.stat', { hp, divisor: formatFixed(getHullDamageDivisor(level), 1) });
     },
   },
   {
     id: 'engine',
-    name: 'İtici Motor',
+    get name() {
+      return t('rocket.engine.name');
+    },
     category: 'engine',
     description: 'Fırlatma rampası hızını, ana motor itiş gücünü ve yakıt süresini artırır.',
     baseCost: 250,
@@ -50,12 +57,14 @@ export const ROCKET_UPGRADES: readonly RocketUpgradeDef[] = [
     getStatText: (level) => {
       const thrust = getMainThrust(level);
       const fuel = getFuelCapacity(level);
-      return `İtiş: ${Math.round(thrust)} N | Yakıt: ${fuel.toFixed(1)}s`;
+      return t('rocket.engine.stat', { thrust: Math.round(thrust), fuel: formatFixed(fuel, 1) });
     },
   },
   {
     id: 'wings',
-    name: 'Manevra Kanatları',
+    get name() {
+      return t('rocket.wings.name');
+    },
     category: 'wings',
     description: 'Havadaki süzülme kaldırma kuvvetini (lift), eğim çevikliğini ve aerodinamik kaymayı artırır.',
     baseCost: 200,
@@ -64,12 +73,14 @@ export const ROCKET_UPGRADES: readonly RocketUpgradeDef[] = [
     spritePrefix: 'rocket_wings_',
     getStatText: (level) => {
       const effective = physicsLevel(level);
-      return `Süzülme: +%${Math.round(effective * 25)} | Çeviklik: +%${Math.round(effective * 20)}`;
+      return t('rocket.wings.stat', { glide: Math.round(effective * 25), agility: Math.round(effective * 20) });
     },
   },
   {
     id: 'boost',
-    name: 'Nitro Yakıt Tankı',
+    get name() {
+      return t('rocket.boost.name');
+    },
     category: 'boost',
     description: 'Süpersonik nitro boost süresini ve anlık hızlanma patlamasını yükseltir.',
     baseCost: 350,
@@ -77,8 +88,7 @@ export const ROCKET_UPGRADES: readonly RocketUpgradeDef[] = [
     maxLevel: MAX_ROCKET_LEVEL,
     spritePrefix: 'rocket_tank_',
     getStatText: (level) => {
-      const cap = getMaxBoostDuration(level).toFixed(1);
-      return `Nitro Kapasitesi: ${cap}s`;
+      return t('rocket.boost.stat', { seconds: formatFixed(getMaxBoostDuration(level), 1) });
     },
   },
 ] as const;

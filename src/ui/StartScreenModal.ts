@@ -16,9 +16,7 @@ import { UiButton } from './system/UiButton.ts';
 import type { UiLayer } from './system/UiLayer.ts';
 import { UiModal } from './system/UiModal.ts';
 import { createInset } from './system/UiWidgets.ts';
-
-export const START_MESSAGE =
-  'Sen bir patronsun; fabrikanı geliştir, ekonomini büyüt, roketi derin uzaya fırlat ve lider tablosunda yerini al.';
+import { t } from '../i18n/i18n.ts';
 
 const MAX_WIDTH = 400;
 /** Yan yana düzende pencerenin en fazla genişliği */
@@ -75,7 +73,7 @@ export class StartScreenModal extends UiModal {
       this.buildBanner(body, bannerWidth, bannerHeight);
 
       const textX = bannerWidth + SPACE.md;
-      const message = layer.text(textX, 0, START_MESSAGE, 'bodyBold', {
+      const message = layer.text(textX, 0, t('start.message'), 'bodyBold', {
         wrapWidth: width - textX,
         lineSpacing: 3,
       });
@@ -87,7 +85,7 @@ export class StartScreenModal extends UiModal {
 
     // Üstte manzara, altında yazı. Önce yazı ölçülür; manzara kalan yere sığacak kadar kısalır
     const message = layer
-      .text(Math.round(width / 2), 0, START_MESSAGE, 'bodyBold', {
+      .text(Math.round(width / 2), 0, t('start.message'), 'bodyBold', {
         align: 'center',
         wrapWidth: width - SPACE.sm * 2,
         lineSpacing: 3,
@@ -138,7 +136,7 @@ export class StartScreenModal extends UiModal {
       width: Math.min(width, 260),
       height: FOOTER_HEIGHT,
       variant: 'primary',
-      label: 'OYNA',
+      label: t('start.play'),
       icon: 'icon_factory',
       iconScale: 1.5,
       onClick: () => {

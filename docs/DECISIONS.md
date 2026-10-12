@@ -439,3 +439,15 @@
   6. **Kayıt `localStorage`'da kalır;** CrazyGames'te hesaplar arası eşitleme için Automatic Progress Save seçilir. Data modülüne geçilmedi: modül panelde açılmazsa kapalı kalıyor ve davranışı platform dışında doğrulanamıyor; yanlış bir geçişin bedeli oyuncu kaydıdır, APS ise aynı gereksinimi kodsuz karşılıyor.
 * **Açık (kullanıcıya ait):** lider tablosu daveti, anahtar ve ayarların iletilmesi; APS seçimi; Preview'da doğrulama.
 
+### [DEC-055] Çoklu Dil: 15 Dil, Anahtarlı Sözlükler, Sağdan Sola ve Sahne Yenilemeyle Dil Değişimi
+* **Tarih:** 2026-10-12
+* **Karar:**
+  1. **Diller:** İngilizce (referans ve yedek), Türkçe, İspanyolca, Brezilya Portekizcesi, Fransızca, Almanca, Rusça, Japonca, Korece, Basitleştirilmiş Çince, Hintçe, Arapça, Endonezce, Bengalce, Urduca. Kodlar: `en tr es pt-BR fr de ru ja ko zh-CN hi ar id bn ur`.
+  2. **Tek kaynak:** anahtarlar ve `{ad}` yer tutucuları `src/i18n/locales/en.ts` içindedir. Diğer sözlükler `Dictionary` tipindedir; eksik ya da fazla anahtar derlenmez. `t(anahtar, parametreler)` parametreleri de derleme anında denetler. Oyuncuya görünen metin kaynak koda yazılmaz.
+  3. **Dil seçimi:** oyuncunun Ayarlar'daki seçimi (tarayıcıda `manufacturer_locale_v1`; kayıt dosyasına girmez) → CrazyGames'in bildirdiği dil (`user.systemInfo.locale`, yalnız gerçek sitede; yerel kipte SDK örnek veri döndürür) → `navigator.languages` / `navigator.language` → İngilizce. Otomatik seçim saklanmaz.
+  4. **Dil değişimi sayfa yenilemeden:** seçim saklanır, ilerleme kaydedilir, sahne yeniden kurulur (`scene.restart`, kayıt sıfırlamadaki yol) ve Ayarlar yeniden açılır. Her bileşene "metnini yenile" yolu eklemek yerine bu seçildi: bütün arayüz zaten kurulurken metnini okur.
+  5. **Sayılar:** her dilde Latin rakamı (`Intl.NumberFormat('<dil>-u-nu-latn')`), o dilin ondalık ve binlik ayracı. K/M/B kısaltmaları ve `$` her dilde aynıdır. Hesaplar ve kayıt etkilenmez.
+  6. **Sağdan sola (Arapça, Urduca):** metin yönü satır satır yön işaretiyle verilir, sarılan paragraflar sağa yaslanır, işaretli sayılar ("+$5.40K", "×1.5") bütün kalır. **Ekran düzeni ve oyun haritası aynalanmaz:** düğmeler, simgeler ve tek satırlık etiketler yerinde kalır.
+  7. **Yazı tipi:** oyuna yazı tipi dosyası eklenmedi; `FONT_FAMILY` sistem yazı tiplerine düşer (Japonca, Korece, Çince, Devanagari, Bengal, Arap). Japonca ve Çincede satırlar harf arasından bölünür.
+  8. **Çevrilmeyenler:** oyunun adı ("Manufacturer"), kademe adları ("Mk I–IV"), "HP", "CrazyGames", geliştirici konsolu iletileri ve yalnız geliştirme sürümündeki sahte reklam katmanı.
+* **Varsayım (onay bekler):** çeviriler elle yazıldı; ana dili konuşan biri tarafından okunmadı. Arayüz düzeninin sağdan sola dillerde aynalanmaması bilinçli bir sınırdır.

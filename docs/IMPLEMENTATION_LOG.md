@@ -1479,3 +1479,26 @@ Tarayıcıda, SDK'nın yerel kipinde (localhost, SDK 3.8.0):
 
 **Denenemeyenler:** gerçek CrazyGames ortamı ve Preview aracı; gerçek reklam, `unfilled` / `adblock` / Basic Launch hataları (yalnız betikte); gerçek lider tablosuna yazım ve misafir davranışı; `showAuthPrompt`; APS; fiziksel telefon.
 
+### [2026-10-12] — Çoklu Dil Desteği (15 dil)
+
+Karar: DEC-055.
+
+- **Altyapı (`src/i18n/`):** `i18n.ts` (`t`, `tDynamic`, `joinList`, `setLocale`, `initLocale`, `matchLocale`, `detectLocale`, `formatDecimal`, `LOCALES`), `locales/en.ts` (526 anahtar, referans), 14 çeviri sözlüğü, `locales/index.ts`.
+- **Metinlerin taşınması:** araç çubuğu, üst çubuk, giriş ekranı, öğretici, katalog ve bilgi pencereleri, makine / giriş / sandık pencereleri, aşamalar, seferler, hangar, takviye, çevrimdışı rapor, ayarlar, kontrol şeması, lider tablosu, uçuş göstergeleri ve raporu, bildirimler, araç ipuçları, parsel rozetleri, söküm etiketi. Eşya, makine, parsel, aşama, sefer ve roket modülü adları kayıt defterlerinde etkin dilden okunur (kimlikler ve kayıt değişmedi).
+- **Ayarlar:** "Dil" bölümü ve dillerin kendi adlarıyla listelendiği `LanguageModal`.
+- **Yazı:** `UiLayer.localizeStyle` (Latin dışı harflerin yüksekliği, sağdan sola satırlar, Japonca/Çince satır bölme), `UiLayer.measureText`; düğmelerin alt satırı da sığdırılır (`UiButton.fitSublabel`); öğretici düğmeleri etiketine göre genişler; fırlatma göstergesinin başlığı ve ipucu kutuya sığdırılır.
+- **Biçimleyiciler (`utils/format.ts`):** sayı, para, süre ve mesafe etkin dile göre; `formatInteger`, `formatFixed` eklendi.
+- **SDK:** `crazyGames.systemLocale` (yalnız gerçek ortamda); `main.ts` dili SDK başlatıldıktan sonra, oyun kurulmadan önce seçer.
+- **Doğrulama testi (`src/i18n/i18n.test.ts`, kullanıcı isteğiyle eklendi):** her dil için eksik/fazla anahtar, boş metin, yer tutucu uyuşmazlığı, bozuk süslü parantez, kaynak dosyada yinelenen anahtar, İngilizce bırakılmış metin oranı; ayrıca dil eşleme, tercih sırası, sağdan sola işaretleri, Latin rakamı.
+- **Mevcut testler:** görünen metni Türkçe doğrulayan altı test dosyası dili Türkçe'ye sabitler; bir beklenti ondalık virgüle göre güncellendi ("14,2 sn").
+
+**Doğrulama:** `npm test` 359/359 (262 eski + 97 yeni), `npx tsc --noEmit` temiz, `npm run build` başarılı (paket 465 → 606 kB gzip; sözlükler ilk yüklemeye dahildir).
+Tarayıcıda (masaüstü 1024×768; kareler elle ilerletildi):
+- 15 dilin her birinde: giriş ekranı, ana ekran (öğretici kutusuyla), Ayarlar, katalog, hangar, lider tablosu, makine penceresi, aşamalar. Arapça'da ayrıca seferler, kontroller, takviye, fiyat listesi.
+- Uçuş (fırlatma göstergesi, rapor, fabrikaya dönüş bildirimi): Almanca, Fransızca, Arapça, Japonca, Hintçe.
+- Telefon dikey (375×812): Almanca, Arapça, Hintçe. Telefon yatay (667×375): Rusça, Japonca, Urduca.
+- Otomatik seçim: kayıtlı seçim yokken tarayıcı dili (Türkçe) seçildi. Seçiciden dil değişimi: sayfa yenilenmedi, Ayarlar yeni dilde yeniden açıldı; gerçek kayıtla para ve makine sayısı korundu, çevrimdışı rapor ve giriş ekranı yeniden açılmadı. Sayfa yenilenince seçilen dil geldi.
+- Bulunup düzeltilenler: yerel kipte SDK'nın "en-US" örnek dili tarayıcı dilini eziyordu; Almanca/Rusça/Fransızca'da dar düğmelerde kırpılan etiketler ("atla", "taşı", "topla", "sıralama"); taşan alt satırlar; kutudan taşan fırlatma ipucu; Arapça'da sayının sağına düşen "+" işareti.
+
+**Denenemeyenler:** çevirilerin ana dili konuşan biri tarafından okunması; gerçek CrazyGames ortamında `systemInfo.locale`; fiziksel telefon ve sistem yazı tipi eksik cihazlar (Windows/Android'de Bengalce, Urduca); her dilin her penceresi tek tek (sefer, kontrol, takviye, fiyat pencereleri yalnız bazı dillerde açıldı); öğreticinin 17 adımının her dilde elde oynanması.
+

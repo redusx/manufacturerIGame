@@ -10,6 +10,9 @@
  * Saf TypeScript — Phaser bağımlılığı yoktur.
  * ====================================================================== */
 
+import { t } from '../i18n/i18n.ts';
+import { formatFixed } from '../utils/format.ts';
+
 export interface RangeRung {
   id: string;
   /** 1'den başlayan sıra */
@@ -36,14 +39,14 @@ export const BASE_ROCKET_LEVEL_CAP = 3;
 export const BASE_OFFLINE_CAP_HOURS = 4;
 
 export const RANGE_LADDER: readonly RangeRung[] = Object.freeze([
-  { id: 'flight_ms_100', index: 1, name: 'İlk Tırmanış', targetMeters: 100, expectedClass: 1, multiplierBonus: 0.05 },
-  { id: 'flight_ms_500', index: 2, name: 'Stratosfer', targetMeters: 500, expectedClass: 1, multiplierBonus: 0.1 },
-  { id: 'flight_ms_1000', index: 3, name: 'Alçak Yörünge', targetMeters: 1000, expectedClass: 1, multiplierBonus: 0.15 },
-  { id: 'flight_ms_2500', index: 4, name: 'Yörünge İstasyonu', targetMeters: 2500, expectedClass: 2, multiplierBonus: 0.2 },
+  { id: 'flight_ms_100', index: 1, get name() { return t('range.1'); }, targetMeters: 100, expectedClass: 1, multiplierBonus: 0.05 },
+  { id: 'flight_ms_500', index: 2, get name() { return t('range.2'); }, targetMeters: 500, expectedClass: 1, multiplierBonus: 0.1 },
+  { id: 'flight_ms_1000', index: 3, get name() { return t('range.3'); }, targetMeters: 1000, expectedClass: 1, multiplierBonus: 0.15 },
+  { id: 'flight_ms_2500', index: 4, get name() { return t('range.4'); }, targetMeters: 2500, expectedClass: 2, multiplierBonus: 0.2 },
   {
     id: 'flight_ms_5000',
     index: 5,
-    name: 'Derin Uzay',
+    get name() { return t('range.5'); },
     targetMeters: 5000,
     expectedClass: 3,
     multiplierBonus: 0.25,
@@ -52,7 +55,7 @@ export const RANGE_LADDER: readonly RangeRung[] = Object.freeze([
   {
     id: 'range_7k',
     index: 6,
-    name: 'Ay Geçişi',
+    get name() { return t('range.6'); },
     targetMeters: 7000,
     expectedClass: 4,
     multiplierFactor: 1.25,
@@ -61,7 +64,7 @@ export const RANGE_LADDER: readonly RangeRung[] = Object.freeze([
   {
     id: 'range_10k',
     index: 7,
-    name: 'Ay Üssü',
+    get name() { return t('range.7'); },
     targetMeters: 10000,
     expectedClass: 5,
     multiplierFactor: 1.25,
@@ -70,18 +73,18 @@ export const RANGE_LADDER: readonly RangeRung[] = Object.freeze([
   {
     id: 'range_14k',
     index: 8,
-    name: 'Mars Transferi',
+    get name() { return t('range.8'); },
     targetMeters: 14000,
     expectedClass: 6,
     multiplierFactor: 1.25,
     unlocksRocketLevelCap: 9,
     unlocksPlotIndex: 6,
   },
-  { id: 'range_20k', index: 9, name: 'Mars Yörüngesi', targetMeters: 20000, expectedClass: 7, multiplierFactor: 1.25 },
+  { id: 'range_20k', index: 9, get name() { return t('range.9'); }, targetMeters: 20000, expectedClass: 7, multiplierFactor: 1.25 },
   {
     id: 'range_28k',
     index: 10,
-    name: 'Asteroit Kuşağı',
+    get name() { return t('range.10'); },
     targetMeters: 28000,
     expectedClass: 8,
     multiplierFactor: 1.25,
@@ -90,7 +93,7 @@ export const RANGE_LADDER: readonly RangeRung[] = Object.freeze([
   {
     id: 'range_40k',
     index: 11,
-    name: 'Jüpiter',
+    get name() { return t('range.11'); },
     targetMeters: 40000,
     expectedClass: 9,
     multiplierFactor: 1.25,
@@ -98,9 +101,9 @@ export const RANGE_LADDER: readonly RangeRung[] = Object.freeze([
     unlocksPlotIndex: 8,
     offlineCapHours: 12,
   },
-  { id: 'range_55k', index: 12, name: 'Satürn Halkaları', targetMeters: 55000, expectedClass: 10, multiplierFactor: 1.25 },
-  { id: 'range_75k', index: 13, name: 'Uranüs', targetMeters: 75000, expectedClass: 10, multiplierFactor: 1.15 },
-  { id: 'range_100k', index: 14, name: 'Neptün', targetMeters: 100000, expectedClass: 10, multiplierFactor: 1.15 },
+  { id: 'range_55k', index: 12, get name() { return t('range.12'); }, targetMeters: 55000, expectedClass: 10, multiplierFactor: 1.25 },
+  { id: 'range_75k', index: 13, get name() { return t('range.13'); }, targetMeters: 75000, expectedClass: 10, multiplierFactor: 1.15 },
+  { id: 'range_100k', index: 14, get name() { return t('range.14'); }, targetMeters: 100000, expectedClass: 10, multiplierFactor: 1.15 },
 ]);
 
 /** Bütün basamaklar geçildiğinde çevrimdışı gelirin birikebildiği süre (saat) */
@@ -173,15 +176,15 @@ export class RangeLadder {
    */
   static describeRewards(rung: RangeRung): string[] {
     const parts: string[] = [];
-    if (rung.multiplierBonus) parts.push(`gelir +%${Math.round(rung.multiplierBonus * 100)}`);
-    if (rung.multiplierFactor) parts.push(`gelir ×${rung.multiplierFactor}`);
+    if (rung.multiplierBonus) parts.push(t('range.reward.incomePlus', { percent: Math.round(rung.multiplierBonus * 100) }));
+    if (rung.multiplierFactor) parts.push(t('range.reward.incomeTimes', { factor: formatFixed(rung.multiplierFactor, 2) }));
     if (rung.unlocksRocketLevelCap) {
       const cap = rung.unlocksRocketLevelCap;
-      const range = cap >= 10 ? 'Sv.10' : `Sv.${cap - 2}–${cap}`;
-      parts.push(`${RangeLadder.tierName(cap)} modüller (${range})`);
+      const range = t('common.levelShort', { n: cap >= 10 ? '10' : `${cap - 2}–${cap}` });
+      parts.push(t('range.reward.tier', { tier: RangeLadder.tierName(cap), range }));
     }
-    if (rung.unlocksPlotIndex !== undefined) parts.push('yeni parsel izni');
-    if (rung.offlineCapHours) parts.push(`çevrimdışı ${rung.offlineCapHours} saat`);
+    if (rung.unlocksPlotIndex !== undefined) parts.push(t('range.reward.plot'));
+    if (rung.offlineCapHours) parts.push(t('range.reward.offline', { hours: rung.offlineCapHours }));
     return parts;
   }
 
@@ -201,7 +204,7 @@ export class RangeLadder {
   /** Bölgenin adı: en son geçilen basamağın adı */
   static zoneName(distanceMeters: number): string {
     const passed = RangeLadder.achieved(distanceMeters);
-    return passed.length > 0 ? passed[passed.length - 1].name : 'Kalkış';
+    return passed.length > 0 ? passed[passed.length - 1].name : t('range.takeoff');
   }
 
   /**

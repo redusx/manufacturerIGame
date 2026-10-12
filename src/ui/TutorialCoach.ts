@@ -13,6 +13,7 @@ import type { TutorialStepView } from '../tutorial/TutorialGuide.ts';
 import { SEMANTIC, SPACE, uiIcon } from './theme.ts';
 import { UiButton } from './system/UiButton.ts';
 import type { UiLayer } from './system/UiLayer.ts';
+import { isRtl, t } from '../i18n/i18n.ts';
 
 export interface TutorialCoachCallbacks {
   /** Bilgi adımı "Tamam" ile kapatıldı */
@@ -45,6 +46,8 @@ export class TutorialCoach {
   private readonly bodyText: Phaser.GameObjects.Text;
   private readonly confirmButton: UiButton;
   private readonly skipButton: UiButton;
+  private readonly confirmWidth: number;
+  private readonly skipWidth: number;
   private readonly highlight: Phaser.GameObjects.NineSlice;
   private readonly highlightTween: Phaser.Tweens.Tween;
 
@@ -90,21 +93,24 @@ export class TutorialCoach {
     this.stepText = layer.text(PADDING + 20, PADDING, '', 'captionBold', { color: SEMANTIC.moneyHex });
     this.bodyText = layer.text(PADDING, PADDING + 22, '', 'body', { lineSpacing: 2 });
 
+    // Düğmeler etiketlerine göre genişler (çevirilerde "Tamam" ve "Atla" farklı uzunluktadır)
+    this.confirmWidth = Phaser.Math.Clamp(layer.measureText(t('tutorial.ok'), 'buttonSmall') + 24, 72, 104);
+    this.skipWidth = Phaser.Math.Clamp(layer.measureText(t('tutorial.skip'), 'buttonSmall') + 20, 56, 112);
     this.confirmButton = new UiButton(layer, 0, 0, {
-      width: 72,
+      width: this.confirmWidth,
       height: BUTTON_HEIGHT,
       variant: 'primary',
-      label: 'TAMAM',
+      label: t('tutorial.ok'),
       textVariant: 'buttonSmall',
       onClick: () => {
         if (this.step) callbacks.onConfirm(this.step.id);
       },
     });
     this.skipButton = new UiButton(layer, 0, 0, {
-      width: 56,
+      width: this.skipWidth,
       height: BUTTON_HEIGHT,
       variant: 'secondary',
-      label: 'ATLA',
+      label: t('tutorial.skip'),
       textVariant: 'buttonSmall',
       onClick: callbacks.onSkip,
     });
@@ -177,8 +183,10 @@ export class TutorialCoach {
     if (signature !== this.shownSignature) {
       this.shownSignature = signature;
       const width = this.maxWidth;
-      this.stepText.setText(`ÖĞRETİCİ ${step.index}/${step.total}`);
+      this.stepText.setText(t('tutorial.label', { n: step.index, total: step.total }));
       this.bodyText.setWordWrapWidth(width - PADDING * 2, true).setText(step.text);
+      // Sağdan sola dillerde paragraf kutunun sağına yaslanır
+      if (isRtl()) this.bodyText.setAlign('right').setFixedSize(width - PADDING * 2, 0);
 
       this.panelWidth = width;
       this.panelHeight = Math.ceil(this.bodyText.y + this.bodyText.height + PADDING);
@@ -188,8 +196,10 @@ export class TutorialCoach {
       this.blocker.setSize(width, this.panelHeight);
       // Düğmeler başlık satırında, sağda: kutu yalnız metin kadar yer kaplar
       const buttonY = PADDING + 7;
-      this.skipButton.setPosition(width - PADDING - 28, buttonY);
-      this.confirmButton.setVisible(step.needsConfirm).setPosition(width - PADDING - 56 - SPACE.xs - 36, buttonY);
+      this.skipButton.setPosition(width - PADDING - this.skipWidth / 2, buttonY);
+      this.confirmButton
+        .setVisible(step.needsConfirm)
+        .setPosition(width - PADDING - this.skipWidth - SPACE.xs - this.confirmWidth / 2, buttonY);
     }
 
     this.root.setPosition(

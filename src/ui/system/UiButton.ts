@@ -55,6 +55,8 @@ const HOLD_REPEAT_MS = 70;
 const PRESS_OFFSET = 2;
 /** Sığmayan etiket en çok bu puntoya kadar küçülür (ART_DIRECTION §5: 9'un altına inilmez) */
 const MIN_LABEL_SIZE = 10;
+/** Alt satır (fiyat, kısa açıklama) en çok bu puntoya kadar küçülür */
+const MIN_SUBLABEL_SIZE = 9;
 
 export class UiButton extends Phaser.GameObjects.Container implements UiFocusable {
   private readonly layer: UiLayer;
@@ -83,6 +85,7 @@ export class UiButton extends Phaser.GameObjects.Container implements UiFocusabl
   private readonly labelBaseSize: number;
   /** Etiketin kısaltılmamış tam hâli */
   private labelFull = '';
+  private sublabelFull = '';
   /** Etiket gizliyken düğme yalnızca ikonunu gösterir (çok kısa düğmeler) */
   private labelHidden = false;
 
@@ -121,6 +124,7 @@ export class UiButton extends Phaser.GameObjects.Container implements UiFocusabl
     }
 
     if (config.sublabel !== undefined) {
+      this.sublabelFull = config.sublabel;
       this.sublabelText = layer
         .text(0, 0, config.sublabel, 'caption', { color: BUTTON_LABEL_COLORS[this.variant], align: 'center' })
         .setOrigin(0.5);
@@ -185,8 +189,8 @@ export class UiButton extends Phaser.GameObjects.Container implements UiFocusabl
   }
 
   setSublabel(sublabel: string): this {
-    if (this.scene && this.sublabelText && this.sublabelText.text !== sublabel) {
-      this.sublabelText.setText(sublabel);
+    if (this.scene && this.sublabelText && this.sublabelFull !== sublabel) {
+      this.sublabelFull = sublabel;
       this.layoutContent();
     }
     return this;
@@ -417,10 +421,9 @@ export class UiButton extends Phaser.GameObjects.Container implements UiFocusabl
     const iconH = icon ? icon.displayHeight : 0;
     const gap = icon && (label || sub) ? (column ? 2 : 6) : 0;
 
-    if (label) {
-      const available = column ? innerWidth : innerWidth - iconW - gap;
-      this.fitLabel(label, available);
-    }
+    const available = column ? innerWidth : innerWidth - iconW - gap;
+    if (label) this.fitLabel(label, available);
+    if (sub) this.fitSublabel(sub, available);
 
     const textH = (label ? label.height : 0) + (sub ? sub.height : 0);
     const textW = Math.max(label ? label.width : 0, sub ? sub.width : 0);
@@ -465,6 +468,19 @@ export class UiButton extends Phaser.GameObjects.Container implements UiFocusabl
     }
     if (label.width > available) {
       UiLayer.ellipsize(label, this.labelFull, available);
+    }
+  }
+
+  /** Alt satır da sığana kadar küçültülür; yine sığmazsa sonu kesilir (çeviriler uzun olabilir) */
+  private fitSublabel(sub: Phaser.GameObjects.Text, available: number): void {
+    let size = TYPE_SCALE.caption.size;
+    sub.setFontSize(size).setText(this.sublabelFull);
+    while (sub.width > available && size > MIN_SUBLABEL_SIZE) {
+      size -= 1;
+      sub.setFontSize(size);
+    }
+    if (sub.width > available) {
+      UiLayer.ellipsize(sub, this.sublabelFull, available);
     }
   }
 }

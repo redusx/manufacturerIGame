@@ -13,6 +13,7 @@ import Phaser from 'phaser';
 import { SEMANTIC, SPACE, uiIcon } from './theme';
 import { UiButton } from './system/UiButton.ts';
 import type { UiLayer } from './system/UiLayer.ts';
+import { t } from '../i18n/i18n.ts';
 
 export type ToolbarTool = 'belt' | 'demolish';
 
@@ -92,14 +93,14 @@ export class Toolbar {
     };
 
     // Üret'in kendi sesi ve efekti var; düğme tıklama sesi üstüne binmesin
-    this.produceButton = make('ÜRET', uiIcon('hand'), 'factory', callbacks.onProduce, {
+    this.produceButton = make(t('tool.produce'), uiIcon('hand'), 'factory', callbacks.onProduce, {
       silent: true,
     });
-    this.beltButton = make('BANT', uiIcon('belt'), 'secondary', callbacks.onBelt);
-    this.buildButton = make('İNŞA', 'icon_factory', 'primary', callbacks.onBuild);
+    this.beltButton = make(t('tool.belt'), uiIcon('belt'), 'secondary', callbacks.onBelt);
+    this.buildButton = make(t('tool.build'), 'icon_factory', 'primary', callbacks.onBuild);
     // Sök düğmesi kırmızıdır (DEC-051); simgesi beyaz kalır
-    this.demolishButton = make('SÖK', uiIcon('trash'), 'remove', callbacks.onDemolish);
-    this.hangarButton = make('HANGAR', uiIcon('hangar'), 'rocket', callbacks.onHangar, {
+    this.demolishButton = make(t('tool.remove'), uiIcon('trash'), 'remove', callbacks.onDemolish);
+    this.hangarButton = make(t('tool.hangar'), uiIcon('hangar'), 'rocket', callbacks.onHangar, {
       onDisabledClick: callbacks.onHangarLocked,
     });
 

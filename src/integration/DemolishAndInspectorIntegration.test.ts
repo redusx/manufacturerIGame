@@ -36,6 +36,10 @@ import {
   PlacementMath,
   CONVEYOR_BUILD_COST,
 } from '../factory/input/PlacementMath.ts';
+import { setLocale } from '../i18n/i18n.ts';
+
+// Bu testler oyuncuya görünen metinleri Türkçe olarak doğrular
+setLocale('tr');
 
 describe('TASK-INT-05: Demolish & Machine Inspector Integration Tests', () => {
   it('1. Demolish target inspection & 100% refund execution on conveyors', () => {

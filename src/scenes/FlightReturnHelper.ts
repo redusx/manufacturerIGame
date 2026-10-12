@@ -11,7 +11,8 @@
 
 import type { FactoryEconomy } from '../factory/simulation/FactoryEconomy.ts';
 import { RANGE_LADDER, RangeLadder, type RangeRung } from '../flight/RangeLadder.ts';
-import { formatDistance } from '../utils/format.ts';
+import { formatDistance, formatFixed } from '../utils/format.ts';
+import { t } from '../i18n/i18n.ts';
 
 export interface FlightRewardParams {
   distanceMeters: number;
@@ -247,7 +248,7 @@ export class FlightReturnHelper {
 
     return {
       distanceText: formatDistance(data.distance),
-      durationText: `${data.durationSec.toFixed(1)} sn`,
+      durationText: t('unit.seconds', { n: formatFixed(data.durationSec, 1) }),
       maxAltitudeText: formatDistance(data.maxAltitude),
       maxSpeedText: `${Math.round(data.maxSpeedKmH)} km/s`,
       gearsText: `${data.gears} adet (+$${breakdown.gearsCash})`,

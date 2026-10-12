@@ -57,6 +57,8 @@ export interface CrazyGamesSDKRaw {
     getUser?(): Promise<CrazyGamesUser | null>;
     /** CrazyGames'in giriş / kayıt penceresini açar; yalnızca oyuncunun isteğiyle çağrılır */
     showAuthPrompt?(): Promise<CrazyGamesUser | null>;
+    /** Oyuncunun sistemi; `locale` otomatik dil seçimi içindir (docs.crazygames.com/sdk/user) */
+    systemInfo?: { locale?: string };
   };
 }
 
@@ -360,6 +362,21 @@ export class CrazyGamesSDK {
       return this.readySdk?.user?.isUserAccountAvailable === true;
     } catch {
       return false;
+    }
+  }
+
+  /**
+   * Platformun bildirdiği dil (ör. "tr", "pt-BR"); SDK yoksa ya da alan gelmediyse null.
+   * Yalnızca ilk açılıştaki otomatik dil seçiminde kullanılır. Yerel ortamda SDK örnek
+   * veri döndürür ("en-US", tarayıcı adı "demo"); orada tarayıcının kendi dili geçerlidir.
+   */
+  public get systemLocale(): string | null {
+    try {
+      if (this.environment !== 'crazygames') return null;
+      const locale = this.readySdk?.user?.systemInfo?.locale;
+      return typeof locale === 'string' && locale.length > 0 ? locale : null;
+    } catch {
+      return null;
     }
   }
 

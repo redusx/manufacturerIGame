@@ -10,8 +10,9 @@
 import Phaser from 'phaser';
 import { formatDistance, formatNumber } from '../utils/format';
 import { BUTTON_LABEL_COLORS, PALETTE, SEMANTIC, SPACE, brightOf, uiIcon } from './theme';
-import type { UiLayer } from './system/UiLayer.ts';
+import { UiLayer } from './system/UiLayer.ts';
 import { UiProgressBar } from './system/UiWidgets.ts';
+import { t } from '../i18n/i18n.ts';
 
 export interface FlightHudState {
   distance: number;
@@ -72,6 +73,7 @@ export class FlightHud {
   private readonly meterMarker: Phaser.GameObjects.Container;
   private readonly meterPercent: Phaser.GameObjects.Text;
   private readonly meterPadLabel: Phaser.GameObjects.Text;
+  private readonly meterTitle: Phaser.GameObjects.Text;
   /** En dar ekrana (270 birim) kenar boşluğuyla sığar */
   private static readonly METER_WIDTH = 252;
   private static readonly METER_HEIGHT = 166;
@@ -103,8 +105,8 @@ export class FlightHud {
       .setOrigin(0.5);
     // Kalan nitro düğmenin içinde dolgu olarak görünür
     this.nitroFill = scene.add.image(0, 0, 'ui2_px').setOrigin(0, 0.5).setTint(SEMANTIC.rocket);
-    this.nitroLabel = layer.text(0, 0, 'NİTRO', 'button', { stroke: true }).setOrigin(0.5);
-    this.nitroHint = layer.text(0, 0, 'Basılı tut', 'caption', { stroke: true }).setOrigin(0.5);
+    this.nitroLabel = layer.text(0, 0, t('flight.nitro'), 'button', { stroke: true }).setOrigin(0.5);
+    this.nitroHint = layer.text(0, 0, t('flight.hold'), 'caption', { stroke: true }).setOrigin(0.5);
     this.nitroZone = scene.add.zone(0, 0, this.nitroWidth, NITRO_HEIGHT).setOrigin(0.5).setInteractive();
     this.nitroZone
       .on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () => {
@@ -129,11 +131,10 @@ export class FlightHud {
     const mh = FlightHud.METER_HEIGHT;
     this.meter = scene.add.container(0, 0);
     this.meter.add(scene.add.nineslice(0, 0, 'ui_modal_bg', 0, mw, mh, 8, 8, 8, 8).setOrigin(0.5));
-    this.meter.add(
-      layer
-        .text(-mw / 2 + SPACE.lg, -mh / 2 + 24, 'FIRLATMA GÜCÜ', 'heading', { color: SEMANTIC.moneyHex })
-        .setOrigin(0, 0.5),
-    );
+    this.meterTitle = layer
+      .text(-mw / 2 + SPACE.lg, -mh / 2 + 24, t('flight.launchPower'), 'heading', { color: SEMANTIC.moneyHex })
+      .setOrigin(0, 0.5);
+    this.meter.add(this.meterTitle);
     // Çubuk: koyu yuva, içinde "iyi" (altın) ve "mükemmel" (yeşil) bölgeler, üstünde imleç
     const trackW = FlightHud.trackWidth;
     const trackH = FlightHud.TRACK_HEIGHT;
@@ -164,13 +165,12 @@ export class FlightHud {
         .setOrigin(0.5),
     );
     this.meter.add(
-      layer.text(0, mh / 2 - 47, 'ATEŞLE', 'button', { color: BUTTON_LABEL_COLORS.primary }).setOrigin(0.5),
+      layer.text(0, mh / 2 - 47, t('flight.fire'), 'button', { color: BUTTON_LABEL_COLORS.primary }).setOrigin(0.5),
     );
-    this.meter.add(
-      layer
-        .text(0, mh / 2 - 14, 'İmleç yeşil bölgedeyken dokun veya Boşluk', 'caption', { color: SEMANTIC.textMuted })
-        .setOrigin(0.5),
-    );
+    // İpucu kutunun içinde kalır: uzun çeviriler küçülür
+    const hint = layer.text(0, mh / 2 - 14, '', 'caption', { color: SEMANTIC.textMuted }).setOrigin(0.5);
+    UiLayer.fit(hint, t('flight.fireHint'), mw - SPACE.md * 2, 9);
+    this.meter.add(hint);
     this.root.add(this.meter);
 
     this.layout();
@@ -217,9 +217,11 @@ export class FlightHud {
     this.coin.setPosition(this.earnedText.x - this.earnedText.width - 16, this.earnedText.y);
 
     // Hız ve yerden yükseklik her zaman görünür; sıradaki hedef yalnız yer varsa eklenir
-    const flight = `Hız ${Math.round(state.speed)} · İrtifa ${formatDistance(state.altitude)}`;
+    const flight = t('flight.status', { speed: Math.round(state.speed), altitude: formatDistance(state.altitude) });
     this.detailText.setText(
-      state.nextTargetMeters === null ? flight : `Hedef ${formatDistance(state.nextTargetMeters)} · ${flight}`,
+      state.nextTargetMeters === null
+        ? flight
+        : t('flight.statusTarget', { target: formatDistance(state.nextTargetMeters), status: flight }),
     );
     if (this.detailText.x + this.detailText.width > this.coin.x - 16) {
       this.detailText.setText(flight);
@@ -241,7 +243,7 @@ export class FlightHud {
     this.nitroBg.setTexture(
       boostRatio <= 0 ? 'ui2_btn_disabled_normal' : pressed ? 'ui2_btn_secondary_pressed' : 'ui2_btn_secondary_normal',
     );
-    this.nitroLabel.setText(boostRatio <= 0 ? 'NİTRO BİTTİ' : 'NİTRO');
+    this.nitroLabel.setText(boostRatio <= 0 ? t('flight.nitroEmpty') : t('flight.nitro'));
     this.nitroHint.setVisible(boostRatio > 0);
   }
 
@@ -259,8 +261,15 @@ export class FlightHud {
     const height = FlightHud.TRACK_HEIGHT - 6;
     this.meterGoodZone.setDisplaySize(Math.round(inner * goodWidth), height);
     this.meterPerfectZone.setDisplaySize(Math.max(4, Math.round(inner * perfectWidth)), height);
-    this.meterPadLabel.setText(`Rampa Sv.${padLevel}`);
+    this.meterPadLabel.setText(t('flight.padLevel', { n: padLevel }));
     this.meterPadLabel.setX(FlightHud.METER_WIDTH / 2 - SPACE.lg - this.meterPadLabel.width);
+    // Başlık rampa etiketine değmesin: uzun çeviriler küçülür
+    UiLayer.fit(
+      this.meterTitle,
+      t('flight.launchPower'),
+      FlightHud.METER_WIDTH - SPACE.lg * 2 - this.meterPadLabel.width - SPACE.sm,
+      10,
+    );
   }
 
   /** İmlecin konumu (0..1) ve o anda ateşlenirse elde edilecek güç (0..1) */
@@ -268,7 +277,7 @@ export class FlightHud {
     const inner = FlightHud.trackWidth - 4;
     this.meterMarker.x = Math.round((position - 0.5) * inner);
     this.meterPercent
-      .setText(perfect ? 'MÜKEMMEL' : `%${Math.round(power * 100)}`)
+      .setText(perfect ? t('flight.perfect') : t('common.percent', { n: Math.round(power * 100) }))
       .setColor(brightOf(perfect ? SEMANTIC.primaryHex : SEMANTIC.textPrimary));
   }
 

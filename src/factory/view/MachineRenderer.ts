@@ -27,6 +27,8 @@ import {
   PORT_ARROW_OUT,
   machineTextureKey,
 } from './MachineSprites.ts';
+import { t } from '../../i18n/i18n.ts';
+import { UiLayer } from '../../ui/system/UiLayer.ts';
 
 export interface MachineRendererConfig {
   tileSize?: number;
@@ -158,15 +160,18 @@ export class MachineRenderer {
     const levelText = this.scene.add.text(
       -bounds.pixelW * 0.5 + 1,
       -bounds.pixelH * 0.5,
-      `Lv.${level}`,
-      {
-        fontFamily: FONT_FAMILY,
-        fontSize: '9px',
-        color: PALETTE.resourceGoldHex,
-        fontStyle: 'bold',
-        stroke: SEMANTIC.outlineHex,
-        strokeThickness: 3,
-      },
+      t('common.levelShort', { n: level }),
+      UiLayer.localizeStyle(
+        {
+          fontFamily: FONT_FAMILY,
+          fontSize: '9px',
+          color: PALETTE.resourceGoldHex,
+          fontStyle: 'bold',
+          stroke: SEMANTIC.outlineHex,
+          strokeThickness: 3,
+        },
+        '',
+      ),
     );
     levelText.setOrigin(0, 0.5);
     levelText.setVisible(level > 1);
@@ -247,10 +252,11 @@ export class MachineRenderer {
       const machine = bay.machine;
 
       if (bay.levelBadgeText) {
-        const expected = `Lv.${this.engine.getMachineLevel(machine.instanceId)}`;
+        const level = this.engine.getMachineLevel(machine.instanceId);
+        const expected = t('common.levelShort', { n: level });
         if (bay.levelBadgeText.text !== expected) {
           bay.levelBadgeText.setText(expected);
-          bay.levelBadgeText.setVisible(expected !== 'Lv.1');
+          bay.levelBadgeText.setVisible(level > 1);
         }
       }
 

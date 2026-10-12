@@ -13,6 +13,7 @@
 import type { MachineOperationalStatus } from '../types.ts';
 import type { MachineVisualBounds } from './MachineVisualGeometry.ts';
 import { PALETTE, TONE } from '../../ui/theme.ts';
+import { t } from '../../i18n/i18n.ts';
 
 export type BadgeType = 'NONE' | 'WARNING_INPUT' | 'BLOCKED_OUTPUT' | 'PROCESSING';
 
@@ -46,7 +47,7 @@ export class MachineStatusHelper {
           colorHex: PALETTE.warningOrangeHex,
           colorNum: PALETTE.warningOrange,
           iconKey: 'icon_lightning',
-          label: 'GİRDİ YOK',
+          label: t('badge.noInput'),
           isWarning: true,
         };
 
@@ -56,7 +57,7 @@ export class MachineStatusHelper {
           colorHex: PALETTE.dangerRedHex,
           colorNum: PALETTE.dangerRed,
           iconKey: 'icon_close',
-          label: 'TIKALI',
+          label: t('badge.blocked'),
           isWarning: true,
         };
 
@@ -66,7 +67,7 @@ export class MachineStatusHelper {
           colorHex: PALETTE.successGreenHex,
           colorNum: PALETTE.successGreen,
           iconKey: 'icon_check',
-          label: 'ÜRETİYOR',
+          label: t('badge.producing'),
           isWarning: false,
         };
 
@@ -77,7 +78,7 @@ export class MachineStatusHelper {
           colorHex: PALETTE.textMuted,
           colorNum: TONE.mist,
           iconKey: '',
-          label: 'BEKLEMEDE',
+          label: t('badge.idle'),
           isWarning: false,
         };
     }

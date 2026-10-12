@@ -5,6 +5,10 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { ItemRegistry, defaultItemRegistry } from './ItemRegistry.ts';
+import { setLocale } from '../../i18n/i18n.ts';
+
+// Bu testler oyuncuya görünen metinleri Türkçe olarak doğrular
+setLocale('tr');
 
 describe('ItemRegistry', () => {
   it('defaultItemRegistry should have pre-registered multi-tier items', () => {

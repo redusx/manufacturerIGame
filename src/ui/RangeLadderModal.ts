@@ -9,12 +9,13 @@
 
 import Phaser from 'phaser';
 import { RANGE_LADDER, RangeLadder, type RangeRung } from '../flight/RangeLadder.ts';
-import { formatDistance } from '../utils/format.ts';
+import { formatDistance, formatFixed } from '../utils/format.ts';
 import { SEMANTIC, SPACE, uiIcon } from './theme.ts';
 import { UiButton } from './system/UiButton.ts';
 import type { UiLayer } from './system/UiLayer.ts';
 import { UiModal } from './system/UiModal.ts';
 import { UiChip, UiProgressBar, createCard, createFrame } from './system/UiWidgets.ts';
+import { formatDecimal, t } from '../i18n/i18n.ts';
 
 export interface RangeLadderState {
   /** Uçuş rekoru (metre) */
@@ -36,7 +37,7 @@ export class RangeLadderModal extends UiModal {
   private currentCardY = 0;
 
   constructor(layer: UiLayer, getState: () => RangeLadderState, onOpenHangar: () => void) {
-    super(layer, { title: 'Seferler', maxWidth: 460, accent: SEMANTIC.rocket });
+    super(layer, { title: t('range.title'), maxWidth: 460, accent: SEMANTIC.rocket });
     this.getState = getState;
     this.onOpenHangar = onOpenHangar;
   }
@@ -66,7 +67,7 @@ export class RangeLadderModal extends UiModal {
     const intro = layer.text(
       0,
       y,
-      'Roketini geliştir, bir öncekinden daha ileri git. Ulaştığın her menzil fabrikana kalıcı ödül verir.',
+      t('range.intro'),
       'body',
       { color: SEMANTIC.textMuted, wrapWidth: width },
     );
@@ -74,9 +75,9 @@ export class RangeLadderModal extends UiModal {
     y += intro.height + SPACE.sm;
 
     const chips: Array<[string, string, number]> = [
-      ['icon_trophy', `Rekor ${formatDistance(state.bestDistance)}`, SEMANTIC.rocket],
-      ['icon_rocket', `Roket sınıfı ${state.rocketClass}`, SEMANTIC.rocket],
-      ['icon_coin', `Gelir ×${formatMultiplier(state.revenueMultiplier)}`, SEMANTIC.money],
+      ['icon_trophy', t('range.chip.record', { distance: formatDistance(state.bestDistance) }), SEMANTIC.rocket],
+      ['icon_rocket', t('range.chip.class', { n: state.rocketClass }), SEMANTIC.rocket],
+      ['icon_coin', t('range.chip.income', { factor: formatMultiplier(state.revenueMultiplier) }), SEMANTIC.money],
     ];
     let chipX = 0;
     for (const [icon, label, color] of chips) {
@@ -123,13 +124,15 @@ export class RangeLadderModal extends UiModal {
     // Durum: ikon + metin (yalnız renkle anlatılmaz)
     const statusIcon = isDone ? 'icon_check' : isCurrent ? uiIcon('hangar') : 'icon_flag';
     const statusColor = isDone ? SEMANTIC.primaryHex : isCurrent ? SEMANTIC.rocketHex : SEMANTIC.textMuted;
-    const statusLabel = isDone ? 'Tamamlandı' : isCurrent ? 'Sıradaki hedef' : 'İleride';
+    const statusLabel = isDone ? t('common.completed') : isCurrent ? t('range.next') : t('range.later');
     const icon = scene.add.image(pad + 8, cursor + 9, statusIcon).setOrigin(0.5);
     if (!isDone && !isCurrent) icon.setTint(SEMANTIC.iconMuted);
     rows.push(icon);
     rows.push(
       layer
-        .text(pad + 22, cursor + 9, `SEFER ${rung.index} · ${statusLabel}`, 'captionBold', { color: statusColor })
+        .text(pad + 22, cursor + 9, t('range.labelStatus', { n: rung.index, status: statusLabel }), 'captionBold', {
+          color: statusColor,
+        })
         .setOrigin(0, 0.5),
     );
     rows.push(
@@ -153,7 +156,7 @@ export class RangeLadderModal extends UiModal {
       const progressLabel = layer.text(
         pad,
         cursor,
-        `Rekor ${formatDistance(state.bestDistance)} · kalan ${formatDistance(remaining)}`,
+        t('range.progress', { record: formatDistance(state.bestDistance), remaining: formatDistance(remaining) }),
         'body',
         { wrapWidth: inner },
       );
@@ -168,11 +171,11 @@ export class RangeLadderModal extends UiModal {
     // Önerilen donanım: bu menzil hangi roket sınıfıyla ulaşılır
     if (!isDone) {
       const ready = state.rocketClass >= rung.expectedClass;
-      const needed = `Önerilen roket: Sınıf ${rung.expectedClass} (bütün modüller Sv.${rung.expectedClass})`;
+      const needed = t('range.suggested', { n: rung.expectedClass });
       const advice = ready
-        ? `Önerilen roket: Sınıf ${rung.expectedClass} (hazır)`
+        ? t('range.suggestedReady', { n: rung.expectedClass })
         : isCurrent
-          ? `${needed} · şu an Sınıf ${state.rocketClass}`
+          ? t('range.suggestedNow', { needed, current: state.rocketClass })
           : needed;
       const adviceText = layer.text(pad, cursor, advice, 'caption', {
         color: isCurrent && !ready ? SEMANTIC.warningHex : SEMANTIC.textMuted,
@@ -184,7 +187,7 @@ export class RangeLadderModal extends UiModal {
 
     const rewards = RangeLadder.describeRewards(rung);
     if (rewards.length > 0) {
-      const rewardText = layer.text(pad, cursor, `Ödül: ${rewards.join(' · ')}`, 'caption', {
+      const rewardText = layer.text(pad, cursor, t('common.reward', { list: rewards.join(' · ') }), 'caption', {
         color: isDone ? SEMANTIC.textMuted : SEMANTIC.moneyHex,
         wrapWidth: inner,
       });
@@ -208,7 +211,7 @@ export class RangeLadderModal extends UiModal {
       width,
       height,
       variant: 'primary',
-      label: 'HANGARA GİT',
+      label: t('common.goToHangar'),
       icon: uiIcon('hangar'),
       iconScale: 1.5,
       onClick: () => {
@@ -232,5 +235,5 @@ export class RangeLadderModal extends UiModal {
 
 /** Gelir çarpanını kısa yazar: 2.25, 10.7 */
 function formatMultiplier(value: number): string {
-  return value >= 10 ? value.toFixed(1) : Number(value.toFixed(2)).toString();
+  return value >= 10 ? formatFixed(value, 1) : formatDecimal(value, 0, 2);
 }

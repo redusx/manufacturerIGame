@@ -8,6 +8,7 @@
 
 import type { Direction, MachineDefinition, MachinePort } from '../types.ts';
 import { RecipeRegistry, defaultRecipeRegistry } from './RecipeRegistry.ts';
+import { tDynamic } from '../../i18n/i18n.ts';
 
 /** Yönlerin saat yönünde 90 derece döndürülmesi tablosu */
 export const ROTATE_DIRECTION_CW: Record<Direction, Direction> = {
@@ -65,7 +66,17 @@ export class MachineRegistry {
     if (this.machines.has(machine.id)) {
       throw new Error(`[MachineRegistry] Makine zaten kayıtlı: ${machine.id}`);
     }
-    this.machines.set(machine.id, Object.freeze({ ...machine }));
+    // Ad ve açıklama etkin dilden okunur (`machine.<id>.name` / `.desc`)
+    const stored = { ...machine };
+    Object.defineProperty(stored, 'name', {
+      enumerable: true,
+      get: () => tDynamic(`machine.${machine.id}.name`, machine.name),
+    });
+    Object.defineProperty(stored, 'description', {
+      enumerable: true,
+      get: () => tDynamic(`machine.${machine.id}.desc`, machine.description),
+    });
+    this.machines.set(machine.id, Object.freeze(stored));
   }
 
   /** ID ile makine tanımını döner */

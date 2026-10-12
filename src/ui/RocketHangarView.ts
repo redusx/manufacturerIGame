@@ -36,7 +36,7 @@ import {
   getPerfectZoneWidth,
   launchPadTextureKey,
 } from '../flight/LaunchPad.ts';
-import { formatDistance, formatNumber } from '../utils/format';
+import { formatDistance, formatFixed, formatNumber } from '../utils/format';
 import { SEMANTIC, SPACE, uiIcon } from './theme';
 import { refreshRocketIcon } from './RocketIcon.ts';
 import { UiButton } from './system/UiButton.ts';
@@ -44,6 +44,7 @@ import { UiConfirmDialog } from './system/UiConfirmDialog.ts';
 import { UiLayer } from './system/UiLayer.ts';
 import { UiModal } from './system/UiModal.ts';
 import { UiChip, UiProgressBar, createCard, createInset } from './system/UiWidgets.ts';
+import { joinList, t } from '../i18n/i18n.ts';
 
 type ModuleState = 'max' | 'locked' | 'ready' | 'quick' | 'missingParts' | 'missingCash';
 
@@ -127,7 +128,7 @@ export class RocketHangarView extends UiModal {
     padDiscount: HangarPadDiscountConfig | null = null,
     onOpenLeaderboard: (() => void) | null = null,
   ) {
-    super(layer, { title: 'Roket Hangarı', maxWidth: 760, depth: 205, accent: SEMANTIC.rocket });
+    super(layer, { title: t('hangar.title'), maxWidth: 760, depth: 205, accent: SEMANTIC.rocket });
     this.economy = economy;
     this.onLaunch = onLaunch;
     this.hangarBridge = hangarBridge;
@@ -197,7 +198,7 @@ export class RocketHangarView extends UiModal {
       return;
     }
     if (this.cargo && this.cargoButtons.length > 0) {
-      const wait = `${formatAdCooldown(this.cargo.cooldownRemaining())} sonra`;
+      const wait = t('common.inTime', { time: formatAdCooldown(this.cargo.cooldownRemaining()) });
       for (const button of this.cargoButtons) button.setSublabel(wait);
     }
     for (const card of this.cardRefs) {
@@ -263,11 +264,19 @@ export class RocketHangarView extends UiModal {
     // Özet değerler: her biri ikon + sayı
     const rocketClass = this.hangarBridge.getRocketClass();
     const stats: Array<[string, string, number]> = [
-      ['icon_rocket', `Sınıf ${rocketClass}`, SEMANTIC.rocket],
-      ['icon_lightning', `Hız ×${getRangeScale(rocketClass)}`, SEMANTIC.rocket],
-      ['icon_heart', `${getMaxHullHP(this.levelOf('hull'))} HP`, SEMANTIC.danger],
-      [uiIcon('drop'), `Yakıt ${getFuelCapacity(this.levelOf('engine')).toFixed(1)} sn`, SEMANTIC.factory],
-      [uiIcon('star'), `Nitro ${getMaxBoostDuration(this.levelOf('boost')).toFixed(1)} sn`, SEMANTIC.money],
+      ['icon_rocket', t('hangar.chip.class', { n: rocketClass }), SEMANTIC.rocket],
+      ['icon_lightning', t('hangar.chip.speed', { factor: getRangeScale(rocketClass) }), SEMANTIC.rocket],
+      ['icon_heart', t('hangar.chip.hp', { hp: getMaxHullHP(this.levelOf('hull')) }), SEMANTIC.danger],
+      [
+        uiIcon('drop'),
+        t('hangar.chip.fuel', { seconds: formatFixed(getFuelCapacity(this.levelOf('engine')), 1) }),
+        SEMANTIC.factory,
+      ],
+      [
+        uiIcon('star'),
+        t('hangar.chip.nitro', { seconds: formatFixed(getMaxBoostDuration(this.levelOf('boost')), 1) }),
+        SEMANTIC.money,
+      ],
     ];
     let x = 0;
     for (const [icon, label, color] of stats) {
@@ -294,7 +303,7 @@ export class RocketHangarView extends UiModal {
         (def) => def.name,
       );
       line(
-        `Sınıf ${rocketClass + 1} (hız ×${getRangeScale(rocketClass + 1)}) için Sv.${rocketClass + 1} olmalı: ${lagging.join(', ')}`,
+        t('hangar.classHint', { n: rocketClass + 1, factor: getRangeScale(rocketClass + 1), list: joinList(lagging) }),
         SEMANTIC.textMuted,
       );
       y += SPACE.xs;
@@ -303,11 +312,15 @@ export class RocketHangarView extends UiModal {
     // Rekor ve sıradaki menzil hedefi: daha ileri gitmenin fabrikaya kazandırdığı
     const best = this.hangarBridge.getFlightStats().bestDistance;
     const nextRung = RangeLadder.next(best);
-    line(`Rekor: ${formatDistance(best)}`, SEMANTIC.rocketHex, 'bodyBold');
+    line(t('hangar.record', { distance: formatDistance(best) }), SEMANTIC.rocketHex, 'bodyBold');
     line(
       nextRung
-        ? `Sıradaki menzil ${formatDistance(nextRung.targetMeters)} (${nextRung.name}): ${RangeLadder.describeRewards(nextRung).join(' · ')}`
-        : 'Bütün menzil hedefleri tamamlandı.',
+        ? t('hangar.nextRange', {
+            distance: formatDistance(nextRung.targetMeters),
+            name: nextRung.name,
+            rewards: RangeLadder.describeRewards(nextRung).join(' · '),
+          })
+        : t('hangar.allRanges'),
       SEMANTIC.textMuted,
     );
     y += SPACE.xs;
@@ -317,7 +330,7 @@ export class RocketHangarView extends UiModal {
       width: RANGES_BUTTON_WIDTH,
       height: RANGES_BUTTON_HEIGHT,
       variant: 'secondary',
-      label: 'SEFERLER',
+      label: t('hangar.voyages'),
       icon: 'icon_flag',
       onClick: () => {
         this.close();
@@ -334,7 +347,7 @@ export class RocketHangarView extends UiModal {
           width: boardWidth,
           height: RANGES_BUTTON_HEIGHT,
           variant: 'secondary',
-          label: 'SIRALAMA',
+          label: t('hangar.ranking'),
           icon: 'icon_trophy',
           onClick: () => {
             this.close();
@@ -351,10 +364,10 @@ export class RocketHangarView extends UiModal {
     const collecting = this.hangarBridge.getCollectingModules();
     line(
       collecting.length === ROCKET_UPGRADES.length
-        ? 'Sevkiyata ulaşan parçalar bütün modüller için ayrılıyor. Bir modülün TOPLA düğmesini kapatırsan onun parçaları satılır.'
+        ? t('hangar.collectAll')
         : collecting.length === 0
-          ? 'Hiçbir modül işaretli değil: bütün ürünler satılıyor. Parça biriktirmek için modüllerin TOPLA düğmesini aç.'
-          : `Parçaları ayrılan modüller: ${collecting.map(nameOf).join(', ')}. Diğer modüllerin ürünleri satılıyor.`,
+          ? t('hangar.collectNone')
+          : t('hangar.collectSome', { list: joinList(collecting.map((category) => nameOf(category) ?? '')) }),
       SEMANTIC.textMuted,
     );
 
@@ -363,7 +376,7 @@ export class RocketHangarView extends UiModal {
       const hint = layer.text(
         0,
         y + SPACE.xs,
-        `KARGO: modülün kartındaki reklam düğmesi, o modülün eksik parçalarının %${Math.round(PARTS_CARGO_SHARE * 100)}'ini hangara getirir.`,
+        t('hangar.cargoHint', { percent: Math.round(PARTS_CARGO_SHARE * 100) }),
         'caption',
         { color: SEMANTIC.textMuted, wrapWidth: width },
       );
@@ -424,9 +437,15 @@ export class RocketHangarView extends UiModal {
 
       const textX = SPACE.sm + MODULE_THUMB_WIDTH + SPACE.sm;
       const levelLabel = layer
-        .text(textRight, SPACE.sm + 2, `${RangeLadder.tierName(level)} · Sv.${level}/${def.maxLevel}`, 'captionBold', {
-          color: SEMANTIC.moneyHex,
-        })
+        .text(
+          textRight,
+          SPACE.sm + 2,
+          `${RangeLadder.tierName(level)} · ${t('common.levelOf', { n: level, max: def.maxLevel })}`,
+          'captionBold',
+          {
+            color: SEMANTIC.moneyHex,
+          },
+        )
         .setOrigin(1, 0);
       card.add(levelLabel);
       const name = layer.text(textX, SPACE.sm, '', 'heading');
@@ -439,21 +458,27 @@ export class RocketHangarView extends UiModal {
 
       const ref: ModuleCardRef = { category, partRows: [] };
       if (state === 'max') {
-        card.add(new UiChip(layer, textX, SPACE.sm + 40, 'En üst seviye', SEMANTIC.primary, { icon: 'icon_check' }));
+        card.add(new UiChip(layer, textX, SPACE.sm + 40, t('common.maxLevel'), SEMANTIC.primary, { icon: 'icon_check' }));
       } else if (state === 'locked') {
         // Sıradaki kademe bir menzil basamağıyla açılır
         const rung = this.hangarBridge.getUpgradeLock(category);
         card.add(
-          new UiChip(layer, textX, SPACE.sm + 40, `${RangeLadder.tierName(level + 1)} kilitli`, SEMANTIC.warning, {
+          new UiChip(layer, textX, SPACE.sm + 40, t('hangar.tierLocked', { tier: RangeLadder.tierName(level + 1) }), SEMANTIC.warning, {
             icon: uiIcon('lock'),
           }),
         );
         if (rung) {
           card.add(
-            layer.text(textX, SPACE.sm + 66, `${formatDistance(rung.targetMeters)} menziline (${rung.name}) ulaşınca açılır.`, 'caption', {
-              color: SEMANTIC.textMuted,
-              wrapWidth: width - textX - SPACE.sm,
-            }),
+            layer.text(
+              textX,
+              SPACE.sm + 66,
+              t('hangar.unlockAt', { distance: formatDistance(rung.targetMeters), name: rung.name }),
+              'caption',
+              {
+                color: SEMANTIC.textMuted,
+                wrapWidth: width - textX - SPACE.sm,
+              },
+            ),
           );
         }
       } else if (cost) {
@@ -486,7 +511,7 @@ export class RocketHangarView extends UiModal {
             width: MODULE_THUMB_WIDTH,
             height: COLLECT_BUTTON_HEIGHT,
             variant: isCollecting ? 'gold' : 'secondary',
-            label: 'TOPLA',
+            label: t('hangar.collect'),
             textVariant: 'buttonSmall',
             onClick: () => this.toggleCollecting(category),
           },
@@ -557,23 +582,25 @@ export class RocketHangarView extends UiModal {
     const card = scene.add.container(x, y);
 
     const levelLabel = layer
-      .text(textRight, SPACE.sm + 2, `Sv.${level}/${MAX_LAUNCH_PAD_LEVEL}`, 'captionBold', { color: SEMANTIC.moneyHex })
+      .text(textRight, SPACE.sm + 2, t('common.levelOf', { n: level, max: MAX_LAUNCH_PAD_LEVEL }), 'captionBold', {
+        color: SEMANTIC.moneyHex,
+      })
       .setOrigin(1, 0);
     const name = layer.text(textX, SPACE.sm, '', 'heading');
-    UiLayer.fit(name, 'Fırlatma Rampası', textRight - textX - levelLabel.width - SPACE.sm);
+    UiLayer.fit(name, t('hangar.pad.name'), textRight - textX - levelLabel.width - SPACE.sm);
     const zone =
       percent(level) >= 100
-        ? 'Her fırlatma mükemmel: yeşil bölge çubuğun tamamı'
-        : `Mükemmel fırlatma bölgesi: çubuğun %${percent(level)}'i`;
+        ? t('hangar.pad.full')
+        : t('hangar.pad.zone', { percent: percent(level) });
     const stat = layer.text(textX, SPACE.sm + 22, zone, 'caption', {
       color: SEMANTIC.textMuted,
       wrapWidth: textRight - textX,
     });
-    const bonus = `Mükemmel fırlatma uçuş primine ${PERFECT_LAUNCH_BONUS_SECONDS} sn'lik gelir ekler.`;
+    const bonus = t('hangar.pad.bonus', { seconds: PERFECT_LAUNCH_BONUS_SECONDS });
     const detail = layer.text(
       textX,
       stat.y + stat.height + 4,
-      cost === null ? bonus : `Sonraki seviye: %${percent(level + 1)}. ${bonus}`,
+      cost === null ? bonus : t('hangar.pad.next', { percent: percent(level + 1), bonus }),
       'caption',
       { wrapWidth: textRight - textX },
     );
@@ -593,25 +620,27 @@ export class RocketHangarView extends UiModal {
 
     if (cost === null) {
       card.add(
-        new UiChip(layer, textX, detail.y + detail.height + 6, 'En üst seviye', SEMANTIC.primary, { icon: 'icon_check' }),
+        new UiChip(layer, textX, detail.y + detail.height + 6, t('common.maxLevel'), SEMANTIC.primary, {
+          icon: 'icon_check',
+        }),
       );
     } else {
       const buttonX = stacked ? width / 2 : width - SPACE.sm - buttonWidth / 2;
       const top = stacked ? cardHeight - SPACE.sm - buttonsHeight : (cardHeight - buttonsHeight) / 2;
-      const missing = (price: number): string =>
-        `$${formatNumber(Math.ceil(Math.max(0, price - this.factoryEconomy.money)))} daha gerekli.`;
+      const missingAmount = (price: number): string =>
+        formatNumber(Math.ceil(Math.max(0, price - this.factoryEconomy.money)));
 
       const affordable = this.factoryEconomy.canAfford(cost);
       const button = new UiButton(layer, buttonX, top + buttonHeight / 2, {
         width: buttonWidth,
         height: buttonHeight,
         variant: 'primary',
-        label: 'YÜKSELT',
+        label: t('common.upgrade'),
         sublabel: `$${formatNumber(cost)}`,
         textVariant: affordable ? 'button' : 'buttonSmall',
         silent: true,
         onClick: () => this.upgradeLaunchPad(),
-        onDisabledClick: () => this.onDenied(`Yetersiz bakiye: ${missing(cost)}`),
+        onDisabledClick: () => this.onDenied(t('common.insufficient', { amount: missingAmount(cost) })),
       });
       button.setEnabled(affordable);
       card.add(button);
@@ -625,11 +654,14 @@ export class RocketHangarView extends UiModal {
           height: adHeight,
           variant: 'gold',
           icon: uiIcon('video'),
-          label: `%${discountPercent} İNDİRİM`,
+          label: t('common.percentOff', { percent: discountPercent }),
           sublabel: `$${formatNumber(discountedCost)}`,
           textVariant: 'buttonSmall',
           onClick: () => discount.onRequest(),
-          onDisabledClick: () => this.onDenied(`Reklamla indirimli bedel için ${missing(discountedCost)}`),
+          onDisabledClick: () =>
+            this.onDenied(
+              t('hangar.adNeedMore', { missing: t('common.needMore', { amount: missingAmount(discountedCost) }) }),
+            ),
         });
         adButton.setEnabled(this.factoryEconomy.canAfford(discountedCost));
         card.add(adButton);
@@ -659,11 +691,14 @@ export class RocketHangarView extends UiModal {
       height,
       variant: 'gold',
       icon: uiIcon('video'),
-      label: 'KARGO',
-      sublabel: cooldown > 0 ? `${formatAdCooldown(cooldown)} sonra` : `eksiğin %${share}'i`,
+      label: t('hangar.cargo'),
+      sublabel:
+        cooldown > 0
+          ? t('common.inTime', { time: formatAdCooldown(cooldown) })
+          : t('hangar.cargoShare', { percent: share }),
       textVariant: 'buttonSmall',
       onClick: () => this.cargo?.onRequest(category),
-      onDisabledClick: () => this.onDenied('Parça kargosu biraz sonra yeniden kullanılabilir.'),
+      onDisabledClick: () => this.onDenied(t('hangar.cargoSoon')),
     });
     button.setEnabled(cooldown === 0);
     if (cooldown > 0) this.cargoButtons.push(button);
@@ -689,7 +724,7 @@ export class RocketHangarView extends UiModal {
         width,
         height,
         variant: 'primary',
-        label: 'YÜKSELT',
+        label: t('common.upgrade'),
         sublabel: `$${formatNumber(cash)}`,
         silent: true,
         onClick: () => this.upgrade(category, false),
@@ -702,7 +737,7 @@ export class RocketHangarView extends UiModal {
         width,
         height,
         variant: 'gold',
-        label: 'HIZLI İNŞA',
+        label: t('hangar.quickBuild'),
         sublabel: `$${formatNumber(quickCost)}`,
         textVariant: 'buttonSmall',
         silent: true,
@@ -714,17 +749,19 @@ export class RocketHangarView extends UiModal {
     const button = new UiButton(this.layer, x, y, {
       width,
       height,
-      label: missingParts ? 'PARÇA EKSİK' : 'YÜKSELT',
+      label: missingParts ? t('hangar.partsMissing') : t('common.upgrade'),
       sublabel: `$${formatNumber(cash)}`,
       textVariant: 'buttonSmall',
       onClick: () => undefined,
       onDisabledClick: () =>
         this.onDenied(
           !missingParts
-            ? `Yetersiz bakiye: $${formatNumber(Math.ceil(Math.max(0, cash - this.factoryEconomy.money)))} daha gerekli.`
+            ? t('common.insufficient', {
+                amount: formatNumber(Math.ceil(Math.max(0, cash - this.factoryEconomy.money))),
+              })
             : quote.allowed
-              ? `Hızlı inşa için $${formatNumber(quickCost)} gerekli; ya da kalan parçaları fabrikada üret.`
-              : 'Parçalar eksik: fabrikada üretip sevkiyat sandığına ulaştır. Her parçanın en fazla dörtte biri nakitle tamamlanabilir.',
+              ? t('hangar.quickNeed', { amount: formatNumber(quickCost) })
+              : t('hangar.partsNeed'),
         ),
     });
     button.setEnabled(false);
@@ -740,7 +777,7 @@ export class RocketHangarView extends UiModal {
       width: buttonWidth,
       height,
       variant: 'rocket',
-      label: 'UÇUŞU BAŞLAT',
+      label: t('hangar.startFlight'),
       icon: rocketIcon,
       iconScale: 1.5,
       silent: true,
@@ -776,18 +813,24 @@ export class RocketHangarView extends UiModal {
     const quote = this.hangarBridge.getQuickBuildQuote(category, multiplier);
     if (!cost || !quote.allowed) return;
 
-    const missing = this.hangarBridge
-      .getMissingParts(category, multiplier)
-      .map((part) => `${part.missingCount} ${part.itemName} ($${formatNumber(part.missingTotalCost)})`)
-      .join(', ');
+    const missing = joinList(
+      this.hangarBridge.getMissingParts(category, multiplier).map((part) =>
+        t('hangar.quickPart', {
+          count: part.missingCount,
+          item: part.itemName,
+          cost: formatNumber(part.missingTotalCost),
+        }),
+      ),
+    );
     this.confirmDialog.ask({
-      title: `${def.name}: hızlı inşa`,
-      message:
-        `Eksik parçalar nakitle tamamlanır: ${missing}. ` +
-        `Yükseltme bedeli $${formatNumber(cost.cashCost)} ile birlikte toplam $${formatNumber(quote.totalCost)}.\n\n` +
-        `Parçaları fabrikada üretip sevkiyata ulaştırırsan yalnızca $${formatNumber(cost.cashCost)} ödersin. ` +
-        `Her parçanın en fazla %${Math.round(QUICK_BUILD_MAX_SHARE * 100)}'i nakitle alınabilir.`,
-      confirmLabel: 'SATIN AL',
+      title: t('hangar.quickTitle', { name: def.name }),
+      message: t('hangar.quickMessage', {
+        missing,
+        upgrade: formatNumber(cost.cashCost),
+        total: formatNumber(quote.totalCost),
+        percent: Math.round(QUICK_BUILD_MAX_SHARE * 100),
+      }),
+      confirmLabel: t('common.buy'),
       onConfirm: () => this.upgrade(category, true),
     });
   }

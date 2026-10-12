@@ -7,6 +7,7 @@
  * ====================================================================== */
 
 import type { ItemDefinition } from '../types.ts';
+import { tDynamic } from '../../i18n/i18n.ts';
 
 /** Eşyanın kendi çizimi (tools/generate_item_assets.py → public/assets/items/<id>.png) */
 export function itemSpriteKey(itemId: string): string {
@@ -25,7 +26,13 @@ export class ItemRegistry {
     if (this.items.has(item.id)) {
       throw new Error(`[ItemRegistry] Eşya zaten kayıtlı: ${item.id}`);
     }
-    this.items.set(item.id, Object.freeze({ ...item }));
+    // Ad etkin dilden okunur (`item.<id>`); çevirisi olmayan özel eşyada tanımdaki ad kalır
+    const stored = { ...item };
+    Object.defineProperty(stored, 'name', {
+      enumerable: true,
+      get: () => tDynamic(`item.${item.id}`, item.name),
+    });
+    this.items.set(item.id, Object.freeze(stored));
   }
 
   /** ID ile eşya tanımını döner; bulunamazsa undefined döner */

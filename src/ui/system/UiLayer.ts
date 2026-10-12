@@ -16,6 +16,7 @@ import Phaser from 'phaser';
 import { UiHost } from './UiHost.ts';
 import type { UiMetrics } from './UiMetrics.ts';
 import { FONT_FAMILY, SEMANTIC, TYPE_SCALE, brightOf, type UiTextVariant } from '../theme.ts';
+import { getLocaleInfo, isRtl } from '../../i18n/i18n.ts';
 
 type Camera = Phaser.Cameras.Scene2D.Camera;
 type GameObject = Phaser.GameObjects.GameObject;
@@ -251,6 +252,12 @@ export class UiLayer {
     if (options.wrapWidth !== undefined) {
       style.wordWrap = { width: options.wrapWidth, useAdvancedWrap: true };
     }
+    UiLayer.localizeStyle(style, content);
+    if (isRtl() && options.wrapWidth !== undefined && options.align === undefined) {
+      // Sağdan sola dillerde paragraflar sağa yaslanır. Ekran düzeni ve oyun haritası aynalanmaz.
+      style.align = 'right';
+      style.fixedWidth = options.wrapWidth;
+    }
     if (options.lineSpacing !== undefined) {
       style.lineSpacing = options.lineSpacing;
     }
@@ -259,6 +266,144 @@ export class UiLayer {
       style.strokeThickness = 3;
     }
     return this.scene.add.text(x, y, content, style);
+  }
+
+  /** Bir metnin verilen yazı biçimindeki genişliği (arayüz birimi); düğme genişliği seçmek için */
+  measureText(content: string, variant: UiTextVariant = 'body'): number {
+    const probe = this.text(0, 0, content, variant);
+    const width = probe.width;
+    probe.destroy();
+    return Math.ceil(width);
+  }
+
+  /**
+   * Bir yazı stilini etkin dile uyarlar; arayüz katmanının dışında (dünyada) çizilen yazılar
+   * da bunu kullanır. Latin dışı yazılarda harfler daha yüksek ya da derin olabilir: etkin
+   * dilin ve içeriğin harfleri yükseklik ölçümüne katılır ki kırpılmasınlar (dil listesindeki
+   * adlar etkin dilin yazısında değildir). Sağdan sola dillerde her satır kendi yön işaretiyle
+   * çizilir; böylece noktalama ve sayılar doğru tarafta kalır.
+   */
+  static localizeStyle(
+    style: Phaser.Types.GameObjects.Text.TextStyle,
+    content: string,
+  ): Phaser.Types.GameObjects.Text.TextStyle {
+    const locale = getLocaleInfo();
+    const sample = locale.sample + UiLayer.tallGlyphs(content);
+    if (sample) style.testString = `|MÉqgy${sample}`;
+    if (locale.rtl) {
+      style.wordWrap = {
+        ...style.wordWrap,
+        callback: (text: string, textObject: Phaser.GameObjects.Text) => UiLayer.wrapRtl(text, textObject),
+      };
+    } else if (locale.charWrap) {
+      style.wordWrap = {
+        ...style.wordWrap,
+        callback: (text: string, textObject: Phaser.GameObjects.Text) => UiLayer.wrapByCharacter(text, textObject),
+      };
+    }
+    return style;
+  }
+
+  /** Metindeki Latin ve Kiril dışı harflerden kısa bir örnek (yükseklik ölçümü için) */
+  private static tallGlyphs(content: string): string {
+    let sample = '';
+    for (const char of content) {
+      if ((char.codePointAt(0) ?? 0) > 0x52f && !sample.includes(char)) {
+        sample += char;
+        if (sample.length >= 12) break;
+      }
+    }
+    return sample;
+  }
+
+  /**
+   * Sağdan sola metni satırlara böler ve her satırı yön işaretleriyle sarar (RLE … PDF).
+   * Genişlik yazının o anki sarma genişliğidir (sonradan `setWordWrapWidth` ile değişebilir).
+   */
+  private static wrapRtl(content: string, textObject: Phaser.GameObjects.Text): string[] {
+    const wrapWidth = textObject.style.wordWrapWidth ?? 0;
+    const wrapped = wrapWidth > 0 ? textObject.advancedWordWrap(content, textObject.context, wrapWidth) : content;
+    return wrapped.split('\n').map((line) => UiLayer.markRtlLine(line));
+  }
+
+  /** Arap ve İbrani yazısındaki harfler (sağdan sola çizilen yazılar) */
+  private static readonly RTL_LETTER = /[\u0590-\u08ff\ufb1d-\ufdff\ufe70-\ufefc]/;
+  /** Önünde işaret ya da para simgesi olan sayı: "+$5.40K", "×1.5", "-20" */
+  private static readonly SIGNED_NUMBER = /(^|[^\w.,])([+\-−×÷]\s?\$?\d|\$\d)/g;
+
+  /**
+   * Sağdan sola harf içeren satırı yön işaretleriyle sarar (RLE … PDF). İşaretli sayıların
+   * önüne soldan-sağa işareti konur; yoksa "+" ve "×" sayının sağına düşer ("5+" gibi).
+   * İçinde sağdan sola harf olmayan satırlar ("$1.2K", "Lv.3/10") olduğu gibi kalır.
+   */
+  private static markRtlLine(line: string): string {
+    if (!UiLayer.RTL_LETTER.test(line)) return line;
+    return `\u202B${line.replace(UiLayer.SIGNED_NUMBER, '$1\u200E$2')}\u202C`;
+  }
+
+  /** Satır başına gelemeyen işaretler (kapanış noktalaması): önceki harfe yapışık kalır */
+  private static readonly NO_LINE_START = '、。，．,.!?！？：；:;）)」』】〉》”’％%…ー・';
+  /** Satır sonunda kalamayan işaretler (açılış ayraçları): sonraki harfle birlikte taşınır */
+  private static readonly NO_LINE_END = '（(「『【〈《“‘$';
+
+  /**
+   * Sözcükleri boşlukla ayırmayan dillerde (Japonca, Çince) metni satırlara böler: satır
+   * iki harfin arasından bölünebilir; Latin harf ve rakam öbekleri ("Lv.3", "$2,500")
+   * bütün kalır, kapanış noktalaması satır başına, açılış ayracı satır sonuna düşmez.
+   */
+  private static wrapByCharacter(content: string, textObject: Phaser.GameObjects.Text): string[] {
+    const wrapWidth = textObject.style.wordWrapWidth ?? 0;
+    const paragraphs = content.split('\n');
+    if (!(wrapWidth > 0)) return paragraphs;
+
+    const context = textObject.context;
+    const lines: string[] = [];
+    for (const paragraph of paragraphs) {
+      if (context.measureText(paragraph).width <= wrapWidth) {
+        lines.push(paragraph);
+        continue;
+      }
+      let line = '';
+      for (const token of UiLayer.breakTokens(paragraph)) {
+        if (line !== '' && context.measureText((line + token).trimEnd()).width > wrapWidth) {
+          lines.push(line.trimEnd());
+          line = token.trimStart();
+        } else {
+          line += token;
+        }
+      }
+      if (line.trimEnd() !== '') lines.push(line.trimEnd());
+    }
+    return lines;
+  }
+
+  /** Metni, aralarından satır bölünebilecek parçalara ayırır (bkz. wrapByCharacter) */
+  private static breakTokens(text: string): string[] {
+    const tokens: string[] = [];
+    let current = '';
+    let inWord = false;
+    const push = (): void => {
+      if (current !== '') tokens.push(current);
+      current = '';
+      inWord = false;
+    };
+    for (const char of text) {
+      if (char === ' ') {
+        current += char;
+        push();
+      } else if (UiLayer.NO_LINE_START.includes(char)) {
+        current += char;
+      } else {
+        // Geniş harfler (kanji, kana, tam genişlikli işaretler) tek başına bir parçadır
+        const wide = (char.codePointAt(0) ?? 0) >= 0x2e80;
+        const glued = current !== '' && UiLayer.NO_LINE_END.includes(current[current.length - 1]);
+        if (current !== '' && !glued && (wide || !inWord)) push();
+        current += char;
+        inWord = !wide;
+      }
+    }
+    push();
+    return tokens;
   }
 
   /** Metni verilen genişliğe sığdırır; sığmıyorsa sonunu "…" ile keser */

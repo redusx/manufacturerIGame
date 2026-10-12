@@ -1,7 +1,7 @@
 /* ======================================================================
  * SettingsPanel.ts — Ayarlar penceresi
  *
- * Arayüz ölçeği (anında uygulanır ve saklanır), ses, tam ekran ve kayıt
+ * Dil, arayüz ölçeği (anında uygulanır ve saklanır), ses, tam ekran ve kayıt
  * sıfırlama. Bir tercihin bu ekranda etkisi yoksa (ekrana sığmadığı için)
  * düğmesi kapalıdır ve nedeni yazılır.
  * ====================================================================== */
@@ -15,12 +15,13 @@ import { UiHost } from './system/UiHost.ts';
 import type { UiLayer } from './system/UiLayer.ts';
 import {
   isPresetEffective,
-  UI_SCALE_LABELS,
   UI_SCALE_PRESETS,
   type UiScalePreset,
 } from './system/UiMetrics.ts';
 import { UiModal } from './system/UiModal.ts';
 import { UiProgressBar, createDivider } from './system/UiWidgets.ts';
+import { LanguageModal } from './LanguageModal.ts';
+import { getLocaleInfo, t, type LocaleCode } from '../i18n/i18n.ts';
 
 const ROW_HEIGHT = 44;
 /** Ses seviyesinin bir adımı */
@@ -34,18 +35,36 @@ export interface SettingsPanelOptions {
   isTutorialActive?: () => boolean;
   /** Öğreticiyi kapatır veya baştan başlatır */
   onToggleTutorial?: () => void;
+  /** Oyuncu başka bir dil seçti (sahne arayüzü yeni dille baştan kurar) */
+  onChangeLanguage?: (code: LocaleCode) => void;
+}
+
+/** Ölçek düğmelerinin etiketi */
+function scaleLabel(preset: UiScalePreset): string {
+  switch (preset) {
+    case 'small':
+      return t('settings.scale.small');
+    case 'normal':
+      return t('settings.scale.normal');
+    case 'large':
+      return t('settings.scale.large');
+    case 'xlarge':
+      return t('settings.scale.xlarge');
+  }
 }
 
 export class SettingsPanel extends UiModal {
   private readonly onReset: () => void;
   private readonly options: SettingsPanelOptions;
   private readonly confirmDialog: UiConfirmDialog;
+  private readonly languageModal: LanguageModal;
 
   constructor(layer: UiLayer, onReset: () => void, options: SettingsPanelOptions = {}) {
-    super(layer, { title: 'Ayarlar', maxWidth: 400, depth: 300, accent: SEMANTIC.secondary });
+    super(layer, { title: t('settings.title'), maxWidth: 400, depth: 300, accent: SEMANTIC.secondary });
     this.onReset = onReset;
     this.options = options;
     this.confirmDialog = new UiConfirmDialog(layer);
+    this.languageModal = new LanguageModal(layer, (code) => this.options.onChangeLanguage?.(code));
   }
 
   protected buildBody(body: Phaser.GameObjects.Container, width: number): number {
@@ -58,8 +77,25 @@ export class SettingsPanel extends UiModal {
       y += 20;
     };
 
+    // --- Dil: düğmede etkin dilin kendi adı yazar, basınca dil listesi açılır ---
+    if (this.options.onChangeLanguage) {
+      sectionTitle(t('settings.language'));
+      body.add(
+        new UiButton(layer, width / 2, y + ROW_HEIGHT / 2, {
+          width,
+          height: ROW_HEIGHT,
+          variant: 'secondary',
+          label: getLocaleInfo().nativeName,
+          onClick: () => this.languageModal.open(),
+        }),
+      );
+      y += ROW_HEIGHT + SPACE.md;
+      body.add(createDivider(scene, 0, y, width));
+      y += SPACE.md;
+    }
+
     // --- Arayüz ölçeği -------------------------------------------------
-    sectionTitle('ARAYÜZ ÖLÇEĞİ');
+    sectionTitle(t('settings.uiScale'));
     const metrics = layer.metrics;
     const columns = width >= 360 ? 4 : 2;
     const gap = SPACE.sm;
@@ -77,7 +113,7 @@ export class SettingsPanel extends UiModal {
         width: buttonWidth,
         height: ROW_HEIGHT,
         variant: selected ? 'primary' : 'secondary',
-        label: UI_SCALE_LABELS[preset],
+        label: scaleLabel(preset),
         textVariant: 'buttonSmall',
         onClick: () => this.selectScale(preset),
       });
@@ -88,9 +124,7 @@ export class SettingsPanel extends UiModal {
     });
     y += Math.ceil(UI_SCALE_PRESETS.length / columns) * (ROW_HEIGHT + gap);
 
-    const scaleNote = anyClamped
-      ? 'Kapalı seçenekler bu ekrana sığmıyor. Seçimin saklanır: ekranı döndürünce veya tam ekrana geçince sığan en büyük ölçek kendiliğinden uygulanır.'
-      : 'Yazı, düğme ve pencerelerin büyüklüğünü değiştirir. Fabrika görünümü etkilenmez.';
+    const scaleNote = anyClamped ? t('settings.scaleHintLimited') : t('settings.scaleHint');
     const note = layer.text(0, y, scaleNote, 'caption', { color: SEMANTIC.textMuted, wrapWidth: width });
     body.add(note);
     y += note.height + SPACE.md;
@@ -104,7 +138,7 @@ export class SettingsPanel extends UiModal {
     if (typeof document !== 'undefined' && document.fullscreenEnabled) {
       const isFullscreen = document.fullscreenElement !== null;
       y = this.addToggleRow(body, width, y, {
-        label: 'Tam ekran',
+        label: t('settings.fullscreen'),
         icon: uiIcon('fullscreen'),
         on: isFullscreen,
         onToggle: () => {
@@ -123,7 +157,7 @@ export class SettingsPanel extends UiModal {
     if (isTutorialActive && onToggleTutorial) {
       const active = isTutorialActive();
       y = this.addToggleRow(body, width, y, {
-        label: 'Öğretici',
+        label: t('settings.tutorial'),
         icon: uiIcon('info'),
         on: active,
         onToggle: () => {
@@ -137,7 +171,7 @@ export class SettingsPanel extends UiModal {
         width,
         height: ROW_HEIGHT,
         variant: 'secondary',
-        label: 'KONTROLLER',
+        label: t('settings.controls'),
         icon: uiIcon(metrics.mode === 'landscape' ? 'mouse' : 'touch'),
         onClick: onShowControls,
       });
@@ -152,14 +186,14 @@ export class SettingsPanel extends UiModal {
       width,
       height: ROW_HEIGHT,
       variant: 'danger',
-      label: 'KAYDI SIFIRLA',
+      label: t('settings.reset'),
       icon: uiIcon('trash'),
       iconTint: 0xffffff,
       onClick: () =>
         this.confirmDialog.ask({
-          title: 'Kayıt silinsin mi?',
-          message: 'Tüm fabrika, para ve roket ilerlemesi silinir. Bu işlem geri alınamaz.',
-          confirmLabel: 'SİL',
+          title: t('settings.resetTitle'),
+          message: t('settings.resetMessage'),
+          confirmLabel: t('settings.resetConfirm'),
           danger: true,
           onConfirm: () => {
             sound.playDemolish();
@@ -189,7 +223,7 @@ export class SettingsPanel extends UiModal {
       width: buttonWidth,
       height: 40,
       variant: row.on ? 'primary' : 'secondary',
-      label: row.on ? 'AÇIK' : 'KAPALI',
+      label: row.on ? t('common.on') : t('common.off'),
       textVariant: 'buttonSmall',
       silent: true,
       onClick: row.onToggle,
@@ -207,7 +241,7 @@ export class SettingsPanel extends UiModal {
     const scene = this.scene;
     const layer = this.layer;
     const labelY = y + 10;
-    body.add(layer.text(0, labelY, 'Ses', 'bodyBold').setOrigin(0, 0.5));
+    body.add(layer.text(0, labelY, t('settings.sound'), 'bodyBold').setOrigin(0, 0.5));
     const percentText = layer
       .text(width, labelY, '', 'bodyBold', { color: SEMANTIC.moneyHex })
       .setOrigin(1, 0.5);
@@ -242,7 +276,7 @@ export class SettingsPanel extends UiModal {
       const muted = sound.isMuted();
       const volume = sound.getVolume();
       bar.setProgress(muted ? 0 : volume);
-      percentText.setText(muted ? 'Kapalı' : `%${Math.round(volume * 100)}`);
+      percentText.setText(muted ? t('settings.soundOff') : t('common.percent', { n: Math.round(volume * 100) }));
       muteButton.setVariant(muted ? 'secondary' : 'primary').setIcon(uiIcon(muted ? 'sound_off' : 'sound_on'));
     };
     const apply = (volume: number): void => {

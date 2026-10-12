@@ -9,8 +9,10 @@
  * Node 24 uyumludur; Phaser bağımlılığı yoktur, headless test edilebilir.
  * ====================================================================== */
 
-import { FactoryEconomy } from '../simulation/FactoryEconomy.ts';
+import { FACTORY_PLOTS, FactoryEconomy } from '../simulation/FactoryEconomy.ts';
 import { ProductionEngine } from '../simulation/ProductionEngine.ts';
+import { t, tDynamic } from '../../i18n/i18n.ts';
+import { formatInteger } from '../../utils/format.ts';
 
 export type MilestoneCategory =
   | 'ATELIER'   // Çağ 1: 8x8 Cevher Atölyesi
@@ -33,6 +35,32 @@ export interface MilestoneCondition {
   targetItemId?: string;
   targetPlotIndex?: number;
   description: string;
+}
+
+/**
+ * Koşulun etkin dildeki açıklaması. Metin koşulun türünden ve değerlerinden kurulur;
+ * tanımlardaki `description` alanı yalnızca belgeleme ve yedek içindir.
+ */
+export function describeMilestoneCondition(condition: MilestoneCondition): string {
+  switch (condition.type) {
+    case 'TOTAL_EARNED':
+      return t('stage.cond.totalEarned', { amount: formatInteger(condition.targetValue) });
+    case 'CURRENT_BALANCE':
+      return t('stage.cond.balance', { amount: formatInteger(condition.targetValue) });
+    case 'EXPORT_SPECIFIC_ITEM':
+      return t('stage.cond.export', {
+        count: condition.targetValue,
+        item: tDynamic(`item.${condition.targetItemId ?? ''}`, condition.targetItemId ?? ''),
+      });
+    case 'UNLOCK_PLOT': {
+      const index = condition.targetPlotIndex ?? condition.targetValue;
+      const plot = FACTORY_PLOTS.find((entry) => entry.index === index);
+      const size = plot ? `${plot.targetWidth}x${plot.targetHeight}` : '';
+      return t('stage.cond.plot', { index, size });
+    }
+    default:
+      return condition.description;
+  }
 }
 
 export interface MilestoneReward {
@@ -88,7 +116,9 @@ export const DEFAULT_MILESTONES: readonly MilestoneDefinition[] = Object.freeze(
   {
     id: 'milestone_01_first_ore',
     index: 0,
-    name: 'İlk Hammadde',
+    get name() {
+      return t('stage.1');
+    },
     category: 'ATELIER',
     tagline: 'Fabrika macerasına ilk adımı at.',
     description: 'Hazır hattın ürettiği demir tozunu satarak $50 toplam ciroya ulaş.',
@@ -109,7 +139,9 @@ export const DEFAULT_MILESTONES: readonly MilestoneDefinition[] = Object.freeze(
   {
     id: 'milestone_02_crushed_powder',
     index: 1,
-    name: 'Cevher Kırma',
+    get name() {
+      return t('stage.2');
+    },
     category: 'ATELIER',
     tagline: 'Cevherleri kırıcıda ince metal tozuna dönüştür.',
     conditions: [
@@ -133,7 +165,9 @@ export const DEFAULT_MILESTONES: readonly MilestoneDefinition[] = Object.freeze(
   {
     id: 'milestone_03_first_ingot',
     index: 2,
-    name: 'İlk Döküm',
+    get name() {
+      return t('stage.3');
+    },
     category: 'FOUNDRY',
     tagline: 'Tozları fırında eritip dayanıklı metal külçelerine dönüştür.',
     conditions: [
@@ -153,7 +187,9 @@ export const DEFAULT_MILESTONES: readonly MilestoneDefinition[] = Object.freeze(
   {
     id: 'milestone_04_foundry_expansion',
     index: 3,
-    name: 'Dökümhane Genişlemesi',
+    get name() {
+      return t('stage.4');
+    },
     category: 'FOUNDRY',
     tagline: 'Fabrikanı 12x8 boyutuna büyüt ve yeni üretim hattı kur.',
     conditions: [
@@ -182,7 +218,9 @@ export const DEFAULT_MILESTONES: readonly MilestoneDefinition[] = Object.freeze(
   {
     id: 'milestone_05_heavy_plates',
     index: 4,
-    name: 'Ağır Levhalar',
+    get name() {
+      return t('stage.5');
+    },
     category: 'WORKSHOP',
     tagline: 'Külçeleri presleyerek metal levhalar imal et.',
     conditions: [
@@ -203,7 +241,9 @@ export const DEFAULT_MILESTONES: readonly MilestoneDefinition[] = Object.freeze(
   {
     id: 'milestone_06_gears_and_hangar',
     index: 5,
-    name: 'Dişliler ve Roket Hangarı',
+    get name() {
+      return t('stage.6');
+    },
     category: 'WORKSHOP',
     tagline: 'Kesici ile çelik dişliler üret ve Roket Hangarını faaliyete geçir.',
     conditions: [
@@ -232,7 +272,9 @@ export const DEFAULT_MILESTONES: readonly MilestoneDefinition[] = Object.freeze(
   {
     id: 'milestone_07_assembly_line',
     index: 6,
-    name: 'Montaj Hattı',
+    get name() {
+      return t('stage.7');
+    },
     category: 'ASSEMBLY',
     tagline: '2. Parseli (16x12) aç ve çok girişli makinelerle karmaşık parçalar yap.',
     conditions: [
@@ -258,7 +300,9 @@ export const DEFAULT_MILESTONES: readonly MilestoneDefinition[] = Object.freeze(
   {
     id: 'milestone_08_electric_motor',
     index: 7,
-    name: 'Elektrik Motoru',
+    get name() {
+      return t('stage.8');
+    },
     category: 'ASSEMBLY',
     tagline: 'Montaj tezgahında dişli ve telleri birleştirerek elektrik motoru üret.',
     conditions: [
@@ -287,7 +331,9 @@ export const DEFAULT_MILESTONES: readonly MilestoneDefinition[] = Object.freeze(
   {
     id: 'milestone_09_chemical_refinery',
     index: 8,
-    name: 'Kimyasal Rafineri',
+    get name() {
+      return t('stage.9');
+    },
     category: 'AEROSPACE',
     tagline: '3. Parseli aç ve kimyasal rafineriyle havacılık polimerleri üret.',
     conditions: [
@@ -314,7 +360,9 @@ export const DEFAULT_MILESTONES: readonly MilestoneDefinition[] = Object.freeze(
   {
     id: 'milestone_10_orbital_complex',
     index: 9,
-    name: 'Yörünge Havacılık Kompleksi',
+    get name() {
+      return t('stage.10');
+    },
     category: 'AEROSPACE',
     tagline: 'Mega fabrikayı (24x24) tamamla ve roket itici blokları ile yörüngeye ulaş!',
     conditions: [
@@ -489,7 +537,7 @@ export class MilestoneManager {
 
     return {
       type: condition.type,
-      description: condition.description,
+      description: describeMilestoneCondition(condition),
       current,
       target,
       percentage,

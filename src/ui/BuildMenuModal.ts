@@ -29,6 +29,7 @@ import { UiButton } from './system/UiButton.ts';
 import { UiLayer } from './system/UiLayer.ts';
 import { UiModal } from './system/UiModal.ts';
 import { createCard, createDivider, createInset } from './system/UiWidgets.ts';
+import { joinList, t } from '../i18n/i18n.ts';
 
 export interface CatalogPlotInfo {
   index: number;
@@ -111,7 +112,7 @@ export class BuildMenuModal extends UiModal {
   private structureSignature = '';
 
   constructor(layer: UiLayer, economy: FactoryEconomy, config: BuildMenuModalConfig) {
-    super(layer, { title: 'İnşa Kataloğu', maxWidth: 920, accent: SEMANTIC.primary });
+    super(layer, { title: t('catalog.title'), maxWidth: 920, accent: SEMANTIC.primary });
     this.economy = economy;
     this.callbacks = config;
   }
@@ -124,12 +125,12 @@ export class BuildMenuModal extends UiModal {
     const sections: CatalogSection[] = [];
 
     sections.push({
-      title: 'LOJİSTİK',
+      title: t('catalog.section.logistics'),
       entries: [
         {
           id: 'conveyor',
-          name: 'Konveyör Bandı',
-          detail: 'Ürünleri taşır. Sürükleyerek çizilir.',
+          name: t('logistics.conveyor'),
+          detail: t('catalog.conveyor.detail'),
           cost: CONVEYOR_BUILD_COST,
           size: '1x1',
           icon: uiIcon('conveyor'),
@@ -139,8 +140,8 @@ export class BuildMenuModal extends UiModal {
         },
         {
           id: 'splitter',
-          name: 'Akış Ayırıcı',
-          detail: 'Bir hattı iki hatta eşit böler.',
+          name: t('logistics.splitter'),
+          detail: t('catalog.splitter.detail'),
           cost: SPLITTER_BUILD_COST,
           size: '1x1',
           icon: uiIcon('splitter'),
@@ -150,8 +151,8 @@ export class BuildMenuModal extends UiModal {
         },
         {
           id: 'merger',
-          name: 'Akış Birleştirici',
-          detail: 'İki hattı tek hatta toplar.',
+          name: t('logistics.merger'),
+          detail: t('catalog.merger.detail'),
           cost: MERGER_BUILD_COST,
           size: '1x1',
           icon: uiIcon('merger'),
@@ -163,11 +164,11 @@ export class BuildMenuModal extends UiModal {
     });
 
     sections.push({
-      title: 'MAKİNELER',
+      title: t('catalog.section.machines'),
       entries: defaultMachineRegistry.getAll().map((machine) => ({
         id: machine.id,
         name: machine.name,
-        detail: `Üretir: ${this.describeOutputs(machine.supportedRecipeIds)}`,
+        detail: t('catalog.machine.detail', { list: this.describeOutputs(machine.supportedRecipeIds) }),
         cost: machine.baseCost,
         size: `${machine.width}x${machine.height}`,
         // Fabrikada kurulacak makinenin aynı dokusu, tamsayı ölçekle
@@ -183,13 +184,13 @@ export class BuildMenuModal extends UiModal {
     });
 
     sections.push({
-      title: 'HAMMADDE GİRİŞLERİ',
+      title: t('catalog.section.intakes'),
       entries: Object.entries(INTAKE_BUILD_COSTS).map(([itemId, baseCost]) => {
         const itemName = defaultItemRegistry.get(itemId)?.name ?? itemId;
         return {
           id: `${INTAKE_CARD_PREFIX}${itemId}`,
-          name: `${itemName} Girişi`,
-          detail: `Saniyede 1 ${itemName} verir. Her yeni giriş %${Math.round((INTAKE_COST_GROWTH - 1) * 100)} daha pahalıdır.`,
+          name: t('logistics.intakeOf', { item: itemName }),
+          detail: t('catalog.intake.detail', { item: itemName, percent: Math.round((INTAKE_COST_GROWTH - 1) * 100) }),
           cost: this.callbacks.getIntakeCost?.(itemId) ?? baseCost,
           size: '1x1',
           icon: uiIcon('intake'),
@@ -204,14 +205,14 @@ export class BuildMenuModal extends UiModal {
     const plot = this.callbacks.getNextPlot?.() ?? null;
     if (plot) {
       sections.push({
-        title: 'GENİŞLEME',
+        title: t('catalog.section.expansion'),
         entries: [
           {
             id: `plot_${plot.index}`,
             name: plot.name,
             detail: plot.permitDistance
-              ? `Fabrika alanını ${plot.width}x${plot.height} hücreye büyütür. Önce ${plot.permitDistance} menziline ulaşmalısın.`
-              : `Fabrika alanını ${plot.width}x${plot.height} hücreye büyütür.`,
+              ? t('catalog.plot.detailPermit', { size: `${plot.width}x${plot.height}`, distance: plot.permitDistance })
+              : t('catalog.plot.detail', { size: `${plot.width}x${plot.height}` }),
             cost: plot.cost,
             size: '',
             icon: uiIcon('expand'),
@@ -226,12 +227,12 @@ export class BuildMenuModal extends UiModal {
     }
 
     sections.push({
-      title: 'TAŞIMA',
+      title: t('catalog.section.move'),
       entries: [
         {
           id: 'intake_move',
-          name: 'Hammadde Girişini Taşı',
-          detail: 'İlk girişin yerini değiştirir. Diğerleri için girişe dokun.',
+          name: t('catalog.moveIntake.name'),
+          detail: t('catalog.moveIntake.detail'),
           cost: 0,
           size: '',
           icon: uiIcon('intake'),
@@ -241,8 +242,8 @@ export class BuildMenuModal extends UiModal {
         },
         {
           id: 'export_move',
-          name: 'Sevkiyat Sandığını Taşı',
-          detail: 'Ürünlerin satıldığı sandığın yerini değiştirir.',
+          name: t('catalog.moveCrate.name'),
+          detail: t('catalog.moveCrate.detail'),
           cost: 0,
           size: '',
           icon: uiIcon('crate'),
@@ -264,7 +265,7 @@ export class BuildMenuModal extends UiModal {
       const name = outputId ? defaultItemRegistry.get(outputId)?.name : undefined;
       if (name && !names.includes(name)) names.push(name);
     }
-    return names.join(', ');
+    return joinList(names);
   }
 
   private lockStageOf(entry: CatalogEntry): number | null {
@@ -403,13 +404,13 @@ export class BuildMenuModal extends UiModal {
       button = new UiButton(layer, buttonX, buttonY, {
         width: buttonWidth,
         height: buttonHeight,
-        label: `Aşama ${lockStage}`,
+        label: t('catalog.lockStage', { n: lockStage }),
         icon: uiIcon('lock'),
         iconTint: SEMANTIC.warning,
         textVariant: 'buttonSmall',
         onClick: () => undefined,
         onDisabledClick: () =>
-          this.callbacks.onDenied?.(`${entry.name}, ${lockStage}. aşama tamamlanınca açılır.`),
+          this.callbacks.onDenied?.(t('catalog.lockedDenied', { name: entry.name, n: lockStage })),
       });
       button.setEnabled(false);
     } else if (entry.permitDistance) {
@@ -417,30 +418,39 @@ export class BuildMenuModal extends UiModal {
       button = new UiButton(layer, buttonX, buttonY, {
         width: buttonWidth,
         height: buttonHeight,
-        label: 'İZİN GEREKLİ',
-        sublabel: `${entry.permitDistance} menzil · $${formatNumber(entry.cost)}`,
+        label: t('catalog.permitNeeded'),
+        sublabel: t('catalog.permitSub', { distance: entry.permitDistance, cost: formatNumber(entry.cost) }),
         icon: uiIcon('lock'),
         iconTint: SEMANTIC.warning,
         textVariant: 'buttonSmall',
         onClick: () => undefined,
         onDisabledClick: () =>
           this.callbacks.onDenied?.(
-            `${entry.name} için önce ${entry.permitDistance} menziline (${entry.permitName ?? 'sefer'}) ulaşmalısın.`,
+            t('catalog.permitDenied', {
+              name: entry.name,
+              distance: entry.permitDistance ?? '',
+              range: entry.permitName ?? t('catalog.voyage'),
+            }),
           ),
       });
       button.setEnabled(false);
     } else {
-      const verb = entry.action === 'move' ? 'TAŞI' : entry.action === 'expand' ? 'AÇ' : 'KUR';
+      const verb =
+        entry.action === 'move'
+          ? t('common.move')
+          : entry.action === 'expand'
+            ? t('catalog.action.open')
+            : t('catalog.action.place');
       button = new UiButton(layer, buttonX, buttonY, {
         width: buttonWidth,
         height: buttonHeight,
         variant: entry.action === 'move' ? 'secondary' : 'primary',
         label: verb,
-        sublabel: entry.cost > 0 ? `$${formatNumber(entry.cost)}` : 'Ücretsiz',
+        sublabel: entry.cost > 0 ? `$${formatNumber(entry.cost)}` : t('common.free'),
         onClick: () => this.select(entry),
         onDisabledClick: () => {
           const missing = Math.max(0, entry.cost - this.economy.money);
-          this.callbacks.onDenied?.(`Yetersiz bakiye: $${formatNumber(Math.ceil(missing))} daha gerekli.`);
+          this.callbacks.onDenied?.(t('common.insufficient', { amount: formatNumber(Math.ceil(missing)) }));
         },
       });
     }
@@ -469,7 +479,7 @@ export class BuildMenuModal extends UiModal {
         height,
         variant: 'secondary',
         icon: uiIcon('info'),
-        label: 'BİRİM FİYAT LİSTESİ',
+        label: t('catalog.priceList'),
         textVariant: 'buttonSmall',
         onClick: () => this.callbacks.onPriceList?.(),
       }),

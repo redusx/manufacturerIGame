@@ -11,6 +11,7 @@ import { SEMANTIC, SPACE } from '../theme.ts';
 import { UiButton } from './UiButton.ts';
 import type { UiLayer } from './UiLayer.ts';
 import { UiModal } from './UiModal.ts';
+import { t } from '../../i18n/i18n.ts';
 
 export interface UiConfirmRequest {
   title: string;
@@ -86,7 +87,7 @@ export class UiConfirmDialog extends UiModal {
       width: buttonWidth,
       height,
       variant: 'secondary',
-      label: request.cancelLabel ?? 'VAZGEÇ',
+      label: request.cancelLabel ?? t('common.cancel'),
       onClick: () => this.close(),
     });
     this.confirmButton = new UiButton(this.layer, buttonWidth + gap + buttonWidth / 2, top + height / 2, {

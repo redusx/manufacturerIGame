@@ -14,6 +14,10 @@ import {
   getWelcomeMessage,
   MIN_OFFLINE_SECONDS,
 } from './OfflineEarningsHelper.ts';
+import { setLocale } from '../i18n/i18n.ts';
+
+// Bu testler oyuncuya görünen metinleri Türkçe olarak doğrular
+setLocale('tr');
 
 describe('OfflineEarningsHelper Headless Unit Tests', () => {
   it('Should reject durations below minimum threshold (<10s)', () => {

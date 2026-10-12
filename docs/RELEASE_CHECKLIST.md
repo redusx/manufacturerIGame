@@ -30,6 +30,9 @@
 - [ ] Geçiş reklamı (G1) kararını ver; açılacaksa `src/ads/ads.ts` → `MIDGAME_AD_ENABLED`.
 - [ ] Telefonda (dikey ve yatay) Takviye, uçuş raporu ve parsel onayı pencerelerini aç.
 - [ ] Kayıt: reklam bekleme süresinin sayfa yenilenince korunduğunu doğrula.
+- [ ] Dil (DEC-055): Preview'da oyunun CrazyGames'in bildirdiği dille açıldığını doğrula (`user.systemInfo.locale`; yerel kipte SDK örnek veri verdiği için denenemedi). Ayarlar > Dil ile değiştirip sayfayı yenileyince seçimin kaldığını gör.
+- [ ] Dil: Arapça, Urduca, Hintçe, Bengalce, Japonca, Korece ve Çince'yi bir Android ve bir Windows cihazda aç; harfler kutu (□) olarak çıkıyorsa o cihazda sistem yazı tipi yoktur (oyuna yazı tipi eklenmedi).
+- [ ] Dil: gönderim formunda desteklenen dilleri işaretle (en, tr, es, pt-BR, fr, de, ru, ja, ko, zh-CN, hi, ar, id, bn, ur).
 
 ## 3. Reklam Modu
 

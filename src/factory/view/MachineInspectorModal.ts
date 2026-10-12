@@ -21,17 +21,26 @@ import {
   type InspectorBufferItem,
   type MachineInspectorData,
 } from './MachineInspectorHelper.ts';
-import { formatNumber } from '../../utils/format.ts';
+import { formatFixed, formatNumber } from '../../utils/format.ts';
 import { SEMANTIC, SPACE, uiIcon } from '../../ui/theme.ts';
 import { machineTextureKey, machineThumbScale } from './MachineSprites.ts';
 
 /** Duruma göre oyuncuya ne yapacağını söyleyen kısa açıklama */
-const STATUS_HINTS: Record<string, string> = {
-  PROCESSING: 'Yeşil ok girdinin girdiği, turuncu ok ürünün çıktığı yönü gösterir.',
-  WAITING_INPUT: 'Girdi bekliyor: reçetenin istediği eşyayı taşıyan bandı makineye yönelt.',
-  BLOCKED_OUTPUT: 'Çıkış tıkalı: turuncu okun önüne, makineden uzağa giden bir bant koy.',
-  IDLE: 'Yeşil ok girdinin girdiği, turuncu ok ürünün çıktığı yönü gösterir.',
-};
+function statusHint(status: string): string {
+  switch (status) {
+    case 'WAITING_INPUT':
+      return t('inspector.hint.waiting');
+    case 'BLOCKED_OUTPUT':
+      return t('inspector.hint.blocked');
+    default:
+      return t('inspector.hint.flow');
+  }
+}
+
+/** Hız çarpanının yazılışı (ör. "x1.20") */
+function speedText(multiplier: number): string {
+  return `x${formatFixed(multiplier, 2)}`;
+}
 import { UiButton } from '../../ui/system/UiButton.ts';
 import type { UiLayer } from '../../ui/system/UiLayer.ts';
 import { UiModal } from '../../ui/system/UiModal.ts';
@@ -42,6 +51,7 @@ import {
   createInset,
   type UiBarColor,
 } from '../../ui/system/UiWidgets.ts';
+import { t } from '../../i18n/i18n.ts';
 
 export interface MachineInspectorModalConfig {
   onUpgrade?: (machine: MachineEntity, newLevel: number) => void;
@@ -188,7 +198,7 @@ export class MachineInspectorModal extends UiModal {
   private applyLiveValues(data: MachineInspectorData): void {
     if (this.statusHint && this.statusHintStatus !== data.status) {
       this.statusHintStatus = data.status;
-      this.statusHint.setText(STATUS_HINTS[data.status] ?? '');
+      this.statusHint.setText(statusHint(data.status));
     }
     if (this.statusChip) {
       this.statusChip.setChip(data.statusLabel, data.statusColorInt);
@@ -254,9 +264,9 @@ export class MachineInspectorModal extends UiModal {
     body.add(sprite);
 
     const infoX = SPACE.sm + 72;
-    body.add(layer.text(infoX, y + 12, `Seviye ${data.level}`, 'heading'));
+    body.add(layer.text(infoX, y + 12, t('common.level', { n: data.level }), 'heading'));
     body.add(
-      layer.text(infoX, y + 34, `Hız ${MachineInspectorHelper.formatSpeed(data.speedMultiplier)}`, 'caption', {
+      layer.text(infoX, y + 34, t('inspector.speed', { value: speedText(data.speedMultiplier) }), 'caption', {
         color: SEMANTIC.textMuted,
       }),
     );
@@ -274,7 +284,7 @@ export class MachineInspectorModal extends UiModal {
     y += statusH + SPACE.sm;
 
     // Durum açıklaması: makine neden durduğunu ve ne yapılacağını söyler
-    this.statusHint = layer.text(0, y, STATUS_HINTS[data.status] ?? '', 'caption', {
+    this.statusHint = layer.text(0, y, statusHint(data.status), 'caption', {
       color: SEMANTIC.textMuted,
       wrapWidth: width,
     });
@@ -284,13 +294,13 @@ export class MachineInspectorModal extends UiModal {
 
     // --- Üretim: ne üretiyor, ne hızla --------------------------------------
     const activeRecipe = data.availableRecipes.find((r) => r.isActive) ?? null;
-    section('ÜRETİM');
+    section(t('inspector.section.production'));
     if (activeRecipe && activeRecipe.outputs.length > 0) {
       const output = activeRecipe.outputs[0];
       const cycleSec = activeRecipe.processingTimeSec / data.speedMultiplier;
       const perSec = output.count / cycleSec;
 
-      const rate = layer.text(0, y, `${perSec.toFixed(2)} / sn`, 'display', { color: SEMANTIC.moneyHex, stroke: true });
+      const rate = layer.text(0, y, t('unit.perSecond', { value: formatFixed(perSec, 2) }), 'display', { color: SEMANTIC.moneyHex, stroke: true });
       body.add(rate);
       const outIcon = this.itemIcon(output.itemId).setPosition(rate.width + SPACE.md + 8, y + rate.height / 2);
       body.add(outIcon);
@@ -306,11 +316,11 @@ export class MachineInspectorModal extends UiModal {
       // Reçete akışı: girdiler → çıktılar
       y = this.addRecipeFlow(body, width, y, activeRecipe.inputs, activeRecipe.outputs);
       body.add(
-        layer.text(0, y, `Bir çevrim ${cycleSec.toFixed(1)} sn sürer.`, 'caption', { color: SEMANTIC.textMuted }),
+        layer.text(0, y, t('inspector.cycle', { seconds: formatFixed(cycleSec, 1) }), 'caption', { color: SEMANTIC.textMuted }),
       );
       y += 18 + SPACE.sm;
     } else {
-      const empty = layer.text(0, y, 'Reçete seçilmedi; makine üretmiyor.', 'body', {
+      const empty = layer.text(0, y, t('inspector.noRecipe'), 'body', {
         color: SEMANTIC.warningHex,
         wrapWidth: width,
       });
@@ -320,7 +330,7 @@ export class MachineInspectorModal extends UiModal {
 
     // --- Reçete seçimi --------------------------------------------------------
     if (data.availableRecipes.length > 1) {
-      section('REÇETE SEÇ');
+      section(t('inspector.section.recipe'));
       const columns = width >= 360 ? 2 : 1;
       const gap = SPACE.sm;
       const chipWidth = (width - gap * (columns - 1)) / columns;
@@ -348,9 +358,12 @@ export class MachineInspectorModal extends UiModal {
     }
 
     // --- Depolar ------------------------------------------------------------------
-    section('DEPO');
+    section(t('inspector.section.storage'));
     const bufferRow = (kind: 'input' | 'output', buffer: InspectorBufferItem): void => {
-      const label = `${kind === 'input' ? 'Girdi' : 'Çıktı'} · ${buffer.name}`;
+      const label =
+        kind === 'input'
+          ? t('inspector.buffer.input', { item: buffer.name })
+          : t('inspector.buffer.output', { item: buffer.name });
       const countText = layer
         .text(width, y, `${buffer.count}/${buffer.capacity}`, 'captionBold')
         .setOrigin(1, 0);
@@ -366,13 +379,13 @@ export class MachineInspectorModal extends UiModal {
     y += SPACE.xs;
 
     // --- Yükseltme özeti ------------------------------------------------------------
-    section('YÜKSELTME');
+    section(t('inspector.section.upgrade'));
     const upgradeH = 44;
     body.add(createInset(scene, 0, y, width, upgradeH));
     body.add(scene.add.image(SPACE.md + 4, y + upgradeH / 2, uiIcon('up')).setOrigin(0.5).setTint(SEMANTIC.primary));
     body.add(
       layer
-        .text(SPACE.md + 20, y + upgradeH / 2, `Seviye ${data.level} → ${data.level + 1}`, 'bodyBold')
+        .text(SPACE.md + 20, y + upgradeH / 2, t('inspector.levelStep', { from: data.level, to: data.level + 1 }), 'bodyBold')
         .setOrigin(0, 0.5),
     );
     body.add(
@@ -380,7 +393,7 @@ export class MachineInspectorModal extends UiModal {
         .text(
           width - SPACE.md,
           y + upgradeH / 2,
-          `Hız ${MachineInspectorHelper.formatSpeed(data.speedMultiplier)} → ${MachineInspectorHelper.formatSpeed(data.nextSpeedMultiplier)}`,
+          t('inspector.speedStep', { from: speedText(data.speedMultiplier), to: speedText(data.nextSpeedMultiplier) }),
           'bodyBold',
           { color: SEMANTIC.primaryHex },
         )
@@ -415,7 +428,7 @@ export class MachineInspectorModal extends UiModal {
     };
 
     const addItem = (entry: { itemId: string; name: string; count: number }): void => {
-      const text = this.layer.text(0, 0, `${entry.count}× ${entry.name}`, 'body').setOrigin(0, 0.5);
+      const text = this.layer.text(0, 0, t('common.countItem', { count: entry.count, item: entry.name }), 'body').setOrigin(0, 0.5);
       const at = place(20 + text.width);
       const icon = this.itemIcon(entry.itemId).setPosition(at.x + 8, at.y + lineHeight / 2);
       text.setPosition(at.x + 20, at.y + lineHeight / 2);
@@ -484,8 +497,8 @@ export class MachineInspectorModal extends UiModal {
       width: demolishWidth,
       height: sideHeight,
       variant: 'remove',
-      label: 'SÖK',
-      sublabel: `+$${formatNumber(data.demolishRefund)} iade`,
+      label: t('common.remove'),
+      sublabel: t('common.refund', { amount: formatNumber(data.demolishRefund) }),
       silent: true,
       onClick: () => this.demolish(),
     });
@@ -494,8 +507,8 @@ export class MachineInspectorModal extends UiModal {
       width: moveWidth,
       height: sideHeight,
       variant: 'secondary',
-      label: 'TAŞI',
-      sublabel: 'Ücretsiz',
+      label: t('common.move'),
+      sublabel: t('common.free'),
       onClick: () => this.move(),
     });
 
@@ -503,7 +516,7 @@ export class MachineInspectorModal extends UiModal {
       width: upgradeWidth,
       height,
       variant: 'primary',
-      label: 'YÜKSELT',
+      label: t('common.upgrade'),
       sublabel: `$${formatNumber(data.upgradeCost)}`,
       silent: true,
       onClick: () => this.upgrade(),
@@ -521,7 +534,7 @@ export class MachineInspectorModal extends UiModal {
         height,
         variant: 'gold',
         icon: uiIcon('video'),
-        label: `%${Math.round(MACHINE_UPGRADE_AD_DISCOUNT * 100)} İNDİRİM`,
+        label: t('common.percentOff', { percent: Math.round(MACHINE_UPGRADE_AD_DISCOUNT * 100) }),
         sublabel: `$${formatNumber(data.upgradeAdCost)}`,
         textVariant: 'buttonSmall',
         onClick: () => {

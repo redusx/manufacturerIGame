@@ -15,6 +15,7 @@ import { SEMANTIC, SPACE, TYPE_SCALE, uiIcon } from './theme';
 import { UiButton } from './system/UiButton.ts';
 import { UiChip } from './system/UiWidgets.ts';
 import type { UiLayer } from './system/UiLayer.ts';
+import { t } from '../i18n/i18n.ts';
 
 /** Çubuğun güvenli alan hariç yüksekliği (arayüz birimi) */
 export const HUD_BAR_HEIGHT = 48;
@@ -97,7 +98,7 @@ export class HUD {
     this.moneyText = layer.text(0, 0, '$0', 'display', { color: SEMANTIC.moneyHex, stroke: true }).setOrigin(0, 0.5);
     this.root.add(this.moneyText);
 
-    this.incomeChip = new UiChip(layer, 0, 0, '+$0/sn', SEMANTIC.primary, { variant: 'bodyBold', height: 26 });
+    this.incomeChip = new UiChip(layer, 0, 0, t('hud.income', { value: '0' }), SEMANTIC.primary, { variant: 'bodyBold', height: 26 });
     this.root.add(this.incomeChip);
 
     this.recordIcon = scene.add.image(0, 0, 'icon_trophy').setOrigin(0.5);
@@ -224,7 +225,7 @@ export class HUD {
   ): void {
     this.boostAdAvailable = boostAdAvailable;
     this.moneyText.setText(`$${formatNumber(D(resources))}`);
-    const income = `+$${formatRate(D(perSecond))}/sn`;
+    const income = t('hud.income', { value: formatRate(D(perSecond)) });
     // Takviye etkinken rozet altına döner ve kalan süreyi gösterir
     this.incomeChip.setChip(
       boostLabel ? `${income} · ${boostLabel}` : income,

@@ -3,6 +3,7 @@
  * ====================================================================== */
 
 import Decimal, { type DecimalSource } from 'break_eternity.js';
+import { formatDecimal, t } from '../i18n/i18n.ts';
 
 const SUFFIXES = [
   '',
@@ -62,6 +63,7 @@ export function formatNumber(value: DecimalSource): string {
   if (dec.lt(1000)) {
     return Math.floor(dec.toNumber()).toString();
   }
+  // Kısaltma ekleri (K, M, B…) her dilde aynıdır; ondalık ayraç dile göre yazılır
 
   const exp = dec.e;
   let tier = Math.floor(exp / 3);
@@ -78,7 +80,7 @@ export function formatNumber(value: DecimalSource): string {
 
     const digits = base >= 99.95 ? 0 : base >= 9.995 ? 1 : 2;
     if (tier < SUFFIXES.length) {
-      return base.toFixed(digits) + SUFFIXES[tier];
+      return formatDecimal(base, digits) + SUFFIXES[tier];
     }
   }
 
@@ -96,7 +98,7 @@ export function formatMoney(value: DecimalSource): string {
   const dec = value instanceof Decimal ? value : new Decimal(value);
   if (dec.isNan() || !dec.isFinite() || dec.gte(1000) || dec.lt(0)) return formatNumber(dec);
 
-  return String(Math.round(dec.toNumber() * 100) / 100);
+  return formatDecimal(Math.round(dec.toNumber() * 100) / 100, 0, 2);
 }
 
 /**
@@ -107,7 +109,7 @@ export function formatRate(value: DecimalSource): string {
   const dec = value instanceof Decimal ? value : new Decimal(value);
   if (dec.isNan() || !dec.isFinite() || dec.gte(10) || dec.lt(0)) return formatNumber(dec);
 
-  return dec.toNumber().toFixed(1);
+  return formatDecimal(dec.toNumber(), 1);
 }
 
 /**
@@ -116,11 +118,11 @@ export function formatRate(value: DecimalSource): string {
  */
 export function formatDuration(totalSeconds: number): string {
   const s = Math.floor(totalSeconds);
-  if (s < 60) return `${s}sn`;
+  if (s < 60) return t('unit.durationS', { s });
   const m = Math.floor(s / 60);
-  if (m < 60) return `${m}dk ${s % 60}sn`;
+  if (m < 60) return t('unit.durationMS', { m, s: s % 60 });
   const h = Math.floor(m / 60);
-  return `${h}sa ${m % 60}dk`;
+  return t('unit.durationHM', { h, m: m % 60 });
 }
 
 /**
@@ -129,8 +131,17 @@ export function formatDuration(totalSeconds: number): string {
  */
 export function formatDistance(meters: number): string {
   const value = Math.max(0, meters);
-  if (value < 1000) return `${Math.floor(value)} m`;
+  if (value < 1000) return t('unit.meters', { n: Math.floor(value) });
   const km = value / 1000;
-  return `${km < 10 ? km.toFixed(2) : km.toFixed(1)} km`;
+  return t('unit.kilometers', { n: formatDecimal(km, km < 10 ? 2 : 1) });
 }
 
+/** Tam sayıyı etkin dilin binlik ayracıyla yazar (ör. 30000 → "30,000" / "30.000") */
+export function formatInteger(value: number): string {
+  return formatDecimal(Math.round(value));
+}
+
+/** Ondalıklı bir değeri sabit basamakla, etkin dilin ondalık ayracıyla yazar */
+export function formatFixed(value: number, digits: number): string {
+  return formatDecimal(value, digits);
+}

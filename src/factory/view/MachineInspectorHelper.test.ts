@@ -17,6 +17,10 @@ import { MachineEntity } from '../simulation/MachineEntity.ts';
 import { defaultMachineRegistry } from '../simulation/MachineRegistry.ts';
 import { defaultRecipeRegistry } from '../simulation/RecipeRegistry.ts';
 import { defaultItemRegistry } from '../simulation/ItemRegistry.ts';
+import { setLocale } from '../../i18n/i18n.ts';
+
+// Bu testler oyuncuya görünen metinleri Türkçe olarak doğrular
+setLocale('tr');
 
 describe('MachineInspectorHelper Headless Unit Tests', () => {
   it('getStatusMeta should return accurate labels and palette colors for all states', () => {

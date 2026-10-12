@@ -19,6 +19,7 @@ import { UiButton } from './system/UiButton.ts';
 import { UiLayer } from './system/UiLayer.ts';
 import { UiModal } from './system/UiModal.ts';
 import { UiChip, createCard, createInset } from './system/UiWidgets.ts';
+import { t } from '../i18n/i18n.ts';
 
 /** CrazyGames hesabının durumu */
 export interface LeaderboardAccount {
@@ -47,13 +48,21 @@ const ROW_HEIGHT = 28;
 const LOGIN_BUTTON_WIDTH = 132;
 const LOGIN_BUTTON_HEIGHT = 34;
 
-const STATUS_TEXT: Readonly<Record<ScoreSubmitStatus, string>> = {
-  sent: 'Son uçuşun CrazyGames lider tablosuna gönderildi.',
-  'not-season-best': 'Son uçuşun bu haftaki en iyi uçuşunu geçmedi; sıralaman değişmedi.',
-  disabled: 'Son uçuşun gönderilmedi: lider tablosu bu ortamda etkin değil.',
-  invalid: 'Son uçuşun gönderilmedi: mesafe geçerli aralığın dışındaydı.',
-  failed: 'Son uçuşun gönderilemedi. Sonraki uçuşta yeniden denenecek.',
-};
+/** Son uçuşun skoruna ne olduğunu anlatan cümle */
+function statusText(status: ScoreSubmitStatus): string {
+  switch (status) {
+    case 'sent':
+      return t('board.status.sent');
+    case 'not-season-best':
+      return t('board.status.notBest');
+    case 'disabled':
+      return t('board.status.disabled');
+    case 'invalid':
+      return t('board.status.invalid');
+    case 'failed':
+      return t('board.status.failed');
+  }
+}
 
 export class LeaderboardModal extends UiModal {
   private readonly callbacks: LeaderboardModalConfig;
@@ -63,7 +72,7 @@ export class LeaderboardModal extends UiModal {
   private hangarButton: UiButton | null = null;
 
   constructor(layer: UiLayer, config: LeaderboardModalConfig) {
-    super(layer, { title: 'Lider Tablosu', maxWidth: 420, depth: 206, accent: SEMANTIC.money });
+    super(layer, { title: t('board.title'), maxWidth: 420, depth: 206, accent: SEMANTIC.money });
     this.callbacks = config;
   }
 
@@ -100,18 +109,18 @@ export class LeaderboardModal extends UiModal {
     const headH = 64;
     body.add(createCard(scene, 0, y, width, headH));
     body.add(scene.add.image(SPACE.md + 10, y + headH / 2, 'icon_trophy').setOrigin(0.5).setScale(1.5));
-    body.add(layer.text(SPACE.md + 30, y + 12, 'SENİN REKORUN', 'captionBold', { color: SEMANTIC.textMuted }));
+    body.add(layer.text(SPACE.md + 30, y + 12, t('board.yourRecord'), 'captionBold', { color: SEMANTIC.textMuted }));
     body.add(
       layer.text(
         SPACE.md + 30,
         y + 28,
-        player.bestDistance > 0 ? formatDistance(player.bestDistance) : 'Henüz uçuş yok',
+        player.bestDistance > 0 ? formatDistance(player.bestDistance) : t('board.noFlight'),
         'title',
         { color: SEMANTIC.rocketHex },
       ),
     );
     if (board.enabled && board.seasonBest > 0) {
-      const chip = new UiChip(layer, 0, y + 20, `Bu hafta ${formatDistance(board.seasonBest)}`, SEMANTIC.money, {
+      const chip = new UiChip(layer, 0, y + 20, t('board.thisWeek', { distance: formatDistance(board.seasonBest) }), SEMANTIC.money, {
         icon: 'icon_flag',
       });
       chip.setX(width - SPACE.md - chip.chipWidth);
@@ -121,40 +130,32 @@ export class LeaderboardModal extends UiModal {
 
     // --- CrazyGames lider tablosu -----------------------------------------
     if (board.enabled) {
+      paragraph(t('board.where'), SEMANTIC.textPrimary, 'body');
+      paragraph(t('board.rule'));
       paragraph(
-        'Sıralama CrazyGames lider tablosunda tutulur: oyun sayfasındaki lider tablosu panelinden genel, ülke ve arkadaş sıralamana bakabilirsin.',
-        SEMANTIC.textPrimary,
-        'body',
-      );
-      paragraph(
-        'Skor, en uzun roket uçuşunun mesafesidir (metre). Tablo her pazartesi sıfırlanır; her hafta o haftanın en iyi uçuşun sayılır.',
-      );
-      paragraph(
-        board.lastStatus ? STATUS_TEXT[board.lastStatus] : 'Bir uçuş tamamladığında mesafen kendiliğinden gönderilir.',
+        board.lastStatus ? statusText(board.lastStatus) : t('board.autoSend'),
         board.lastStatus === 'sent' ? SEMANTIC.primaryHex : SEMANTIC.textMuted,
       );
       y = this.buildAccountRow(body, width, y);
     } else {
-      paragraph('Çevrimiçi lider tablosu bu ortamda etkin değil.', SEMANTIC.textPrimary, 'body');
-      paragraph(
-        'Rekorun bu cihazda saklanıyor ve başka oyuncularla karşılaştırılmıyor. Oyun CrazyGames üzerinde açıldığında uçuşların CrazyGames lider tablosuna gönderilir.',
-      );
+      paragraph(t('board.disabled'), SEMANTIC.textPrimary, 'body');
+      paragraph(t('board.disabledHint'));
     }
 
     // --- Oyunun kendi skor sunucusu (bağlıysa) -----------------------------
     const snapshot = this.snapshot;
     if (snapshot?.mode === 'online') {
       const entries = snapshot.entries;
-      paragraph('Bütün oyuncuların rekor mesafeleri:');
+      paragraph(t('board.allPlayers'));
       if (entries.length === 0) {
-        paragraph('Tabloda henüz kimse yok. İlk rekoru sen kır!', SEMANTIC.textPrimary, 'body');
+        paragraph(t('board.empty'), SEMANTIC.textPrimary, 'body');
       }
       for (const entry of entries) {
         this.addRow(body, width, y, entry);
         y += ROW_HEIGHT;
       }
     } else if (snapshot?.failed) {
-      paragraph('Oyunun skor sunucusuna ulaşılamadı.', SEMANTIC.warningHex);
+      paragraph(t('board.serverDown'), SEMANTIC.warningHex);
     }
     return Math.max(0, y - SPACE.sm);
   }
@@ -166,14 +167,14 @@ export class LeaderboardModal extends UiModal {
     if (!account || !account.available) return y;
 
     if (account.username) {
-      const label = layer.text(0, y, `CrazyGames hesabı: ${account.username}`, 'bodyBold', { wrapWidth: width });
+      const label = layer.text(0, y, t('board.account', { name: account.username }), 'bodyBold', { wrapWidth: width });
       body.add(label);
       return y + label.height + SPACE.sm;
     }
 
     // Giriş ikincil bir eylemdir: küçük, nötr düğme; pencere açılınca kendiliğinden sorulmaz
     const textWidth = width - LOGIN_BUTTON_WIDTH - SPACE.sm;
-    const label = layer.text(0, y, 'CrazyGames hesabına giriş yapmadın. Sıralama hesaplarla tutulur.', 'caption', {
+    const label = layer.text(0, y, t('board.guest'), 'caption', {
       color: SEMANTIC.textMuted,
       wrapWidth: textWidth,
     });
@@ -185,7 +186,7 @@ export class LeaderboardModal extends UiModal {
         width: LOGIN_BUTTON_WIDTH,
         height: LOGIN_BUTTON_HEIGHT,
         variant: 'secondary',
-        label: 'GİRİŞ YAP',
+        label: t('board.login'),
         textVariant: 'buttonSmall',
         onClick: () => {
           void this.callbacks.requestLogin().then(() => {
@@ -213,7 +214,7 @@ export class LeaderboardModal extends UiModal {
     const name = layer.text(SPACE.sm + 34, centerY, '', variant, { color }).setOrigin(0, 0.5);
     UiLayer.ellipsize(
       name,
-      entry.isPlayer ? `${entry.name} (sen)` : entry.name,
+      entry.isPlayer ? t('board.you', { name: entry.name }) : entry.name,
       width - SPACE.sm * 2 - 34 - distance.width - SPACE.sm,
     );
     body.add(name);
@@ -230,7 +231,7 @@ export class LeaderboardModal extends UiModal {
       width: Math.min(width, 280),
       height,
       variant: 'rocket',
-      label: 'HANGARA GİT',
+      label: t('common.goToHangar'),
       icon: uiIcon('hangar'),
       onClick: () => {
         this.close();

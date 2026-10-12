@@ -149,7 +149,15 @@ export const FLIGHT_SKY_TONES: readonly number[] = [
 ];
 
 /** ART_DIRECTION §5: temiz, yüksek okunabilirlikli sans-serif (her platformda hazır bulunur) */
-export const FONT_FAMILY = 'Arial, Helvetica, sans-serif';
+/**
+ * Latin, Kiril ve Türkçe harfler Arial ile çizilir; diğer yazılar (Japonca, Korece, Çince,
+ * Devanagari, Bengalce, Arapça, Urduca) için işletim sistemlerinin kendi yazı tipleri sırayla
+ * denenir. Tarayıcı, bir harf listede yoksa sistemdeki uygun yazı tipine kendisi düşer.
+ */
+export const FONT_FAMILY =
+  'Arial, Helvetica, "Segoe UI", "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Apple SD Gothic Neo", "Malgun Gothic", ' +
+  '"PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Nirmala UI", "Kohinoor Devanagari", "Noto Sans Devanagari", ' +
+  '"Kohinoor Bangla", "Noto Sans Bengali", "Geeza Pro", "Noto Naskh Arabic", "Noto Sans Arabic", Tahoma, "Noto Sans", sans-serif';
 
 /* =========================================================================
  * UI 2.0 TASARIM BELİRTEÇLERİ (docs/UI_UX_SYSTEM.md)

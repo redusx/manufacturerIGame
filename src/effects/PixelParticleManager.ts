@@ -142,16 +142,20 @@ export class PixelParticleManager {
     space: FxSpace = 'world',
   ): void {
     const layer = UiLayer.get(scene);
-    const txt = scene.add.text(x, y, text, {
-      fontFamily: FONT_FAMILY,
-      fontSize: space === 'ui' ? '14px' : '11px',
-      color,
-      fontStyle: 'bold',
-      stroke: SEMANTIC.outlineHex,
-      strokeThickness: 3,
-      // Dünyadaki yazı dünya kamerasının zoom'unda, arayüzdeki arayüz zoom'unda keskin çizilir
-      resolution: space === 'ui' ? layer?.zoom : layer?.worldTextResolution,
-    }).setOrigin(0.5).setDepth(510);
+    const style = UiLayer.localizeStyle(
+      {
+        fontFamily: FONT_FAMILY,
+        fontSize: space === 'ui' ? '14px' : '11px',
+        color,
+        fontStyle: 'bold',
+        stroke: SEMANTIC.outlineHex,
+        strokeThickness: 3,
+        // Dünyadaki yazı dünya kamerasının zoom'unda, arayüzdeki arayüz zoom'unda keskin çizilir
+        resolution: space === 'ui' ? layer?.zoom : layer?.worldTextResolution,
+      },
+      text,
+    );
+    const txt = scene.add.text(x, y, text, style).setOrigin(0.5).setDepth(510);
     placeInSpace(scene, txt, space);
 
     scene.tweens.add({

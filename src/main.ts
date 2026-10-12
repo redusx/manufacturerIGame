@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { GameScene } from './scenes/GameScene';
 import { FlightScene } from './scenes/FlightScene';
+import { initLocale } from './i18n/i18n.ts';
 import { crazyGames } from './integration/CrazyGamesSDK.ts';
 import { UiHost } from './ui/system/UiHost.ts';
 import { PALETTE } from './ui/theme.ts';
@@ -30,12 +31,14 @@ const config: Phaser.Types.Core.GameConfig = {
 
 /**
  * Açılış sırası (docs.crazygames.com/sdk/intro): önce SDK başlatılır, sonra yüklemenin
- * başladığı bildirilir, sonra oyun kurulur. SDK yoksa, kapalıysa ya da başlatma takılırsa
+ * başladığı bildirilir, dil seçilir, sonra oyun kurulur. SDK yoksa, kapalıysa ya da başlatma takılırsa
  * (zaman aşımı sarmalayıcıdadır) oyun onsuz açılır.
  */
 async function boot(): Promise<void> {
   await crazyGames.init().catch(() => false);
   crazyGames.loadingStart();
+  // Dil, ilk metin çizilmeden seçilir: kayıtlı seçim → platformun dili → tarayıcının dili → İngilizce
+  initLocale(crazyGames.systemLocale);
 
   const game = new Phaser.Game(config);
   (window as unknown as { game: Phaser.Game }).game = game;

@@ -16,6 +16,7 @@ import { UiButton } from './system/UiButton.ts';
 import type { UiLayer } from './system/UiLayer.ts';
 import { UiModal } from './system/UiModal.ts';
 import { createInset } from './system/UiWidgets.ts';
+import { t } from '../i18n/i18n.ts';
 
 export interface FlightReportData {
   isCrash: boolean;
@@ -63,10 +64,10 @@ export class FlightReportModal extends UiModal {
       this.setTitle(data.reason);
       this.setAccent(SEMANTIC.danger);
     } else if (data.view.isNewBestDistance) {
-      this.setTitle('Yeni mesafe rekoru!');
+      this.setTitle(t('flight.newRecord'));
       this.setAccent(SEMANTIC.money);
     } else {
-      this.setTitle('Uçuş tamamlandı');
+      this.setTitle(t('flight.done'));
       this.setAccent(SEMANTIC.rocket);
     }
     this.open();
@@ -83,15 +84,15 @@ export class FlightReportModal extends UiModal {
     // Uçuş primi: raporun en büyük öğesi
     const primH = 80;
     body.add(createInset(scene, 0, y, width, primH));
-    body.add(layer.text(width / 2, y + 16, 'UÇUŞ PRİMİ', 'captionBold', { color: SEMANTIC.textMuted }).setOrigin(0.5));
+    body.add(layer.text(width / 2, y + 16, t('flight.bonus'), 'captionBold', { color: SEMANTIC.textMuted }).setOrigin(0.5));
     body.add(
       layer
         .text(width / 2, y + 42, `+$${formatNumber(data.totalCash)}`, 'display', { color: SEMANTIC.moneyHex, stroke: true })
         .setOrigin(0.5),
     );
     const primNote = this.bonusApplied
-      ? `Reklam bonusu: prim ×${this.adBonus?.multiplier ?? 1}`
-      : `Fabrikanın ${view.breakdown.incomeSeconds} saniyelik geliri`;
+      ? t('flight.bonusAd', { factor: this.adBonus?.multiplier ?? 1 })
+      : t('flight.bonusIncome', { seconds: view.breakdown.incomeSeconds });
     body.add(
       layer
         .text(width / 2, y + 66, primNote, 'caption', {
@@ -109,7 +110,7 @@ export class FlightReportModal extends UiModal {
             `${rung.name} (${formatDistance(rung.targetMeters)}): ${RangeLadder.describeRewards(rung).join(' · ')}`,
         )
         .join('\n');
-      const title = layer.text(SPACE.md + 20, y + SPACE.sm, 'Yeni menzile ulaştın!', 'bodyBold', {
+      const title = layer.text(SPACE.md + 20, y + SPACE.sm, t('flight.newRange'), 'bodyBold', {
         color: SEMANTIC.moneyHex,
       });
       const banner = layer.text(SPACE.md + 20, title.y + title.height + 2, lines, 'caption', {
@@ -129,14 +130,14 @@ export class FlightReportModal extends UiModal {
       const head = layer.text(
         SPACE.md + 20,
         y + SPACE.sm,
-        `Sıradaki hedef: ${formatDistance(target.targetMeters)} (${target.name})`,
+        t('flight.nextTarget', { distance: formatDistance(target.targetMeters), name: target.name }),
         'bodyBold',
         { color: SEMANTIC.rocketHex, wrapWidth: width - SPACE.md * 2 - 20 },
       );
       const detail = layer.text(
         SPACE.md + 20,
         head.y + head.height + 2,
-        `Hedefe ${formatDistance(target.remainingMeters)} kaldı · Ödül: ${target.rewards.join(' · ')}`,
+        t('flight.targetLeft', { distance: formatDistance(target.remainingMeters), rewards: target.rewards.join(' · ') }),
         'caption',
         { color: SEMANTIC.textMuted, wrapWidth: width - SPACE.md * 2 - 20 },
       );
@@ -149,15 +150,15 @@ export class FlightReportModal extends UiModal {
 
     // Uçuş ayrıntıları
     const rows: Array<[string, number | undefined, string, string]> = [
-      ['icon_flag', undefined, 'Mesafe', view.distanceText],
-      [uiIcon('up'), SEMANTIC.rocket, 'En yüksek irtifa', view.maxAltitudeText],
-      [uiIcon('clock'), SEMANTIC.iconMuted, 'Havada kalma', view.durationText],
-      ['icon_gear', undefined, 'Toplanan dişli', `${data.gears} adet`],
-      [uiIcon('star'), SEMANTIC.rocket, 'Toplanan kristal', `${data.crystals} adet`],
+      ['icon_flag', undefined, t('flight.row.distance'), view.distanceText],
+      [uiIcon('up'), SEMANTIC.rocket, t('flight.row.altitude'), view.maxAltitudeText],
+      [uiIcon('clock'), SEMANTIC.iconMuted, t('flight.row.airtime'), view.durationText],
+      ['icon_gear', undefined, t('flight.row.gears'), t('unit.pieces', { n: data.gears })],
+      [uiIcon('star'), SEMANTIC.rocket, t('flight.row.crystals'), t('unit.pieces', { n: data.crystals })],
     ];
     // Mükemmel fırlatmanın prime kattığı pay (yalnız tutturulduysa)
     if (view.breakdown.launchCash > 0) {
-      rows.push(['icon_rocket', undefined, 'Mükemmel fırlatma', `+$${formatNumber(view.breakdown.launchCash)}`]);
+      rows.push(['icon_rocket', undefined, t('flight.row.perfect'), `+$${formatNumber(view.breakdown.launchCash)}`]);
     }
     const rowH = 26;
     body.add(createInset(scene, 0, y, width, rows.length * rowH + SPACE.sm));
@@ -200,7 +201,7 @@ export class FlightReportModal extends UiModal {
       const cooldown = bonus.cooldownRemaining();
       if (cooldown > 0) {
         const wait = this.layer
-          .text(width / 2, 0, `Reklam bonusu ${formatAdCooldown(cooldown)} sonra yeniden kullanılabilir.`, 'caption', {
+          .text(width / 2, 0, t('flight.adSoon', { time: formatAdCooldown(cooldown) }), 'caption', {
             color: SEMANTIC.textMuted,
             wrapWidth: width,
             align: 'center',
@@ -216,7 +217,7 @@ export class FlightReportModal extends UiModal {
             height: bonusHeight,
             variant: 'gold',
             icon: uiIcon('video'),
-            label: `REKLAM İZLE: PRİM ×${bonus.multiplier}`,
+            label: t('flight.watchAd', { factor: bonus.multiplier }),
             sublabel: `+$${formatNumber(Math.floor(data.totalCash * bonus.multiplier))}`,
             textVariant: 'buttonSmall',
             onClick: () => void this.requestBonus(),
@@ -230,7 +231,7 @@ export class FlightReportModal extends UiModal {
       width,
       height,
       variant: 'primary',
-      label: 'FABRİKAYA DÖN',
+      label: t('flight.back'),
       icon: 'icon_factory',
       iconScale: 1.5,
       onClick: () => {

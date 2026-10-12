@@ -133,7 +133,7 @@ Renk tek başına bilgi taşımaz: her durumun yanında simge ya da metin vardı
 
 ## 8. Tipografi
 
-Yazı ailesi `Arial, Helvetica, sans-serif` (`ART_DIRECTION.md` §5). Boyutlar birim cinsindendir ve yalnızca `TYPE_SCALE` türleriyle kullanılır:
+Yazı ailesi Arial ile başlar ve Latin dışı yazılar için sistem yazı tiplerine düşer (`FONT_FAMILY`, bkz. "Ek: Çoklu Dil"). Boyutlar birim cinsindendir ve yalnızca `TYPE_SCALE` türleriyle kullanılır:
 
 | Tür | Boyut | Kullanım |
 |---|---|---|
@@ -297,7 +297,7 @@ Gerçek tarayıcıda, cihaz piksel oranı 2 ile; dokunma akışları dokunmatik 
 - Fabrika üzerindeki giriş adı ve seviye etiketleri uzak zoom'da küçük kalır (parsel rozeti zoom'dan bağımsızdır).
 - Güvenli alan boşlukları kodda uygulanır ama çentikli gerçek cihazda sınanmadı.
 - Ekran okuyucu desteği yoktur (arayüz tuval üzerinde çizilir).
-- Arayüz metinleri yalnızca Türkçedir.
+- Sağdan sola dillerde (Arapça, Urduca) ekran düzeni aynalanmaz; yalnız metin yönü ve paragraf hizası değişir (DEC-055).
 
 ---
 
@@ -308,4 +308,15 @@ Gerçek tarayıcıda, cihaz piksel oranı 2 ile; dokunma akışları dokunmatik 
 - **Kontrol şeması** (`ControlsModal`): tuşlar tuş kapağı kutularında; dar ekranda açıklama tuşların altına iner.
 - **Ses seviyesi satırı** (Ayarlar): eksi, çubuk, artı; çubuk dokunma ve sürüklemeyle de ayarlanır.
 - **Tema dokuları:** üst çubuk `ui2_bar_bg`, araç çubuğu `ui2_dock_bg`, panellerin üstünde `ui2_pattern` (DEC-042).
+
+---
+
+## Ek (2026-10-12): Çoklu Dil (DEC-055)
+
+- **Metin kaynak koda yazılmaz.** Oyuncuya görünen her metin `t('alan.anahtar', { parametre })` ile `src/i18n/locales/` sözlüklerinden gelir. Yeni metin: önce `en.ts`'e anahtar, sonra bütün dillere çeviri (eksik anahtar derlenmez; `npm test` boş metni ve yer tutucu hatasını yakalar).
+- **Yeni dil:** `locales/<kod>.ts` (tip `Dictionary`), `locales/index.ts` ve `i18n.ts` içindeki `LOCALES` satırı (kendi adı, sağdan sola mı, harf örneği, gerekiyorsa `charWrap`).
+- **Yazı nesneleri `layer.text(...)` ile üretilir;** dünyada çizilen yazılar stilini `UiLayer.localizeStyle` ile uyarlar. Böylece Latin dışı harfler kırpılmaz, sağdan sola satırlar doğru yönde çizilir, Japonca ve Çince satırlar harf arasından bölünür.
+- **Sabit genişlikli düğmede etiket kısa tutulur.** Düğme etiketi ve alt satırı sığmazsa küçülür, yine sığmazsa "…" ile kesilir; kesilen etiket hatadır, çeviri kısaltılır ya da düğme `layer.measureText` ile etiketine göre genişletilir (öğretici kutusu örneği).
+- **Cümle, parçaları birleştirilerek kurulmaz.** Sayı, ad ve süre yer tutucuyla verilir; sıra dile göre değişir. Liste `joinList`, sayı `formatNumber` / `formatInteger` / `formatFixed`, süre `formatDuration`, mesafe `formatDistance` ile yazılır.
+- **Dil değişince sahne yeniden kurulur;** bileşenler metinlerini kurulurken okur. Modül düzeyinde metin saklanmaz (sabit dizi yerine işlev ya da `get`).
 

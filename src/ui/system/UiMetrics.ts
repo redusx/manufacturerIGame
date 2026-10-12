@@ -14,14 +14,6 @@ export type UiScalePreset = 'small' | 'normal' | 'large' | 'xlarge';
 
 export const UI_SCALE_PRESETS: readonly UiScalePreset[] = ['small', 'normal', 'large', 'xlarge'];
 
-/** Ayar ekranında görünen adlar */
-export const UI_SCALE_LABELS: Readonly<Record<UiScalePreset, string>> = {
-  small: 'Küçük',
-  normal: 'Normal',
-  large: 'Büyük',
-  xlarge: 'Çok Büyük',
-};
-
 /** Tercihin "Normal"e göre hedeflediği büyüklük oranı */
 const PRESET_FACTORS: Readonly<Record<UiScalePreset, number>> = {
   small: 0.8,

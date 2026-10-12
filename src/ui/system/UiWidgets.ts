@@ -9,6 +9,7 @@
 import Phaser from 'phaser';
 import { SEMANTIC, SPACE, onDark, toHex, type UiTextVariant } from '../theme.ts';
 import { UiLayer } from './UiLayer.ts';
+import { isRtl } from '../../i18n/i18n.ts';
 
 export type UiBarColor = 'gold' | 'green' | 'cyan' | 'red';
 
@@ -225,7 +226,7 @@ export class UiToast {
     this.bg = scene.add.nineslice(0, 0, 'ui_toast_bg', 0, 100, 40, 6, 6, 6, 6).setOrigin(0.5, 0);
     this.frame = scene.add.nineslice(0, 0, 'ui2_frame_thin', 0, 100, 40, 4, 4, 4, 4).setOrigin(0.5, 0);
     this.icon = scene.add.image(0, 0, 'icon_check').setOrigin(0.5);
-    this.label = layer.text(0, 0, '', 'bodyBold', { align: 'left' }).setOrigin(0, 0.5);
+    this.label = layer.text(0, 0, '', 'bodyBold', { align: isRtl() ? 'right' : 'left' }).setOrigin(0, 0.5);
     this.root.add([this.bg, this.frame, this.icon, this.label]);
 
     // Yeni açılan pencerenin içeriğini eski bildirim örtmesin

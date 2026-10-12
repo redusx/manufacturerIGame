@@ -21,7 +21,9 @@ import { PALETTE, SEMANTIC, TONE, FONT_FAMILY } from '../../ui/theme.ts';
 import { GridCoordinates } from './GridCoordinates.ts';
 import { itemSpriteKey } from '../simulation/ItemRegistry.ts';
 import { bindWorldTap, isTap } from '../input/WorldPointer.ts';
-import { SCREEN_LABEL_NAME } from '../../ui/system/UiLayer.ts';
+import { SCREEN_LABEL_NAME, UiLayer } from '../../ui/system/UiLayer.ts';
+import { formatInteger } from '../../utils/format.ts';
+import { t } from '../../i18n/i18n.ts';
 import { DIRECTION_VECTORS } from '../types.ts';
 import { ConveyorGeometry } from './ConveyorGeometry.ts';
 import { PORT_ARROW_OUT } from './MachineSprites.ts';
@@ -484,42 +486,66 @@ export class GridView {
       this.lockedPlotState = this.computeLockedPlotState(plot);
 
       // Parsel Adı
-      const titleText = this.scene.add.text(0, 0, plot.name, {
-        fontFamily: FONT_FAMILY,
-        fontSize: '11px',
-        fontStyle: 'bold',
-        color: SEMANTIC.textPrimary,
-        align: 'center',
-        wordWrap: { width: badgeW - 12 },
-      });
+      const titleText = this.scene.add.text(
+        0,
+        0,
+        plot.name,
+        UiLayer.localizeStyle(
+          {
+            fontFamily: FONT_FAMILY,
+            fontSize: '11px',
+            fontStyle: 'bold',
+            color: SEMANTIC.textPrimary,
+            align: 'center',
+            wordWrap: { width: badgeW - 12 },
+          },
+          plot.name,
+        ),
+      );
       titleText.setOrigin(0.5, 0);
 
       // Boyut ve Maliyet
-      const discountNote = this.economy.isPlotDiscounted(plot.index) ? ' (indirimli)' : '';
-      const costStr = plotCost > 0 ? `$${plotCost.toLocaleString('en-US')}${discountNote}` : 'Ücretsiz';
+      const size = `${plot.targetWidth}x${plot.targetHeight}`;
+      const costLabel =
+        plotCost <= 0
+          ? t('plot.badgeFree', { size })
+          : this.economy.isPlotDiscounted(plot.index)
+            ? t('plot.badgeCostDiscount', { size, cost: formatInteger(plotCost) })
+            : t('plot.badgeCost', { size, cost: formatInteger(plotCost) });
       const costText = this.scene.add.text(
         0,
         0,
-        `${plot.targetWidth}x${plot.targetHeight} · ${costStr}`,
-        {
-          fontFamily: FONT_FAMILY,
-          fontSize: '11px',
-          color: canAfford ? SEMANTIC.moneyHex : SEMANTIC.textMuted,
-        },
+        costLabel,
+        UiLayer.localizeStyle(
+          {
+            fontFamily: FONT_FAMILY,
+            fontSize: '11px',
+            color: canAfford ? SEMANTIC.moneyHex : SEMANTIC.textMuted,
+          },
+          costLabel,
+        ),
       );
       costText.setOrigin(0.5, 0);
 
       // Menzil izni satırı (yalnız izin bekleniyorsa)
       const permitText = permitLabel
         ? this.scene.add
-            .text(0, 0, permitLabel, {
-              fontFamily: FONT_FAMILY,
-              fontSize: '11px',
-              fontStyle: 'bold',
-              color: SEMANTIC.warningHex,
-              align: 'center',
-              wordWrap: { width: badgeW - 12 },
-            })
+            .text(
+              0,
+              0,
+              permitLabel,
+              UiLayer.localizeStyle(
+                {
+                  fontFamily: FONT_FAMILY,
+                  fontSize: '11px',
+                  fontStyle: 'bold',
+                  color: SEMANTIC.warningHex,
+                  align: 'center',
+                  wordWrap: { width: badgeW - 12 },
+                },
+                permitLabel,
+              ),
+            )
             .setOrigin(0.5, 0)
         : null;
 

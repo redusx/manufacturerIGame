@@ -8,7 +8,11 @@
  * ====================================================================== */
 
 import Phaser from 'phaser';
-import type { MilestoneManager, MilestoneProgress } from '../factory/progression/MilestoneManager.ts';
+import {
+  describeMilestoneCondition,
+  type MilestoneManager,
+  type MilestoneProgress,
+} from '../factory/progression/MilestoneManager.ts';
 import { getClickPowerForStage } from '../data/MachineData.ts';
 import { formatNumber } from '../utils/format.ts';
 import { formatMilestoneReward } from './ObjectiveCard.ts';
@@ -16,6 +20,7 @@ import { SEMANTIC, SPACE, uiIcon } from './theme.ts';
 import type { UiLayer } from './system/UiLayer.ts';
 import { UiModal } from './system/UiModal.ts';
 import { UiProgressBar, createCard, createFrame } from './system/UiWidgets.ts';
+import { t } from '../i18n/i18n.ts';
 
 export class StagesModal extends UiModal {
   private readonly milestones: MilestoneManager;
@@ -23,7 +28,7 @@ export class StagesModal extends UiModal {
   private signature = '';
 
   constructor(layer: UiLayer, milestones: MilestoneManager, getProgress: () => MilestoneProgress | null) {
-    super(layer, { title: 'Aşamalar', maxWidth: 460, accent: SEMANTIC.money });
+    super(layer, { title: t('stage.title'), maxWidth: 460, accent: SEMANTIC.money });
     this.milestones = milestones;
     this.getProgress = getProgress;
   }
@@ -61,10 +66,10 @@ export class StagesModal extends UiModal {
       // Durum: ikon + metin (yalnız renkle anlatılmaz)
       const statusIcon = isDone ? 'icon_check' : isCurrent ? 'icon_flag' : uiIcon('lock');
       const statusColor = isDone ? SEMANTIC.primaryHex : isCurrent ? SEMANTIC.moneyHex : SEMANTIC.textMuted;
-      const statusLabel = isDone ? 'Tamamlandı' : isCurrent ? 'Sürüyor' : 'Kilitli';
+      const statusLabel = isDone ? t('common.completed') : isCurrent ? t('stage.inProgress') : t('stage.locked');
       const icon = scene.add.image(pad + 8, cursor + 9, statusIcon).setOrigin(0.5);
       if (!isDone && !isCurrent) icon.setTint(SEMANTIC.iconMuted);
-      const stageLabel = layer.text(pad + 22, cursor + 9, `AŞAMA ${index + 1} · ${statusLabel}`, 'captionBold', {
+      const stageLabel = layer.text(pad + 22, cursor + 9, t('stage.labelStatus', { n: index + 1, status: statusLabel }), 'captionBold', {
         color: statusColor,
       }).setOrigin(0, 0.5);
       cursor += 22;
@@ -86,7 +91,7 @@ export class StagesModal extends UiModal {
                 color: live?.isMet ? SEMANTIC.primaryHex : SEMANTIC.moneyHex,
               }).setOrigin(1, 0)
             : null;
-          const label = layer.text(pad, cursor, condition.description, 'body', {
+          const label = layer.text(pad, cursor, describeMilestoneCondition(condition), 'body', {
             color: isCurrent ? SEMANTIC.textPrimary : SEMANTIC.textMuted,
             wrapWidth: inner - (counterText ? counterText.width + SPACE.sm : 0),
           });
@@ -105,7 +110,7 @@ export class StagesModal extends UiModal {
 
       const reward = formatMilestoneReward(milestone.reward, getClickPowerForStage(index + 1));
       if (reward) {
-        const rewardText = layer.text(pad, cursor, `Ödül: ${reward}`, 'caption', {
+        const rewardText = layer.text(pad, cursor, t('common.reward', { list: reward }), 'caption', {
           color: isDone ? SEMANTIC.textMuted : SEMANTIC.moneyHex,
           wrapWidth: inner,
         });
@@ -128,7 +133,7 @@ export class StagesModal extends UiModal {
     if (type === 'TOTAL_EARNED' || type === 'CURRENT_BALANCE') {
       return `$${formatNumber(Math.min(current, target))}/$${formatNumber(target)}`;
     }
-    if (type === 'UNLOCK_PLOT') return current >= target ? 'Açıldı' : 'Kapalı';
+    if (type === 'UNLOCK_PLOT') return current >= target ? t('stage.plotOpen') : t('stage.plotClosed');
     return `${Math.min(Math.floor(current), target)}/${target}`;
   }
 

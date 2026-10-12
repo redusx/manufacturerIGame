@@ -21,6 +21,7 @@ import {
   MERGER_BUILD_COST,
   PlacementMath,
 } from './PlacementMath.ts';
+import { t } from '../../i18n/i18n.ts';
 
 export type DemolishTargetType =
   | 'MACHINE'
@@ -107,7 +108,7 @@ export class DemolishMath {
       return {
         canDemolish: false,
         targetType: 'NONE',
-        name: 'Kalıcı Engel',
+        name: t('logistics.obstacle'),
         refundAmount: 0,
         occupiedCoords: [coord],
         blockReason: 'PROTECTED_OBSTACLE',
@@ -120,7 +121,7 @@ export class DemolishMath {
       return {
         canDemolish: true,
         targetType: 'INTAKE',
-        name: `${defaultItemRegistry.get(itemId)?.name ?? 'Hammadde'} Girişi`,
+        name: t('logistics.intakeOf', { item: defaultItemRegistry.get(itemId)?.name ?? t('common.rawMaterial') }),
         refundAmount: PlacementMath.getIntakeRefund(itemId, grid),
         occupiedCoords: [coord],
       };
@@ -130,7 +131,7 @@ export class DemolishMath {
       return {
         canDemolish: false,
         targetType: 'NONE',
-        name: 'Sevkiyat Sandığı',
+        name: t('logistics.crate'),
         refundAmount: 0,
         occupiedCoords: [coord],
         blockReason: 'PROTECTED_EXPORT',
@@ -170,7 +171,7 @@ export class DemolishMath {
         return {
           canDemolish: true,
           targetType: 'MACHINE',
-          name: `${machine.def.name} (Lv.${level})`,
+          name: `${machine.def.name} (${t('common.levelShort', { n: level })})`,
           refundAmount,
           occupiedCoords,
           instanceId: machine.instanceId,
@@ -187,7 +188,7 @@ export class DemolishMath {
         return {
           canDemolish: true,
           targetType: 'SPLITTER',
-          name: 'Akış Ayırıcı (Splitter)',
+          name: t('logistics.splitter'),
           refundAmount: SPLITTER_BUILD_COST,
           occupiedCoords: [coord],
         };
@@ -199,7 +200,7 @@ export class DemolishMath {
         return {
           canDemolish: true,
           targetType: 'MERGER',
-          name: 'Akış Birleştirici (Merger)',
+          name: t('logistics.merger'),
           refundAmount: MERGER_BUILD_COST,
           occupiedCoords: [coord],
         };
@@ -211,7 +212,7 @@ export class DemolishMath {
         return {
           canDemolish: true,
           targetType: 'CONVEYOR',
-          name: 'Konveyör Bandı',
+          name: t('logistics.conveyor'),
           refundAmount: CONVEYOR_BUILD_COST,
           occupiedCoords: [coord],
         };

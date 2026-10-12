@@ -22,6 +22,7 @@ import { formatDistance, formatDuration, formatNumber } from '../utils/format';
 import { SEMANTIC, SPACE, uiIcon } from './theme';
 import type { UiLayer } from './system/UiLayer.ts';
 import { UiProgressBar } from './system/UiWidgets.ts';
+import { t, tDynamic } from '../i18n/i18n.ts';
 
 export interface ObjectiveView {
   /** "AŞAMA 3/10" */
@@ -39,17 +40,14 @@ export interface ObjectiveView {
   allDone: boolean;
   /** Kartın ikonu; verilmezse aşama bayrağı (hepsi bittiyse kupa) */
   icon?: string;
+  /** Tek satırlık şeritte etiketin kısa hali ("3/10"); verilmezse `stageLabel` */
+  stripLabel?: string;
 }
 
-/** Aşama ödülüyle açılan özelliklerin oyuncuya gösterilen adları */
-const FEATURE_LABELS: Readonly<Record<string, string>> = {
-  SPLITTER_MERGER: 'Ayırıcı ve Birleştirici',
-  ROCKET_HANGAR: 'Roket Hangarı',
-  INTAKE_IRON: 'Ek Demir Girişi',
-  INTAKE_COPPER: 'Bakır Girişi',
-  INTAKE_SILICA: 'Kum Girişi',
-  INTAKE_POLYMER: 'Polimer Girişi',
-};
+/** Aşama ödülüyle açılan özelliğin oyuncuya gösterilen adı (`feature.<kimlik>`); tanımsızsa boş */
+function featureLabel(featureId: string): string {
+  return tDynamic(`feature.${featureId}`, '');
+}
 
 /**
  * Bir aşama ödülünü kısa, okunur bir listeye çevirir: "$250 · Hidrolik Pres Makinesi".
@@ -66,14 +64,14 @@ export function formatMilestoneReward(reward: MilestoneReward, clickPowerAfter?:
     parts.push(defaultMachineRegistry.get(machineId)?.name ?? machineId);
   }
   for (const featureId of reward.unlockedFeatures ?? []) {
-    const label = FEATURE_LABELS[featureId];
+    const label = featureLabel(featureId);
     if (label) parts.push(label);
   }
   if (reward.revenueMultiplierBonus && reward.revenueMultiplierBonus > 0) {
-    parts.push(`+%${Math.round(reward.revenueMultiplierBonus * 100)} gelir`);
+    parts.push(t('stage.reward.income', { percent: Math.round(reward.revenueMultiplierBonus * 100) }));
   }
   if (clickPowerAfter !== undefined) {
-    parts.push(`Üret $${formatNumber(clickPowerAfter)}/basış`);
+    parts.push(t('stage.reward.click', { amount: formatNumber(clickPowerAfter) }));
   }
   return parts.join(' · ');
 }
@@ -87,8 +85,8 @@ export function buildRangeObjectiveView(bestDistance: number): ObjectiveView {
   const next = RangeLadder.next(bestDistance);
   if (!next) {
     return {
-      stageLabel: `SEFER ${total}/${total}`,
-      title: 'Bütün seferler tamamlandı!',
+      stageLabel: t('range.label', { n: total, total }),
+      title: t('range.allDone'),
       counter: formatDistance(bestDistance),
       progress: 1,
       reward: '',
@@ -98,11 +96,11 @@ export function buildRangeObjectiveView(bestDistance: number): ObjectiveView {
   }
 
   return {
-    stageLabel: `SEFER ${next.index}/${total}`,
-    title: `${formatDistance(next.targetMeters)} menziline ulaş: ${next.name}`,
+    stageLabel: t('range.label', { n: next.index, total }),
+    title: t('range.objective', { distance: formatDistance(next.targetMeters), name: next.name }),
     counter: `${formatDistance(bestDistance)}/${formatDistance(next.targetMeters)}`,
     progress: Phaser.Math.Clamp(bestDistance / next.targetMeters, 0, 1),
-    reward: `Ödül: ${RangeLadder.describeRewards(next).join(' · ')}`,
+    reward: t('common.reward', { list: RangeLadder.describeRewards(next).join(' · ') }),
     eta: '',
     allDone: false,
     // Sefer hedefi hangardan uçulur: araç çubuğundaki hangar simgesiyle aynı
@@ -144,11 +142,12 @@ export function buildObjectiveView(
   // Aşama bitince ÜRET düğmesinin kazancı da artar; ödül satırında görünür
   const reward = formatMilestoneReward(progress.milestone.reward, getClickPowerForStage(completedCount + 1));
   return {
-    stageLabel: `AŞAMA ${completedCount + 1}/${totalCount}`,
+    stageLabel: t('stage.label', { n: completedCount + 1, total: totalCount }),
+    stripLabel: `${completedCount + 1}/${totalCount}`,
     title: pending.description,
     counter,
     progress: Phaser.Math.Clamp(progress.overallPercentage, 0, 1),
-    reward: reward ? `Ödül: ${reward}` : '',
+    reward: reward ? t('common.reward', { list: reward }) : '',
     eta,
     allDone: false,
   };
@@ -157,9 +156,8 @@ export function buildObjectiveView(
 /** Tamamlanan aşama için bildirim metni (`clickPowerAfter`: ÜRET düğmesinin yeni kazancı) */
 export function formatMilestoneCompleted(milestone: MilestoneDefinition, clickPowerAfter?: number): string {
   const reward = formatMilestoneReward(milestone.reward, clickPowerAfter);
-  return reward
-    ? `Aşama tamamlandı: ${milestone.name}\nÖdül: ${reward}`
-    : `Aşama tamamlandı: ${milestone.name}`;
+  const done = t('stage.completedToast', { name: milestone.name });
+  return reward ? `${done}\n${t('common.reward', { list: reward })}` : done;
 }
 
 export type ObjectiveCardVariant = 'card' | 'strip';
@@ -278,7 +276,7 @@ export class ObjectiveCard {
       // Tek satır: [ikon] AŞAMA 3/10 · görev ............ sayaç, altında ince çubuk
       const rowY = 15;
       this.icon.setPosition(pad + 8, rowY);
-      this.stageText.setPosition(pad + 20, rowY).setText(view.stageLabel.replace('AŞAMA ', ''));
+      this.stageText.setPosition(pad + 20, rowY).setText(view.stripLabel ?? view.stageLabel);
       this.counterText.setPosition(w - pad, rowY).setText(view.counter);
 
       const titleX = this.stageText.x + this.stageText.width + SPACE.sm;
