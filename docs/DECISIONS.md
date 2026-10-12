@@ -351,3 +351,28 @@
   3. Dokunmatikte yerleştirme hayaleti yalnızca dokunuşla taşınır; parmak sürüklemesi (bant çizimi dışında) hayaleti oynatmaz.
 * **Gerekçe:** Kullanıcı isteği (2026-10-12). Ciro hedeflerine dokunulmadı çünkü istek parça adetleriyle sınırlıydı; 4. ve 6. aşamalar artık adetten çok ciroya bağlı olabilir.
 
+### [DEC-045] Arayüz Teması: Krem + Açık Kahve; Fabrikanın Çevresi: Beton Arsa ve Sanayi Şehri
+* **Tarih:** 2026-10-13
+* **Karar (DEC-042'nin yerini alır):**
+  1. Arayüz zeminleri açıktır: pencereler krem, kartlar açık krem, iç bölmeler ve çubuklar ten rengi/açık kahve; çerçeveler koyu kahve, perçinler pirinç. Lacivert panel dolgusu kalmadı.
+  2. Zemin açıldığı için panel üstü yazılar koyudur ("mürekkep" tonları: `SEMANTIC.*Hex`). Konturlu yazılar, dünyadaki yazılar ve renkli düğmeler parlak tonlarda kalır (`brightOf`). Sayısal `SEMANTIC` renkleri (ikon, çubuk, rozet) değişmedi.
+  3. Fabrikanın çevresi üç katmandır: genişleyebileceği ama açılmamış arsa **gri beton**, arsanın kenarı tuğla duvar, dışı kuşbakışı **minyatür sanayi ve şehir** çizimi (yollar, fabrikalar, depolar, tanklar, evler, park, otopark). Etkileşimli değildir.
+  4. Geniş yatay ekranda dünya, ortadaki araç çubuğu tablasının arkasında ekranın altına kadar uzanır.
+* **Gerekçe:** Kullanıcı isteği (2026-10-13). Dokular: `tools/generate_theme_assets.py`.
+* **Sınır:** Bütün pencereler tek tek yeniden çekilmedi (ana ekran, hangar, katalog, lider tablosu, giriş ekranı, uçuş ekranı görüldü). Dünyadaki rozetler (parsel, makine seviyesi) lacivert kaldı.
+
+### [DEC-046] Giriş Ekranı ve Lider Tablosu
+* **Tarih:** 2026-10-13
+* **Karar:**
+  1. **Giriş ekranı:** sayfa her açıldığında bir kez; şehir manzarasının önünde patron, tek cümlelik mesaj ve "Oyna". Kayıt sıfırlanınca yeniden gösterilmez. Ardından masaüstünde ilk açılışta kontrol şeması gelir.
+  2. **Lider tablosu** rekor mesafeye göre sıralar; HUD'daki rekor bölümünden (dar ekranda kupa düğmesinden) ve hangardan açılır. Sağlayıcı tabanlıdır (`docs/LEADERBOARD.md`): kendi skor sunucusu (`VITE_LEADERBOARD_URL`) · geliştirme sürümünde "ÖRNEK VERİ" uyarılı örnek pilotlar · sunucu yokken yerel tablo (yalnız oyuncu ve menzil hedefleri). **Uydurma oyuncular gerçek gibi gösterilmez.**
+  3. CrazyGames'in kendi lider tablosuna skor gönderimi koddadır ama kapalıdır (davet ve anahtar gerekir); o tablo CrazyGames arayüzünde görünür, oyun içi pencereyi dolduramaz.
+  4. Öğreticinin son adımı lider tablosunu gösterir; "diğer pilotlarla yarışıyorsun" cümlesi yalnızca tablo çevrimiçiyken kullanılır.
+* **Açık (kullanıcıya ait):** skor sunucusu seçimi ve hesabı; CrazyGames davet başvurusu; oyuncu adının nasıl belirleneceği.
+
+### [DEC-047] Dokunma ve Küçük Ekran Düzeltmeleri
+* **Tarih:** 2026-10-13
+* **Karar:** Pencere açıkken kamera hiçbir girdi almaz (her girdi olayında sorulur; Ayarlar açıkken oyun döngüsü durduğu için kamera kapatılmıyordu). Ses satırında sessize alma ve seviye yan yanadır. Yatay telefondaki dikey araç çubuğu etiketlerini her zaman gösterir (ikon küçülür, aralık daralır). Tarayıcı destekliyorsa HUD'da tam ekran düğmesi belirir; sayfa ana ekrana eklenirse çubuksuz açılır. 2–6. aşama adet hedefleri 20 / 15 / 20 / 20 (DEC-044'ü günceller).
+* **Sınır:** Tarayıcının adres çubuğu betikle gizlenemez; tam ekran ancak oyuncunun dokunuşuyla ve tarayıcı izin veriyorsa (iPhone Safari vermez) açılır.
+* **Takviye reklam düğmesi:** öğretici bitene ve fabrika gelir üretene kadar bilerek gizlidir; ayrıca rozetle birlikte üst çubuğa sığmıyorsa gösterilmez.
+

@@ -1399,3 +1399,20 @@ Karar: DEC-044.
 
 **Denenmeyenler:** fiziksel telefon; makine taşıma (aynı kod yolu, ayrıca denenmedi); yeni aşama hedefleriyle elde oynanış süresi.
 
+### [2026-10-13] — Dördüncü Liste (8 madde)
+
+Kararlar: DEC-045 … DEC-047. Lider tablosu araştırması: `docs/LEADERBOARD.md`.
+
+- **Ses satırı (1), aşama hedefleri (2):** `SettingsPanel`, `MilestoneManager`, öğretici metinleri; hedefi değişen mevcut test güncellendi.
+- **Pencere açıkken dokunma (3):** kök neden `GameScene.update`'in Ayarlar açıkken erken dönmesi ve kameranın o yüzden kapatılmaması. `CameraController.isInputBlocked` her girdi olayında sorulur.
+- **Yatay telefon (4):** dikey araç çubuğunda sıkışık düzen (`UiButton.setIconScale`), HUD'da tam ekran düğmesi, ana ekrana ekleme için meta etiketleri.
+- **Takviye düğmesi (5):** araştırıldı; neden DEC-047'de. Kod değişmedi.
+- **Tema ve çevre (6):** `tools/generate_theme_assets.py` yeniden yazıldı (krem/kahve paneller, beton, duvar, 512 piksellik şehir karosu); `theme.ts` mürekkep tonları ve `brightOf`; `UiLayer.text` konturlu yazıda parlak tonu seçer.
+- **Giriş ekranı (7):** yeni `StartScreenModal`, patron portresi (`boss.png`).
+- **Lider tablosu (8):** yeni `src/leaderboard/` (servis, sağlayıcılar, seçim), `LeaderboardModal`, HUD rekor bölümü ve kupa düğmesi, hangarda "SIRALAMA", `CrazyGamesSDK.submitLeaderboardScore`, öğreticide son adım.
+- **Ek:** kısa ekranda ortalama fabrikanın üst satırını kesmiyor.
+
+**Doğrulama:** `npm test` 262/262, `npx tsc --noEmit` temiz, `npm run build` başarılı. Tarayıcıda: Ayarlar'da dokunarak kaydırmada pencere kaydı, kamera kıpırdamadı; tekerlekte de aynı. 700x290 yatayda beş araç düğmesi etiketli. Giriş ekranı göründü ve "Oyna" ile kapandı. Lider tablosu HUD'dan açıldı (örnek kip, oyuncu 8. sırada vurgulu). Öğretici uçuştan sonra lider tablosu adımına geçti. Yeni tema masaüstünde ve telefon boyutunda ana ekran, hangar, katalog ve uçuş ekranında görüldü.
+
+**Denenmeyenler:** fiziksel telefon; gerçek skor sunucusu (`online` kip) ve ağ hatası yolu; CrazyGames skor gönderimi; yayın sürümündeki `local` kipin ekranı; tam ekran düğmesine basılması; yeni temada makine penceresi, ayarlar, uçuş raporu, Seferler, Takviye, çevrimdışı kazanç ve onay pencereleri.
+
