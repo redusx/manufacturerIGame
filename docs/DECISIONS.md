@@ -426,3 +426,16 @@
   2. Pencere yığını açılış sırasına göre değil **çizim katmanına** göre sıralanır: ekranda üstte duran pencere girdiyi alır. Kök neden: kayıtlı oyuncuda giriş ekranından 0,4 sn sonra açılan çevrimdışı kazanç penceresi (daha alt katman) yığının tepesine geçiyor, giriş ekranı kaydırılamıyordu.
   3. Hedef kartındaki "Sefer", Seferler listesindeki sıradaki hedef, uçuş raporundaki sıradaki hedef ve "Hangara Git" düğmeleri yeni hangar simgesini kullanır. Roketin kendisini anlatan yerlerde (roket sınıfı, uçuş kontrolleri) roket simgesi kalır.
 
+
+
+### [DEC-054] CrazyGames SDK v3: Yaşam Döngüsü, Reklam Hataları, Native Lider Tablosu, Kayıt
+* **Tarih:** 2026-10-12
+* **Karar:**
+  1. **Açılış sırası:** SDK başlatılır (5 sn zaman aşımı) → `loadingStart` → oyun kurulur → sahne hazır olunca `loadingStop`. SDK yoksa, başlatılamazsa ya da ortam `disabled` ise (başka alan adı) oyun onsuz açılır ve SDK'ya hiç dokunulmaz.
+  2. **Oynanış bildirimi:** ilk `gameplayStart` "Oyna"ya basılınca. Giriş ekranı, Ayarlar (oyun duraklar) ve kontrol şeması menü sayılır (`gameplayStop`); katalog, hangar, makine penceresi sayılmaz, çünkü fabrika çalışmaya devam eder. Uçuşta: fırlatma göstergesi beklerken durmuş, kalkışta başlar, uçuş bitince durur. Sekme ve odak platformundur.
+  3. **`happytime`** yalnızca: kırılan bir rekor (ilk uçuş hariç), açılan menzil basamağı ve on aşamanın tamamlanması. Ara aşamalarda çağrılmaz (doküman "bölüm bitirme için kullanma" diyor).
+  4. **Ödüllü reklam:** ödül yalnızca `adFinished` ile ve bir kez verilir; `adError`'da verilmez ve neden oyuncuya yazılır. `adsDisabledBasicLaunch` ve `adblock` hatasından sonra reklam düğmeleri kaldırılır. Reklam, oyun zaten durmuşken geldiyse (uçuş raporu) bitince oyunu "başladı" diye bildirmez. Sahte reklam yalnızca `?ads=mock` ile, yalnızca geliştirme sürümünde.
+  5. **Lider tablosu CrazyGames'tedir** (`docs/LEADERBOARD.md`): her uçuşun mesafesi (tam metre), o haftanın en iyisiyse bir kez gönderilir. Oyun içi pencere başka oyuncu göstermez; örnek pilotlar ve menzil hedefleriyle kurulan yerel tablo kaldırıldı.
+  6. **Kayıt `localStorage`'da kalır;** CrazyGames'te hesaplar arası eşitleme için Automatic Progress Save seçilir. Data modülüne geçilmedi: modül panelde açılmazsa kapalı kalıyor ve davranışı platform dışında doğrulanamıyor; yanlış bir geçişin bedeli oyuncu kaydıdır, APS ise aynı gereksinimi kodsuz karşılıyor.
+* **Açık (kullanıcıya ait):** lider tablosu daveti, anahtar ve ayarların iletilmesi; APS seçimi; Preview'da doğrulama.
+

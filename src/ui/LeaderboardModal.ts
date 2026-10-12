@@ -1,13 +1,17 @@
 /* ======================================================================
  * LeaderboardModal.ts — Lider tablosu penceresi
  *
- * Rekor mesafeye göre sıralama. Üstte oyuncunun kendi rekoru ve sırası, altında
- * tablo. Tablonun nereden geldiği her zaman yazar: çevrimiçi (gerçek oyuncular),
- * örnek veri (geliştirme sürümü) ya da yerel (sunucu yok; yalnız oyuncu ve menzil
- * hedefleri). Pencere her açılışta tabloyu yeniden ister.
+ * Sıralamayı CrazyGames tutar ve kendi arayüzünde gösterir; SDK'da listeyi okuyan
+ * bir çağrı yoktur (DEC-054). Bu yüzden pencere başka oyuncu göstermez, satır
+ * uydurmaz. Gösterdikleri: oyuncunun rekoru, bu haftaki en iyi uçuşu, son uçuşun
+ * skoruna ne olduğu, hangi hesapla sıralandığı ve gerçek tablonun nerede görüleceği.
+ *
+ * Oyunun kendi skor sunucusu bağlıysa (isteğe bağlı, 'online') o sunucunun listesi
+ * de altında gösterilir.
  * ====================================================================== */
 
 import Phaser from 'phaser';
+import type { CrazyGamesBoardState, ScoreSubmitStatus } from '../leaderboard/leaderboard.ts';
 import type { LeaderboardEntry, LeaderboardSnapshot } from '../leaderboard/LeaderboardService.ts';
 import { formatDistance } from '../utils/format.ts';
 import { SEMANTIC, SPACE, uiIcon } from './theme.ts';
@@ -16,29 +20,45 @@ import { UiLayer } from './system/UiLayer.ts';
 import { UiModal } from './system/UiModal.ts';
 import { UiChip, createCard, createInset } from './system/UiWidgets.ts';
 
+/** CrazyGames hesabının durumu */
+export interface LeaderboardAccount {
+  /** Hesap sistemi bu ortamda var mı? */
+  available: boolean;
+  /** Giriş yapılmışsa kullanıcı adı; misafirse null */
+  username: string | null;
+}
+
 export interface LeaderboardModalConfig {
-  /** Oyuncunun güncel rekoru (metre) ve tablodaki adı */
+  /** Oyuncunun güncel rekoru (metre) ve (kendi sunucumuz bağlıysa) tablodaki adı */
   getPlayer: () => { name: string; bestDistance: number };
-  /** Tabloyu getirir (ağ isteği olabilir) */
+  /** CrazyGames lider tablosunun durumu */
+  getBoardState: () => CrazyGamesBoardState;
+  /** CrazyGames hesabını sorar */
+  loadAccount: () => Promise<LeaderboardAccount>;
+  /** CrazyGames'in giriş penceresini açar (yalnızca oyuncu düğmeye basınca) */
+  requestLogin: () => Promise<void>;
+  /** Oyunun kendi skor sunucusundaki tablo (bağlı değilse boş, 'local') */
   loadSnapshot: () => Promise<LeaderboardSnapshot>;
   /** Hangarı açar ("daha uzağa git" çağrısı); hangar kilitliyken null döndürülür */
   getOpenHangar?: () => (() => void) | null;
 }
 
 const ROW_HEIGHT = 28;
+const LOGIN_BUTTON_WIDTH = 132;
+const LOGIN_BUTTON_HEIGHT = 34;
 
-const MODE_NOTES = {
-  online: 'Bütün oyuncuların rekor mesafeleri. Daha uzağa git, sıralamada yüksel.',
-  sample:
-    'ÖRNEK VERİ: bu satırlar gerçek oyuncu değildir. Çevrimiçi sıralama sunucusu bağlanınca gerçek oyuncular görünür.',
-  local:
-    'Çevrimiçi sıralama henüz bağlı değil; başka oyuncu gösterilmiyor. Rekorun menzil hedefleriyle birlikte sıralanıyor.',
-} as const;
+const STATUS_TEXT: Readonly<Record<ScoreSubmitStatus, string>> = {
+  sent: 'Son uçuşun CrazyGames lider tablosuna gönderildi.',
+  'not-season-best': 'Son uçuşun bu haftaki en iyi uçuşunu geçmedi; sıralaman değişmedi.',
+  disabled: 'Son uçuşun gönderilmedi: lider tablosu bu ortamda etkin değil.',
+  invalid: 'Son uçuşun gönderilmedi: mesafe geçerli aralığın dışındaydı.',
+  failed: 'Son uçuşun gönderilemedi. Sonraki uçuşta yeniden denenecek.',
+};
 
 export class LeaderboardModal extends UiModal {
   private readonly callbacks: LeaderboardModalConfig;
   private snapshot: LeaderboardSnapshot | null = null;
-  private loading = false;
+  private account: LeaderboardAccount | null = null;
   private requestId = 0;
   private hangarButton: UiButton | null = null;
 
@@ -51,38 +71,32 @@ export class LeaderboardModal extends UiModal {
     void this.reload();
   }
 
-  /** Tabloyu yeniden ister; yanıt gelene dek "yükleniyor" gösterilir */
+  /** Hesabı ve (varsa) kendi sunucumuzdaki tabloyu yeniden ister */
   private async reload(): Promise<void> {
     const request = ++this.requestId;
-    this.loading = true;
     this.rebuild();
-    const snapshot = await this.callbacks.loadSnapshot();
+    const [account, snapshot] = await Promise.all([this.callbacks.loadAccount(), this.callbacks.loadSnapshot()]);
     // Pencere kapandıysa ya da daha yeni bir istek varsa bu yanıt yok sayılır
     if (!this.isOpen || request !== this.requestId) return;
+    this.account = account;
     this.snapshot = snapshot;
-    this.loading = false;
     this.rebuild();
-    this.scrollToPlayer();
   }
-
-  /** Oyuncunun satırını görünür alana getirir */
-  private scrollToPlayer(): void {
-    const rank = this.snapshot?.playerRank;
-    // Üst sıralardaysa pencere baştan görünür; yalnız aşağıdaki satır için kaydırılır
-    if (!rank || rank <= 8) return;
-    this.scrollTo(this.listTop + (rank - 4) * ROW_HEIGHT);
-  }
-
-  private listTop = 0;
 
   protected buildBody(body: Phaser.GameObjects.Container, width: number): number {
     const scene = this.scene;
     const layer = this.layer;
     const player = this.callbacks.getPlayer();
-    const snapshot = this.snapshot;
+    const board = this.callbacks.getBoardState();
     let y = 0;
 
-    // --- Oyuncunun rekoru ve sırası --------------------------------------
+    const paragraph = (text: string, color: string = SEMANTIC.textMuted, variant: 'caption' | 'body' = 'caption'): void => {
+      const label = layer.text(0, y, text, variant, { color, wrapWidth: width });
+      body.add(label);
+      y += label.height + SPACE.sm;
+    };
+
+    // --- Oyuncunun rekoru --------------------------------------------------
     const headH = 64;
     body.add(createCard(scene, 0, y, width, headH));
     body.add(scene.add.image(SPACE.md + 10, y + headH / 2, 'icon_trophy').setOrigin(0.5).setScale(1.5));
@@ -96,50 +110,100 @@ export class LeaderboardModal extends UiModal {
         { color: SEMANTIC.rocketHex },
       ),
     );
-    if (snapshot?.playerRank) {
-      const chip = new UiChip(layer, 0, y + 20, `${snapshot.playerRank}. sıra`, SEMANTIC.money, { icon: 'icon_flag' });
+    if (board.enabled && board.seasonBest > 0) {
+      const chip = new UiChip(layer, 0, y + 20, `Bu hafta ${formatDistance(board.seasonBest)}`, SEMANTIC.money, {
+        icon: 'icon_flag',
+      });
       chip.setX(width - SPACE.md - chip.chipWidth);
       body.add(chip);
     }
     y += headH + SPACE.sm;
 
-    // --- Tablonun kaynağı -------------------------------------------------
-    const mode = snapshot?.mode ?? 'local';
-    const noteText =
-      snapshot?.failed === true
-        ? `Sıralama sunucusuna ulaşılamadı. ${MODE_NOTES.local}`
-        : this.loading && !snapshot
-          ? 'Sıralama yükleniyor…'
-          : MODE_NOTES[mode];
-    const note = layer.text(0, y, noteText, 'caption', {
-      color: mode === 'sample' ? SEMANTIC.warningHex : SEMANTIC.textMuted,
-      wrapWidth: width,
-    });
-    body.add(note);
-    y += note.height + SPACE.sm;
+    // --- CrazyGames lider tablosu -----------------------------------------
+    if (board.enabled) {
+      paragraph(
+        'Sıralama CrazyGames lider tablosunda tutulur: oyun sayfasındaki lider tablosu panelinden genel, ülke ve arkadaş sıralamana bakabilirsin.',
+        SEMANTIC.textPrimary,
+        'body',
+      );
+      paragraph(
+        'Skor, en uzun roket uçuşunun mesafesidir (metre). Tablo her pazartesi sıfırlanır; her hafta o haftanın en iyi uçuşun sayılır.',
+      );
+      paragraph(
+        board.lastStatus ? STATUS_TEXT[board.lastStatus] : 'Bir uçuş tamamladığında mesafen kendiliğinden gönderilir.',
+        board.lastStatus === 'sent' ? SEMANTIC.primaryHex : SEMANTIC.textMuted,
+      );
+      y = this.buildAccountRow(body, width, y);
+    } else {
+      paragraph('Çevrimiçi lider tablosu bu ortamda etkin değil.', SEMANTIC.textPrimary, 'body');
+      paragraph(
+        'Rekorun bu cihazda saklanıyor ve başka oyuncularla karşılaştırılmıyor. Oyun CrazyGames üzerinde açıldığında uçuşların CrazyGames lider tablosuna gönderilir.',
+      );
+    }
 
-    // --- Tablo ---------------------------------------------------------------
-    this.listTop = y;
-    const entries = snapshot?.entries ?? [];
-    if (entries.length === 0 && !this.loading) {
-      const empty = layer.text(0, y, 'Tabloda henüz kimse yok. İlk rekoru sen kır!', 'body', { wrapWidth: width });
-      body.add(empty);
-      return y + empty.height;
+    // --- Oyunun kendi skor sunucusu (bağlıysa) -----------------------------
+    const snapshot = this.snapshot;
+    if (snapshot?.mode === 'online') {
+      const entries = snapshot.entries;
+      paragraph('Bütün oyuncuların rekor mesafeleri:');
+      if (entries.length === 0) {
+        paragraph('Tabloda henüz kimse yok. İlk rekoru sen kır!', SEMANTIC.textPrimary, 'body');
+      }
+      for (const entry of entries) {
+        this.addRow(body, width, y, entry);
+        y += ROW_HEIGHT;
+      }
+    } else if (snapshot?.failed) {
+      paragraph('Oyunun skor sunucusuna ulaşılamadı.', SEMANTIC.warningHex);
     }
-    for (const entry of entries) {
-      this.addRow(body, width, y, entry);
-      y += ROW_HEIGHT;
+    return Math.max(0, y - SPACE.sm);
+  }
+
+  /** Hangi CrazyGames hesabıyla sıralandığı; misafirse giriş düğmesi */
+  private buildAccountRow(body: Phaser.GameObjects.Container, width: number, y: number): number {
+    const layer = this.layer;
+    const account = this.account;
+    if (!account || !account.available) return y;
+
+    if (account.username) {
+      const label = layer.text(0, y, `CrazyGames hesabı: ${account.username}`, 'bodyBold', { wrapWidth: width });
+      body.add(label);
+      return y + label.height + SPACE.sm;
     }
-    return y;
+
+    // Giriş ikincil bir eylemdir: küçük, nötr düğme; pencere açılınca kendiliğinden sorulmaz
+    const textWidth = width - LOGIN_BUTTON_WIDTH - SPACE.sm;
+    const label = layer.text(0, y, 'CrazyGames hesabına giriş yapmadın. Sıralama hesaplarla tutulur.', 'caption', {
+      color: SEMANTIC.textMuted,
+      wrapWidth: textWidth,
+    });
+    const rowHeight = Math.max(label.height, LOGIN_BUTTON_HEIGHT);
+    label.setY(y + Math.round((rowHeight - label.height) / 2));
+    body.add(label);
+    body.add(
+      new UiButton(layer, width - LOGIN_BUTTON_WIDTH / 2, y + rowHeight / 2, {
+        width: LOGIN_BUTTON_WIDTH,
+        height: LOGIN_BUTTON_HEIGHT,
+        variant: 'secondary',
+        label: 'GİRİŞ YAP',
+        textVariant: 'buttonSmall',
+        onClick: () => {
+          void this.callbacks.requestLogin().then(() => {
+            if (this.isOpen) void this.reload();
+          });
+        },
+      }),
+    );
+    return y + rowHeight + SPACE.sm;
   }
 
   private addRow(body: Phaser.GameObjects.Container, width: number, y: number, entry: LeaderboardEntry): void {
     const layer = this.layer;
     const centerY = y + ROW_HEIGHT / 2;
-    // Oyuncunun satırı kutuyla vurgulanır; hedef satırları soluktur
+    // Oyuncunun satırı kutuyla vurgulanır
     if (entry.isPlayer) body.add(createInset(this.scene, 0, y + 1, width, ROW_HEIGHT - 2));
 
-    const color = entry.isPlayer ? SEMANTIC.moneyHex : entry.isBenchmark ? SEMANTIC.textMuted : SEMANTIC.textPrimary;
+    const color = entry.isPlayer ? SEMANTIC.moneyHex : SEMANTIC.textPrimary;
     const variant = entry.isPlayer ? 'bodyBold' : 'body';
     body.add(layer.text(SPACE.sm, centerY, `${entry.rank}.`, variant, { color }).setOrigin(0, 0.5));
     const distance = layer
@@ -147,8 +211,11 @@ export class LeaderboardModal extends UiModal {
       .setOrigin(1, 0.5);
     body.add(distance);
     const name = layer.text(SPACE.sm + 34, centerY, '', variant, { color }).setOrigin(0, 0.5);
-    const label = entry.isPlayer ? `${entry.name} (sen)` : entry.isBenchmark ? `Hedef: ${entry.name}` : entry.name;
-    UiLayer.ellipsize(name, label, width - SPACE.sm * 2 - 34 - distance.width - SPACE.sm);
+    UiLayer.ellipsize(
+      name,
+      entry.isPlayer ? `${entry.name} (sen)` : entry.name,
+      width - SPACE.sm * 2 - 34 - distance.width - SPACE.sm,
+    );
     body.add(name);
   }
 

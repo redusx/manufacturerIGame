@@ -5,9 +5,6 @@
  * docs/LEADERBOARD.md'dedir:
  *   GET  {url}/top?limit=50  ->  [{ "id": "...", "name": "...", "distance": 12345 }]
  *   POST {url}/score         <-  { "id": "...", "name": "...", "distance": 12345 }
- *
- * SampleLeaderboardProvider: yalnız geliştirme sürümünde, arayüzü denemek için
- * örnek pilotlar üretir. Pencere bunun örnek veri olduğunu açıkça yazar.
  * ====================================================================== */
 
 import type { LeaderboardProvider, LeaderboardScore } from './LeaderboardService.ts';
@@ -60,37 +57,5 @@ export class RemoteLeaderboardProvider implements LeaderboardProvider {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: score.id, name: score.name, distance: score.distanceMeters }),
     });
-  }
-}
-
-/** Örnek pilotlar: gerçek oyuncu değildir (geliştirme sürümü) */
-const SAMPLE_PILOTS: ReadonlyArray<[string, number]> = [
-  ['Örnek Pilot A', 86400],
-  ['Örnek Pilot B', 61250],
-  ['Örnek Pilot C', 42800],
-  ['Örnek Pilot D', 30100],
-  ['Örnek Pilot E', 21700],
-  ['Örnek Pilot F', 15300],
-  ['Örnek Pilot G', 10900],
-  ['Örnek Pilot H', 7400],
-  ['Örnek Pilot I', 5150],
-  ['Örnek Pilot J', 2600],
-  ['Örnek Pilot K', 1100],
-  ['Örnek Pilot L', 420],
-];
-
-export class SampleLeaderboardProvider implements LeaderboardProvider {
-  readonly mode = 'sample' as const;
-
-  async fetchTop(limit: number): Promise<LeaderboardScore[]> {
-    return SAMPLE_PILOTS.slice(0, limit).map(([name, distanceMeters], index) => ({
-      id: `sample-${index}`,
-      name,
-      distanceMeters,
-    }));
-  }
-
-  async submit(): Promise<void> {
-    // Örnek tabloda saklanacak bir şey yok
   }
 }

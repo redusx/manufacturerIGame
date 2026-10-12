@@ -195,7 +195,7 @@ const STEPS: readonly TutorialStep[] = [
     text: (ctx) =>
       ctx.leaderboardOnline
         ? 'Rekorun lider tablosunda: kupaya dokun. Diğer pilotlarla yarışıyorsun; daha uzağa git, sıralamada yüksel. Öğretici bitti.'
-        : 'Rekorun lider tablosuna yazıldı: kupaya dokun, yerini gör ve daha uzağa giderek sıralamada yüksel. Öğretici bitti.',
+        : 'Rekorun kupada duruyor: dokun ve gör. Daha uzağa giderek rekorunu geliştir. Öğretici bitti.',
     highlight: () => 'leaderboard',
     needsConfirm: true,
   },

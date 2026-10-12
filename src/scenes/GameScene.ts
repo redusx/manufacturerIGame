@@ -42,7 +42,13 @@ import { BeltStepper } from '../ui/BeltStepper.ts';
 import { ZoomControls } from '../ui/ZoomControls.ts';
 import { ControlsModal } from '../ui/ControlsModal.ts';
 import { LeaderboardModal } from '../ui/LeaderboardModal.ts';
-import { currentPlayer, leaderboard, submitRecord } from '../leaderboard/leaderboard.ts';
+import {
+  currentPlayer,
+  getCrazyGamesBoardState,
+  isCrazyGamesBoardEnabled,
+  leaderboard,
+  submitFlightDistance,
+} from '../leaderboard/leaderboard.ts';
 import { StartScreenModal } from '../ui/StartScreenModal.ts';
 import { TutorialCoach, type CoachRect } from '../ui/TutorialCoach.ts';
 import { TutorialGuide, type TutorialContext, type TutorialTarget } from '../tutorial/TutorialGuide.ts';
@@ -93,7 +99,7 @@ import {
 import { PALETTE, SEMANTIC, SPACE, UI_TEXTURES, uiIcon } from '../ui/theme';
 import { sound } from '../audio/SoundManager.ts';
 import { fx } from '../effects/PixelParticleManager.ts';
-import { crazyGames } from '../integration/CrazyGamesSDK.ts';
+import { crazyGames, type AdErrorCode } from '../integration/CrazyGamesSDK.ts';
 
 /** Aşama ödülleriyle açılan özelliklerin kimlikleri (bkz. MilestoneManager.DEFAULT_MILESTONES) */
 const HANGAR_FEATURE = 'ROCKET_HANGAR';
@@ -110,6 +116,22 @@ const FACTORY_BACKDROP_TILE = 1024;
 const FACTORY_BACKDROP_LOT_OFFSET = 30;
 /** Arsanın her yanına döşenen karo sayısı (kamera en uzak görünümde de boşluk görmesin) */
 const FACTORY_BACKDROP_RING = 4;
+/** Ödül verilmeyen reklam isteğinde oyuncuya gösterilen açıklama (nedeni SDK bildirir) */
+function adFailureMessage(code: AdErrorCode | null): string {
+  switch (code) {
+    case 'unfilled':
+      return 'Şu an gösterilecek reklam yok; ödül verilmedi. Biraz sonra yeniden dene.';
+    case 'adCooldown':
+      return 'Reklam çok sık istendi; ödül verilmedi. Biraz sonra yeniden dene.';
+    case 'adblock':
+      return 'Reklam engelleyici açıkken ödüllü reklam izlenemez; ödül verilmedi.';
+    case 'adsDisabledBasicLaunch':
+      return 'Reklamlar bu sürümde kapalı; ödül verilmedi.';
+    default:
+      return 'Reklam tamamlanamadı; ödül verilmedi.';
+  }
+}
+
 /** Arsanın çevre duvarının kalınlığı (dünya pikseli) */
 const FACTORY_FENCE_THICKNESS = 6;
 /** Öğretici kutusunun fabrikayı örtmemesi için sığdırmada altta bırakılan ek şerit (arayüz birimi) */
@@ -359,9 +381,6 @@ export class GameScene extends Phaser.Scene {
         repeat: 0,
       });
     }
-
-    /* CrazyGames oyun döngüsü başlangıcı */
-    crazyGames.gameplayStart();
 
     /* Hangar Tedarik Köprüsü ve Fabrika Simülasyon Ekonomisi */
     this.factoryEconomy = new FactoryEconomy(0, undefined, this.economy);
@@ -796,6 +815,14 @@ export class GameScene extends Phaser.Scene {
     /* Lider tablosu: rekor mesafeye göre sıralama (HUD'daki rekor bölümünden açılır) */
     this.leaderboardModal = new LeaderboardModal(this.ui, {
       getPlayer: () => currentPlayer(this.hangarBridge.getFlightStats().bestDistance),
+      getBoardState: () => getCrazyGamesBoardState(),
+      loadAccount: async () => ({
+        available: crazyGames.isUserAccountAvailable,
+        username: (await crazyGames.getUser())?.username ?? null,
+      }),
+      requestLogin: async () => {
+        await crazyGames.showAuthPrompt();
+      },
       loadSnapshot: () => leaderboard.snapshot(currentPlayer(this.hangarBridge.getFlightStats().bestDistance)),
       getOpenHangar: () => (this.milestones.isFeatureUnlocked(HANGAR_FEATURE) ? () => this.openHangar() : null),
     });
@@ -996,6 +1023,9 @@ export class GameScene extends Phaser.Scene {
 
     /* İlk UI güncellemesi */
     this.refreshUI();
+
+    // Dosyalar indi ve sahne kuruldu: yükleme bitti (yalnızca ilk kurulumda etkilidir)
+    crazyGames.loadingStop();
   }
 
   /* ================================================================
@@ -1021,9 +1051,9 @@ export class GameScene extends Phaser.Scene {
 
   /** Uçuş tamamlandığında FlightScene'den çağrılır */
   onReturnFromFlight(totalResources: number, distance: number): void {
-    // Rekor lider tablosuna bildirilir (sunucu yalnızca daha iyisini saklar)
-    submitRecord(this.hangarBridge.getFlightStats().bestDistance);
-    crazyGames.gameplayStart();
+    // Tamamlanan uçuşun mesafesi lider tablosuna bildirilir (uçuş başına bir kez, yalnızca burada).
+    // Oyunun yeniden "oynanıyor" sayılması update içindeki eşitlemeyle olur.
+    void submitFlightDistance(distance, this.hangarBridge.getFlightStats().bestDistance);
     sound.playCoin();
     this.cameraController.setEnabled(true);
     const factoryEarned = this.catchUpFactory((Date.now() - this.flightStartedAtMs) / 1000);
@@ -1085,7 +1115,19 @@ export class GameScene extends Phaser.Scene {
     return Math.max(0, this.factoryEconomy.money - moneyBefore);
   }
 
+  /**
+   * CrazyGames'e oyunun oynanıp oynanmadığını bildirir. Giriş ekranı, ayarlar (oyun
+   * duraklar) ve kontrol şeması menü sayılır; diğer pencereler açıkken fabrika çalışmaya
+   * devam ettiği için oyun sürer. Sekme değişimini ve odağı platform kendisi izler.
+   */
+  private syncGameplayState(): void {
+    const inMenu = this.startScreen.isOpen || this.settingsPanel.isOpen || this.controlsModal.isOpen;
+    if (inMenu || ads.isPlaying) crazyGames.gameplayStop();
+    else crazyGames.gameplayStart();
+  }
+
   update(_time: number, delta: number): void {
+    this.syncGameplayState();
     // Ayarlar açıkken ve reklam ekrandayken oyun duraklar
     if (this.settingsPanel.isOpen || ads.isPlaying) return;
 
@@ -1230,7 +1272,9 @@ export class GameScene extends Phaser.Scene {
       const result = this.milestones.claimCurrentMilestone(this.factoryEconomy, this.productionEngine);
       if (!result.success || !result.claimedMilestone || !result.reward) return;
 
-      crazyGames.happytime();
+      // Platform kutlaması yalnızca büyük başarıda: aşamaların tamamı bitince (ara aşamalar
+      // "bölüm bitirme" sayılır; CrazyGames bunlar için istemiyor). Oyunun kendi kutlaması her aşamada.
+      if (this.milestones.isAllCompleted) crazyGames.happytime();
       sound.playMilestone();
       fx.emitConfetti(this, this.ui.width / 2, this.hud.bottom + 30, 32, 'ui');
       this.objective.playGoalReachedEffect();
@@ -1305,7 +1349,7 @@ export class GameScene extends Phaser.Scene {
     if (result === 'rewarded') return true;
 
     if (result === 'failed') {
-      this.notify('Reklam tamamlanamadı; ödül verilmedi.', 'warning');
+      this.notify(adFailureMessage(crazyGames.lastAdError), 'warning');
     } else if (result === 'cooldown') {
       this.notify(`Bu reklam ${formatAdCooldown(ads.cooldownRemaining(placement))} sonra yeniden izlenebilir.`, 'warning');
     } else if (result === 'unavailable') {
@@ -1552,7 +1596,7 @@ export class GameScene extends Phaser.Scene {
       exported: (itemId) => this.milestones.getExportedCount(itemId),
       isPlotUnlocked: (plotIndex) => this.factoryEconomy.isPlotUnlocked(plotIndex),
       hangarUnlocked: this.milestones.isFeatureUnlocked(HANGAR_FEATURE),
-      leaderboardOnline: leaderboard.mode === 'online',
+      leaderboardOnline: leaderboard.mode === 'online' || isCrazyGamesBoardEnabled(),
       totalFlights: this.hangarBridge.getFlightStats().totalFlights,
     };
   }

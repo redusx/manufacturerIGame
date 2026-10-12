@@ -1457,3 +1457,25 @@ Kararlar: DEC-050 … DEC-053.
 
 **Denenmeyenler:** fiziksel telefon ve dokunmatik girdi; 2.–10. aşamaların ara tıklama değerleri oyun içinde (tablo betikle denetlendi); reklamın başarısız olduğu ya da sunulamadığı durumda indirim ve kargo düğmeleri; gerçek CrazyGames reklamı (yerelde SDK'nın deneme reklamı çalıştı); kayıt dosyasına gerçek yazma (denemede kapalıydı).
 
+
+
+### [2026-10-12] — CrazyGames SDK v3 Denetimi ve Native Lider Tablosu
+
+Karar: DEC-054. Resmi dokümanlar okunup mevcut entegrasyon (M9-G) onlara göre denetlendi; eksikler tamamlandı.
+
+- **`CrazyGamesSDK.ts`:** `loadingStart/Stop`, başlatmada 5 sn zaman aşımı, `disabled` ortamda SDK'ya dokunmama, `adError` kodları (`lastAdError`), Basic Launch / reklam engelleyicide reklamı kapatma, reklam sonrası oyunu yalnız önceden oynanıyorsa başlatma, `getUser` / `showAuthPrompt` / `isUserAccountAvailable`, `canSubmitScore`.
+- **`main.ts`:** oyun, SDK başlatması bittikten sonra kurulur.
+- **`ads.ts`:** sahte sağlayıcı artık kendiliğinden devreye girmez.
+- **Sahne:** `GameScene.syncGameplayState`, ilk kurulumda `loadingStop`, hata nedenine göre reklam mesajı, aşamalarda `happytime` yalnız sonuncuda; `FlightScene`'de ilk uçuş rekor kutlaması sayılmaz.
+- **Lider tablosu:** yeni `SeasonScore.ts` (haftalık sezon, saf), `leaderboard.ts` (`submitFlightDistance`, durum), `LeaderboardModal` durum görünümü; `SampleLeaderboardProvider` ve menzil hedefli yerel tablo kaldırıldı. `.env.example` eklendi.
+
+**Doğrulama:** `npm test` 262/262, `npx tsc --noEmit` temiz, `npm run build` başarılı. Yeni test eklenmedi; depoya girmeyen geçici betikle: başarılı başlatma ve olay sırası, SDK yokluğu, `disabled` ortam, hata fırlatan ve hiç bitmeyen `init` (5 sn sonra oyun açılır), tek ödül (çift `adFinished`, `adError` sonrası `adFinished`), hata kodları, durmuş oyunda reklam, skorun dokümandaki biçimde şifrelenip anahtarla çözülmesi, haftalık sezon sınırları.
+Tarayıcıda, SDK'nın yerel kipinde (localhost, SDK 3.8.0):
+- Konsol sırası: SDK initialized → loading start → Phaser → loading stop; "Oyna"dan önce gameplay start yok.
+- Ayarlar aç/kapa → stop/start; hangar ve katalog → olay yok; uçuş: stop → (kalkış) start → (çakılma) stop → (dönüş) start.
+- Ödüllü reklam düğmesine art arda iki tıklama: tek reklam, tek ödül (makine Sv.+1), stop/start.
+- Geçici rastgele anahtarla: ilk uçuş (918 m) tek `Submitting score` satırı (dönüş düğmesine çift tıklamada da tek), aynı mesafeli ikinci uçuş gönderilmedi, açılışta gönderim yok. Anahtarsız: uyarı bir kez, uçuş ve rekor çalışıyor. Geçici anahtar silindi.
+- Lider tablosu penceresi iki durumda (etkin / etkin değil) görüldü.
+
+**Denenemeyenler:** gerçek CrazyGames ortamı ve Preview aracı; gerçek reklam, `unfilled` / `adblock` / Basic Launch hataları (yalnız betikte); gerçek lider tablosuna yazım ve misafir davranışı; `showAuthPrompt`; APS; fiziksel telefon.
+

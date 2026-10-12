@@ -19,8 +19,11 @@
 
 ## 2. Yayından Önce Yapılacaklar
 
-- [ ] `npm run build` çıktısını CrazyGames geliştirici paneline yükle ve QA aracında aç.
-- [ ] QA aracında beş yerleşimi tek tek dene: ödül geliyor, bekleme süresi başlıyor, reklam kapatılınca ödül gelmiyor.
+- [ ] `npm run build` çıktısını (`dist/`) CrazyGames geliştirici paneline yükle ve Preview / QA aracında aç.
+- [ ] Gönderim formunda **Progress Save** için "Automatic Progress Save (APS)" seç: kayıt `localStorage`'dadır, APS onu hesaba yedekler; oyunda uygulama içi satın alma yok (DEC-054).
+- [ ] Preview günlüğünde sırayı doğrula: SDK başlatıldı → loading start → loading stop → (Oyna) gameplay start; Ayarlar açılınca stop, kapanınca start; uçuşta start/stop.
+- [ ] Lider tablosu: `docs/LEADERBOARD.md` §3 (davet, anahtar, ayarlar, Preview'da `submitScore`).
+- [ ] QA aracında yedi yerleşimi (R1–R7) tek tek dene: ödül geliyor, bekleme süresi başlıyor, reklam kapatılınca ödül gelmiyor.
 - [ ] "Basic Launch" (reklamsız) modunda hiçbir reklam düğmesinin görünmediğini doğrula.
 - [ ] Reklam engelleyici açıkken düğmelerin görünmediğini doğrula.
 - [ ] Reklam sırasında sesin kesildiğini ve reklamdan sonra geri geldiğini kulakla doğrula.
@@ -36,7 +39,8 @@
 |---|---|---|
 | CrazyGames (SDK `crazygames`) | `crazygames` | Gerçek reklam |
 | localhost (SDK `local`) | `crazygames` | SDK'nın deneme reklamı |
-| Başka alan adı, geliştirme sürümü | `mock` | "REKLAM ALANI" katmanı; ödül bedava |
-| Başka alan adı, yayın sürümü | `off` | Reklam düğmeleri çizilmez |
+| Başka alan adı (SDK `disabled`) ya da SDK yok | `off` | Reklam düğmeleri çizilmez; SDK'ya hiç dokunulmaz |
 
-Geliştirme sürümünde `?ads=off`, `?ads=mock`, `?ads=fail` ile zorlanabilir; yayın sürümünde bu parametreler yok sayılır.
+Sahte reklam ("REKLAM ALANI" katmanı) kendiliğinden devreye girmez: yalnızca geliştirme sürümünde `?ads=mock` ya da `?ads=fail` ile açılır. `?ads=off` reklamı kapatır. Yayın sürümünde bu parametreler yok sayılır.
+
+Reklam hatasında (`adError`) ödül verilmez ve neden oyuncuya yazılır. `adsDisabledBasicLaunch` ya da `adblock` gelirse reklam düğmeleri o oturumda kaldırılır (basılıp iş görmeyen düğme kalmaz).

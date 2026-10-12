@@ -1139,7 +1139,9 @@ export class FlightScene extends Phaser.Scene {
     });
 
     if (view.isNewBestDistance || view.unlockedMilestones.length > 0) {
-      crazyGames.happytime();
+      // Platform kutlaması gerçek başarıda: kırılan bir rekor ya da açılan menzil basamağı.
+      // İlk uçuş (kırılacak rekor yokken) sayılmaz.
+      if (prevBest > 0 || view.unlockedMilestones.length > 0) crazyGames.happytime();
       sound.playMilestone();
       fx.emitConfetti(this, this.ui.width / 2, this.ui.height / 2, 28, 'ui');
     }

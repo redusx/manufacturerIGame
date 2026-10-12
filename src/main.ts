@@ -5,9 +5,6 @@ import { crazyGames } from './integration/CrazyGamesSDK.ts';
 import { UiHost } from './ui/system/UiHost.ts';
 import { PALETTE } from './ui/theme.ts';
 
-// CrazyGames SDK v3 Başlatma (Güvenli Fallback ile)
-crazyGames.init().catch(() => {});
-
 /** Tasarım taban çözünürlüğü; pencere boyutu henüz bilinmiyorken de bu boyutla açılır */
 const BASE_WIDTH = 360;
 const BASE_HEIGHT = 640;
@@ -31,25 +28,37 @@ const config: Phaser.Types.Core.GameConfig = {
   scene: [GameScene, FlightScene],
 };
 
-const game = new Phaser.Game(config);
-(window as unknown as { game: Phaser.Game }).game = game;
-
-// Tuval boyutu, cihaz çözünürlüğü ve arayüz ölçeği tek yerden yönetilir
-UiHost.init(game);
-
 /**
- * Phaser klavye olaylarını bir sonraki oyun adımına kadar kuyrukta tutar ve her yeni
- * tuş olayında kuyruğun tamamını baştan işler. Aynı adım içinde birden çok tuş olayı
- * gelirse (hızlı basış, düşük kare hızı) önceki tuşlar ikinci kez tetiklenir; ör. ok
- * tuşu odağı iki kez kaydırır, Enter iki pencereyi birden onaylar. Kuyruk her tarayıcı
- * olayının hemen ardından boşaltılır; böylece her tuş tam bir kez işlenir.
+ * Açılış sırası (docs.crazygames.com/sdk/intro): önce SDK başlatılır, sonra yüklemenin
+ * başladığı bildirilir, sonra oyun kurulur. SDK yoksa, kapalıysa ya da başlatma takılırsa
+ * (zaman aşımı sarmalayıcıdadır) oyun onsuz açılır.
  */
-// `queue` Phaser'ın tür tanımlarında yer almaz
-const keyboardManager = game.input.keyboard as unknown as { queue: KeyboardEvent[] } | null;
-if (keyboardManager) {
-  game.input.events.on(Phaser.Input.Events.MANAGER_PROCESS, () => {
-    queueMicrotask(() => {
-      keyboardManager.queue.length = 0;
+async function boot(): Promise<void> {
+  await crazyGames.init().catch(() => false);
+  crazyGames.loadingStart();
+
+  const game = new Phaser.Game(config);
+  (window as unknown as { game: Phaser.Game }).game = game;
+
+  // Tuval boyutu, cihaz çözünürlüğü ve arayüz ölçeği tek yerden yönetilir
+  UiHost.init(game);
+
+  /**
+   * Phaser klavye olaylarını bir sonraki oyun adımına kadar kuyrukta tutar ve her yeni
+   * tuş olayında kuyruğun tamamını baştan işler. Aynı adım içinde birden çok tuş olayı
+   * gelirse (hızlı basış, düşük kare hızı) önceki tuşlar ikinci kez tetiklenir; ör. ok
+   * tuşu odağı iki kez kaydırır, Enter iki pencereyi birden onaylar. Kuyruk her tarayıcı
+   * olayının hemen ardından boşaltılır; böylece her tuş tam bir kez işlenir.
+   */
+  // `queue` Phaser'ın tür tanımlarında yer almaz
+  const keyboardManager = game.input.keyboard as unknown as { queue: KeyboardEvent[] } | null;
+  if (keyboardManager) {
+    game.input.events.on(Phaser.Input.Events.MANAGER_PROCESS, () => {
+      queueMicrotask(() => {
+        keyboardManager.queue.length = 0;
+      });
     });
-  });
+  }
 }
+
+void boot();

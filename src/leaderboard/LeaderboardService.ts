@@ -1,21 +1,15 @@
 /* ======================================================================
- * src/leaderboard/LeaderboardService.ts — Lider tablosu (saf)
+ * src/leaderboard/LeaderboardService.ts — Oyunun kendi skor sunucusundaki tablo (saf)
  *
- * Oyuncuların rekor mesafelerine göre sıralandığı tablo. Sıralamayı tutan
- * sağlayıcı dışarıdan takılır:
- *  - 'online': oyunun kendi skor sunucusu (docs/LEADERBOARD.md'deki sözleşme),
- *  - 'sample': geliştirme sürümünde arayüzü denemek için örnek pilotlar,
- *  - 'local' : sağlayıcı yokken. Başka oyuncu gösterilmez; oyuncunun rekoru menzil
- *              hedefleriyle birlikte sıralanır.
- * Örnek veya yerel tablo hiçbir zaman gerçek oyuncu sıralaması gibi sunulmaz;
- * pencere hangi kipte olduğunu yazar.
+ * İsteğe bağlı yol: `VITE_LEADERBOARD_URL` ile bir skor sunucusu bağlanırsa oyuncuların
+ * rekor mesafeleri oradan okunur ve pencerede listelenir ('online').
+ * Sunucu yoksa ('local') hiçbir satır üretilmez: başka oyuncu uydurulmaz, yerel kayıt
+ * sıralama gibi sunulmaz. Asıl sıralama CrazyGames'tedir (leaderboard.ts).
  *
  * Saf TypeScript — Phaser ve DOM bağımlılığı yoktur.
  * ====================================================================== */
 
-import { RANGE_LADDER } from '../flight/RangeLadder.ts';
-
-export type LeaderboardMode = 'online' | 'sample' | 'local';
+export type LeaderboardMode = 'online' | 'local';
 
 /** Sağlayıcının döndürdüğü ham satır */
 export interface LeaderboardScore {
@@ -38,8 +32,6 @@ export interface LeaderboardEntry {
   name: string;
   distanceMeters: number;
   isPlayer: boolean;
-  /** Yerel kipte: oyuncu değil, menzil hedefi satırı */
-  isBenchmark: boolean;
 }
 
 export interface LeaderboardSnapshot {
@@ -47,7 +39,7 @@ export interface LeaderboardSnapshot {
   entries: LeaderboardEntry[];
   /** Oyuncunun sırası; tabloda yoksa (rekoru yok ya da ilk N dışında) null */
   playerRank: number | null;
-  /** Sunucuya ulaşılamadıysa true: yerel tablo gösterilir */
+  /** Sunucuya ulaşılamadıysa true: liste gösterilemez */
   failed: boolean;
 }
 
@@ -122,7 +114,7 @@ export class LeaderboardService {
     }
 
     rows.sort((a, b) => b.distanceMeters - a.distanceMeters);
-    const entries = rows.map((row, index) => ({ ...row, rank: index + 1, isBenchmark: false }));
+    const entries = rows.map((row, index) => ({ ...row, rank: index + 1 }));
     return {
       mode,
       entries,
@@ -131,33 +123,8 @@ export class LeaderboardService {
     };
   }
 
-  /**
-   * Sunucu yokken gösterilen tablo: başka oyuncu uydurulmaz. Oyuncunun rekoru, menzil
-   * merdiveninin hedefleriyle birlikte sıralanır ("Mars Yörüngesi 20 km" gibi).
-   */
-  static localSnapshot(player: LeaderboardPlayer, failed: boolean): LeaderboardSnapshot {
-    const rows = RANGE_LADDER.map((rung) => ({
-      name: rung.name,
-      distanceMeters: rung.targetMeters,
-      isPlayer: false,
-      isBenchmark: true,
-    }));
-    if (player.bestDistance > 0) {
-      rows.push({
-        name: player.name,
-        distanceMeters: Math.floor(player.bestDistance),
-        isPlayer: true,
-        isBenchmark: false,
-      });
-    }
-    // Eşitlikte oyuncu hedefin üstünde görünür (hedefe ulaşmıştır)
-    rows.sort((a, b) => b.distanceMeters - a.distanceMeters || Number(b.isPlayer) - Number(a.isPlayer));
-    const entries = rows.map((row, index) => ({ ...row, rank: index + 1 }));
-    return {
-      mode: 'local',
-      entries,
-      playerRank: entries.find((entry) => entry.isPlayer)?.rank ?? null,
-      failed,
-    };
+  /** Sunucu yokken ya da ulaşılamadığında: satır yok (başka oyuncu uydurulmaz) */
+  static localSnapshot(_player: LeaderboardPlayer, failed: boolean): LeaderboardSnapshot {
+    return { mode: 'local', entries: [], playerRank: null, failed };
   }
 }

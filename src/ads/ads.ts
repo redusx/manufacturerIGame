@@ -1,14 +1,14 @@
 /* ======================================================================
  * src/ads/ads.ts — Reklam servisinin oyundaki tek örneği ve mod seçimi
  *
- * Mod kendiliğinden seçilir (DEC-034):
- *   - CrazyGames SDK reklam gösterebiliyorsa (sitede veya localhost'ta) → 'crazygames'
- *   - Gösteremiyorsa ve geliştirme sürümüyse → 'mock' (sahte "REKLAM ALANI" katmanı)
- *   - Gösteremiyorsa ve yayın sürümüyse → 'off' (reklam düğmeleri hiç çizilmez;
- *     sahte reklamla bedava ödül verilmez)
+ * Mod kendiliğinden seçilir (DEC-034, DEC-054):
+ *   - CrazyGames SDK reklam gösterebiliyorsa (sitede; localhost'ta SDK'nın kendi deneme
+ *     kipiyle) → 'crazygames'
+ *   - Gösteremiyorsa → 'off': reklam düğmeleri hiç çizilmez; sahte reklamla bedava ödül
+ *     verilmez (geliştirme sürümünde de varsayılan budur)
  *
- * Deneme için adres çubuğundan zorlanabilir (yalnız geliştirme sürümünde):
- *   ?ads=off · ?ads=mock · ?ads=fail (sahte reklam her seferinde gösterilemez)
+ * Sahte reklam yalnızca açıkça istenirse ve yalnızca geliştirme sürümünde çalışır:
+ *   ?ads=mock · ?ads=fail (sahte reklam her seferinde gösterilemez) · ?ads=off
  * ====================================================================== */
 
 import { sound } from '../audio/SoundManager.ts';
@@ -61,9 +61,8 @@ if (override === 'off') {
 } else if (override === 'mock' || override === 'fail') {
   useMock();
 } else {
-  // SDK başlatılana kadar geliştirme sürümünde sahte sağlayıcı, yayında kapalı
-  if (IS_DEV) useMock();
-  else useOff();
+  // SDK başlatılana kadar reklam yoktur; sahte sağlayıcı kendiliğinden devreye girmez
+  useOff();
 
   void crazyGames.init().then(() => {
     if (crazyGames.canShowAds()) {

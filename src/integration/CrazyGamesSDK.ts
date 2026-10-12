@@ -6,8 +6,9 @@
  * güvenli adaptör katmanı. (docs/MASTER_PLAN.md TASK-123)
  *
  * Sorumluluklar:
- * - SDK v3 başlatma (init)
- * - Oyun döngüsü takibi: gameplayStart(), gameplayStop(), happytime()
+ * - SDK v3 başlatma (init): bir kez, zaman aşımı korumalı; başka alan adında ('disabled') SDK'ya hiç dokunulmaz
+ * - Yükleme ve oyun döngüsü: loadingStart/Stop, gameplayStart/Stop, happytime()
+ * - Kullanıcı: hesap bilgisi, giriş penceresi, lider tablosuna skor gönderme
  * - Reklam yönetimi: Midgame ve Rewarded Video; reklam başladığında/bitince oyun
  *   döngüsü bildirimi (ses ve duraklatma AdService dinleyicilerindedir)
  * - Reklam gösterilebilirlik denetimi (ortam, reklam engelleyici)
@@ -22,6 +23,17 @@ export interface AdCallbacks {
   adError?: (error: unknown) => void;
 }
 
+/** SDK'nın `adError` ile bildirdiği nedenler (docs.crazygames.com/sdk/video-ads) */
+export type AdErrorCode = 'adsDisabledBasicLaunch' | 'unfilled' | 'adblock' | 'adCooldown' | 'other';
+
+const AD_ERROR_CODES: readonly AdErrorCode[] = ['adsDisabledBasicLaunch', 'unfilled', 'adblock', 'adCooldown', 'other'];
+
+/** CrazyGames hesabı; giriş yapılmamışsa SDK null döndürür */
+export interface CrazyGamesUser {
+  username: string;
+  profilePictureUrl?: string;
+}
+
 export interface CrazyGamesSDKRaw {
   init(): Promise<void>;
   /** 'crazygames' (sitede) · 'local' (localhost; deneme reklamı) · 'disabled' (başka alan adı) */
@@ -30,6 +42,8 @@ export interface CrazyGamesSDKRaw {
     gameplayStart(): void;
     gameplayStop(): void;
     happytime(): void;
+    loadingStart?(): void;
+    loadingStop?(): void;
   };
   ad: {
     requestAd(type: AdType, callbacks?: AdCallbacks): Promise<void>;
@@ -38,6 +52,11 @@ export interface CrazyGamesSDKRaw {
   /** Kullanıcı modülü: lider tablosuna skor gönderme (davetli oyunlarda etkindir) */
   user?: {
     submitScore?(payload: { encryptedScore: string; score: number }): Promise<void> | void;
+    /** Hesap sistemi bu ortamda kullanılabilir mi? (Oyunu gömen başka sitelerde false) */
+    isUserAccountAvailable?: boolean;
+    getUser?(): Promise<CrazyGamesUser | null>;
+    /** CrazyGames'in giriş / kayıt penceresini açar; yalnızca oyuncunun isteğiyle çağrılır */
+    showAuthPrompt?(): Promise<CrazyGamesUser | null>;
   };
 }
 
@@ -47,8 +66,10 @@ export interface AdRequestHooks {
   onStarted?: () => void;
 }
 
-/** SDK'nın reklam gösterebildiği ortamlar */
-const AD_ENVIRONMENTS: readonly string[] = ['crazygames', 'local'];
+/** SDK'nın çalıştığı ortamlar; 'disabled' ortamda (başka alan adı) her SDK çağrısı hata fırlatır */
+const ACTIVE_ENVIRONMENTS: readonly string[] = ['crazygames', 'local'];
+/** Başlatma bu sürede bitmezse oyun SDK'sız açılır (ms) */
+const INIT_TIMEOUT_MS = 5000;
 
 export class CrazyGamesSDK {
   private static instance: CrazyGamesSDK | null = null;
@@ -59,8 +80,13 @@ export class CrazyGamesSDK {
   private isGameplayRunning = false;
   /** Sürmekte olan veya tamamlanmış başlatma; init() iki kez çağrılırsa SDK bir kez başlatılır */
   private initPromise: Promise<boolean> | null = null;
-  /** Reklam engelleyici algılandı mı? (Başlatmadan sonra bir kez sorulur) */
+  /** Reklam engelleyici algılandı mı? (Başlatmadan sonra sorulur; reklam hatası da bildirebilir) */
   private adblockDetected = false;
+  /** Platform reklamları kapattı mı? (Basic Launch); o zaman düğmeler hiç çizilmez */
+  private adsDisabledByPlatform = false;
+  /** Son reklam isteğinin neden başarısız olduğu; başarılıysa null */
+  private adErrorCode: AdErrorCode | null = null;
+  private isLoading = false;
 
   private constructor(customSdk?: CrazyGamesSDKRaw) {
     if (customSdk) {
@@ -107,8 +133,24 @@ export class CrazyGamesSDK {
       }
 
       if (this.rawSdk) {
-        await this.rawSdk.init();
+        // Takılan bir başlatma oyunu açılmaz hâle getirmesin
+        const timedOut = await Promise.race([
+          this.rawSdk.init().then(() => false),
+          new Promise<boolean>((resolve) => setTimeout(() => resolve(true), INIT_TIMEOUT_MS)),
+        ]);
+        if (timedOut) throw new Error(`init ${INIT_TIMEOUT_MS} ms içinde bitmedi`);
         this.initialized = true;
+        // CrazyGames dışındaki alan adlarında SDK kapalıdır: her çağrısı hata fırlatır
+        let environment = 'crazygames';
+        try {
+          environment = this.rawSdk.environment ?? 'crazygames';
+        } catch {
+          environment = 'disabled';
+        }
+        if (!ACTIVE_ENVIRONMENTS.includes(environment)) {
+          console.info(`[CrazyGamesSDK] Ortam "${environment}": platform özellikleri kapalı, oyun onlarsız çalışır.`);
+          return false;
+        }
         this.sdkReady = true;
         // Başlatma bitmeden istenen oyun başlangıcı şimdi bildirilir
         if (this.isGameplayRunning) {
@@ -138,6 +180,33 @@ export class CrazyGamesSDK {
    */
   private get readySdk(): CrazyGamesSDKRaw | null {
     return this.sdkReady ? this.rawSdk : null;
+  }
+
+  /** SDK kullanılabilir mi? (Başlatıldı ve ortam CrazyGames ya da yerel deneme) */
+  public get isReady(): boolean {
+    return this.sdkReady;
+  }
+
+  /** Yükleme başladı (oyunun dosyaları inmeye başlarken bir kez) */
+  public loadingStart(): void {
+    if (this.isLoading) return;
+    this.isLoading = true;
+    try {
+      this.readySdk?.game?.loadingStart?.();
+    } catch (err) {
+      console.warn('[CrazyGamesSDK] loadingStart hatası:', err);
+    }
+  }
+
+  /** Yükleme bitti, oyun oynanmaya hazır */
+  public loadingStop(): void {
+    if (!this.isLoading) return;
+    this.isLoading = false;
+    try {
+      this.readySdk?.game?.loadingStop?.();
+    } catch (err) {
+      console.warn('[CrazyGamesSDK] loadingStop hatası:', err);
+    }
   }
 
   /**
@@ -206,8 +275,8 @@ export class CrazyGamesSDK {
    */
   public canShowAds(): boolean {
     const sdk = this.readySdk;
-    if (!sdk || this.adblockDetected) return false;
-    if (!AD_ENVIRONMENTS.includes(this.environment)) return false;
+    if (!sdk || this.adblockDetected || this.adsDisabledByPlatform) return false;
+    if (!ACTIVE_ENVIRONMENTS.includes(this.environment)) return false;
     try {
       return typeof sdk.ad?.requestAd === 'function';
     } catch {
@@ -224,15 +293,20 @@ export class CrazyGamesSDK {
    */
   public async requestAd(type: AdType, hooks: AdRequestHooks = {}): Promise<boolean> {
     const sdk = this.readySdk;
+    this.adErrorCode = null;
     if (!sdk || !this.canShowAds()) return false;
 
     return new Promise<boolean>((resolve) => {
       let started = false;
       let settled = false;
+      let wasPlaying = false;
+      // Sonuç yalnızca bir kez işlenir: adError'dan sonra gelen adFinished ödül verdirmez
       const finish = (completed: boolean): void => {
         if (settled) return;
         settled = true;
-        if (started) this.gameplayStart();
+        // Oyun reklamdan önce oynanıyorsa (ör. fabrika) kaldığı yerden sürer;
+        // zaten duruyorsa (ör. uçuş raporu) başlatılmaz
+        if (started && wasPlaying) this.gameplayStart();
         resolve(completed);
       };
 
@@ -240,12 +314,19 @@ export class CrazyGamesSDK {
         adStarted: () => {
           if (started) return;
           started = true;
+          wasPlaying = this.isGameplayRunning;
           this.gameplayStop();
           hooks.onStarted?.();
         },
         adFinished: () => finish(true),
         adError: (error) => {
-          console.warn('[CrazyGamesSDK] Reklam hatası:', error);
+          if (settled) return;
+          this.adErrorCode = CrazyGamesSDK.readAdErrorCode(error);
+          // Bu iki durumda reklam bu oturumda hiç gelmez: düğmeler basılıp iş görmez
+          // hâlde kalmasın diye reklam "sunulmuyor" sayılır ve arayüz onları kaldırır
+          if (this.adErrorCode === 'adblock') this.adblockDetected = true;
+          if (this.adErrorCode === 'adsDisabledBasicLaunch') this.adsDisabledByPlatform = true;
+          console.warn('[CrazyGamesSDK] Reklam gösterilemedi:', error);
           finish(false);
         },
       };
@@ -262,6 +343,58 @@ export class CrazyGamesSDK {
     });
   }
 
+  /** `adError`'ın verdiği nesneden nedeni okur; tanınmıyorsa 'other' */
+  private static readAdErrorCode(error: unknown): AdErrorCode {
+    const code = (error as { code?: unknown } | null)?.code;
+    return AD_ERROR_CODES.find((known) => known === code) ?? 'other';
+  }
+
+  /** Son reklam isteği neden başarısız oldu? Başarılıysa ya da hiç istenmediyse null */
+  public get lastAdError(): AdErrorCode | null {
+    return this.adErrorCode;
+  }
+
+  /** Hesap sistemi bu ortamda var mı? (Oyunu gömen başka sitelerde yoktur) */
+  public get isUserAccountAvailable(): boolean {
+    try {
+      return this.readySdk?.user?.isUserAccountAvailable === true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Giriş yapmış CrazyGames kullanıcısı; misafirse ya da SDK yoksa null */
+  public async getUser(): Promise<CrazyGamesUser | null> {
+    try {
+      return (await this.readySdk?.user?.getUser?.()) ?? null;
+    } catch (err) {
+      console.warn('[CrazyGamesSDK] getUser hatası:', err);
+      return null;
+    }
+  }
+
+  /**
+   * CrazyGames'in giriş penceresini açar. Yalnızca oyuncu bir düğmeye bastığında çağrılır
+   * (kendiliğinden açmak kurallara aykırıdır). Oyuncu vazgeçerse null döner.
+   */
+  public async showAuthPrompt(): Promise<CrazyGamesUser | null> {
+    try {
+      return (await this.readySdk?.user?.showAuthPrompt?.()) ?? null;
+    } catch {
+      // userCancelled, userAlreadySignedIn, showAuthPromptInProgress: hepsi "değişiklik yok"
+      return null;
+    }
+  }
+
+  /** Lider tablosuna skor gönderilebilir mi? (SDK hazır ve skor gönderme işlevi var) */
+  public get canSubmitScore(): boolean {
+    try {
+      return typeof this.readySdk?.user?.submitScore === 'function' && !!globalThis.crypto?.subtle;
+    } catch {
+      return false;
+    }
+  }
+
   /**
    * CrazyGames lider tablosuna skor gönderir (istemci tarafı yol). Skor, geliştirici
    * panelinde üretilen 32 baytlık anahtarla AES-GCM ile şifrelenir; şifreli ve açık skor
@@ -269,9 +402,9 @@ export class CrazyGamesSDK {
    * kendi panelinde gösterir; oyun listeyi okuyamaz. SDK veya anahtar yoksa false döner.
    */
   public async submitLeaderboardScore(score: number, encryptionKeyBase64: string): Promise<boolean> {
-    const submit = this.readySdk?.user?.submitScore;
     const subtle = globalThis.crypto?.subtle;
-    if (!submit || !subtle || !encryptionKeyBase64) return false;
+    if (!this.canSubmitScore || !subtle || !encryptionKeyBase64) return false;
+    if (!Number.isFinite(score) || score < 0) return false;
 
     try {
       const keyBytes = Uint8Array.from(atob(encryptionKeyBase64), (char) => char.charCodeAt(0));
@@ -300,6 +433,9 @@ export class CrazyGamesSDK {
     this.rawSdk = null;
     this.initPromise = null;
     this.adblockDetected = false;
+    this.adsDisabledByPlatform = false;
+    this.adErrorCode = null;
+    this.isLoading = false;
   }
 }
 
