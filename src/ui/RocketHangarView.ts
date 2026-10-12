@@ -94,6 +94,8 @@ export class RocketHangarView extends UiModal {
   private readonly cargo: HangarCargoConfig | null;
   /** Rampa yükseltildi (ses, efekt ve kayıt sahnenin işidir) */
   private readonly onPadUpgraded: (level: number) => void;
+  /** Lider tablosunu açar; verilmezse düğme çizilmez */
+  private readonly onOpenLeaderboard: (() => void) | null;
   /** Rampa indirimi (reklam ödülü); verilmezse düğme hiç çizilmez */
   private readonly padDiscount: HangarPadDiscountConfig | null;
 
@@ -120,6 +122,7 @@ export class RocketHangarView extends UiModal {
     cargo: HangarCargoConfig | null = null,
     onPadUpgraded: (level: number) => void = () => undefined,
     padDiscount: HangarPadDiscountConfig | null = null,
+    onOpenLeaderboard: (() => void) | null = null,
   ) {
     super(layer, { title: 'Roket Hangarı', maxWidth: 760, depth: 205, accent: SEMANTIC.rocket });
     this.economy = economy;
@@ -132,6 +135,7 @@ export class RocketHangarView extends UiModal {
     this.cargo = cargo;
     this.onPadUpgraded = onPadUpgraded;
     this.padDiscount = padDiscount;
+    this.onOpenLeaderboard = onOpenLeaderboard;
     this.confirmDialog = new UiConfirmDialog(layer);
   }
 
@@ -317,6 +321,24 @@ export class RocketHangarView extends UiModal {
       },
     });
     body.add(rangesButton);
+    // Lider tablosu: Seferler'in yanında (dar ekranda HUD'daki rekor yazısı görünmeyebilir)
+    const openLeaderboard = this.onOpenLeaderboard;
+    if (openLeaderboard) {
+      const boardWidth = Math.min(RANGES_BUTTON_WIDTH, width - RANGES_BUTTON_WIDTH - SPACE.sm);
+      body.add(
+        new UiButton(layer, RANGES_BUTTON_WIDTH + SPACE.sm + boardWidth / 2, y + RANGES_BUTTON_HEIGHT / 2, {
+          width: boardWidth,
+          height: RANGES_BUTTON_HEIGHT,
+          variant: 'secondary',
+          label: 'SIRALAMA',
+          icon: 'icon_trophy',
+          onClick: () => {
+            this.close();
+            openLeaderboard();
+          },
+        }),
+      );
+    }
     y += RANGES_BUTTON_HEIGHT + SPACE.sm;
 
     // Parçaların hangi modüller için ayrıldığı (birden çok modül işaretlenebilir)

@@ -41,6 +41,9 @@ import { RotationPreview, type RotationPreviewSubject } from '../ui/RotationPrev
 import { BeltStepper } from '../ui/BeltStepper.ts';
 import { ZoomControls } from '../ui/ZoomControls.ts';
 import { ControlsModal } from '../ui/ControlsModal.ts';
+import { LeaderboardModal } from '../ui/LeaderboardModal.ts';
+import { currentPlayer, leaderboard, submitRecord } from '../leaderboard/leaderboard.ts';
+import { StartScreenModal } from '../ui/StartScreenModal.ts';
 import { TutorialCoach, type CoachRect } from '../ui/TutorialCoach.ts';
 import { TutorialGuide, type TutorialContext, type TutorialTarget } from '../tutorial/TutorialGuide.ts';
 import { DIRECTION_VECTORS, type Direction, type GridCoord } from '../factory/types.ts';
@@ -99,8 +102,10 @@ const FLIGHT_CATCH_UP_STEP_SEC = 1 / 30;
 const SPLITTER_MERGER_FEATURE = 'SPLITTER_MERGER';
 /** Dünyadaki yazıların (etiketler) kamera zoom'una göre yeniden üretilme aralığı (ms) */
 const WORLD_TEXT_SYNC_INTERVAL_MS = 200;
-/** Fabrikanın çevresini kaplayan zemin dokusunun kenarı (dünya pikseli; 64'ün katı) */
+/** Fabrikanın çevresini kaplayan şehir dokusunun kenarı (dünya pikseli; 512'nin katı) */
 const FACTORY_BACKDROP_SIZE = 8192;
+/** Arsanın çevre duvarının kalınlığı (dünya pikseli) */
+const FACTORY_FENCE_THICKNESS = 6;
 /** Öğretici kutusunun fabrikayı örtmemesi için sığdırmada altta bırakılan ek şerit (arayüz birimi) */
 const TUTORIAL_FIT_INSET = 48;
 /** HUD'a uçan sikke ve vardığında çıkan kıvılcımın katmanı: HUD'ın (100) üstü, pencerelerin (200+) altı */
@@ -130,6 +135,8 @@ export class GameScene extends Phaser.Scene {
   private beltStepper!: BeltStepper;
   private zoomControls!: ZoomControls;
   private controlsModal!: ControlsModal;
+  private leaderboardModal!: LeaderboardModal;
+  private startScreen!: StartScreenModal;
   /** Öğretici: oyunun başından ilk uçuşa kadar sıradaki adımı gösterir */
   private tutorial = new TutorialGuide();
   private tutorialCoach!: TutorialCoach;
@@ -233,6 +240,10 @@ export class GameScene extends Phaser.Scene {
     // Fabrika Çevresi ve Zemin
     this.load.image('factory_floor', 'assets/factory_floor.png');
     this.load.image('factory_backdrop', 'assets/factory_backdrop.png');
+    this.load.image('boss', 'assets/boss.png');
+    this.load.image('factory_concrete', 'assets/factory_concrete.png');
+    this.load.image('factory_fence_h', 'assets/factory_fence_h.png');
+    this.load.image('factory_fence_v', 'assets/factory_fence_v.png');
     this.load.image('conveyor_belt', 'assets/conveyor_belt.png');
     this.load.image('factory_intake', 'assets/factory_intake.png');
     this.load.image('shipping_crate', 'assets/shipping_crate.png');
@@ -365,17 +376,22 @@ export class GameScene extends Phaser.Scene {
     this.logistics = new LogisticsNetwork(this.gridMap);
     this.productionEngine = new ProductionEngine(this.gridMap, this.logistics);
 
-    /* Fabrikanın çevresi: boş lacivert yerine hücre ızgarasıyla hizalı teknik çizim zemini.
-       Kameranın gezebildiği her yeri kaplayacak kadar büyüktür ve 64 piksele hizalıdır. */
+    /* Fabrikanın çevresi (tools/generate_theme_assets.py):
+       - en dışta kuşbakışı minyatür sanayi ve şehir çizimi (512 piksellik karo, arsayla hizalı),
+       - arsanın tamamında (fabrikanın genişleyebileceği 32x32 hücre) gri beton,
+       - arsanın kenarında çevre duvarı.
+       Hiçbiri etkileşimli değildir; açık fabrika zemini bunların üstüne çizilir. */
+    const lotWidth = MAX_FACTORY_WIDTH * 32;
+    const lotHeight = MAX_FACTORY_HEIGHT * 32;
     this.add
-      .tileSprite(
-        (MAX_FACTORY_WIDTH * 32) / 2,
-        (MAX_FACTORY_HEIGHT * 32) / 2,
-        FACTORY_BACKDROP_SIZE,
-        FACTORY_BACKDROP_SIZE,
-        'factory_backdrop',
-      )
+      .tileSprite(lotWidth / 2, lotHeight / 2, FACTORY_BACKDROP_SIZE, FACTORY_BACKDROP_SIZE, 'factory_backdrop')
       .setDepth(0);
+    this.add.tileSprite(0, 0, lotWidth, lotHeight, 'factory_concrete').setOrigin(0, 0).setDepth(0.2);
+    const fence = FACTORY_FENCE_THICKNESS;
+    this.add.tileSprite(-fence, -fence, lotWidth + fence * 2, fence, 'factory_fence_h').setOrigin(0, 0).setDepth(0.3);
+    this.add.tileSprite(-fence, lotHeight, lotWidth + fence * 2, fence, 'factory_fence_h').setOrigin(0, 0).setDepth(0.3);
+    this.add.tileSprite(-fence, 0, fence, lotHeight, 'factory_fence_v').setOrigin(0, 0).setDepth(0.3);
+    this.add.tileSprite(lotWidth, 0, fence, lotHeight, 'factory_fence_v').setOrigin(0, 0).setDepth(0.3);
 
     /* 2D Fabrika Zemin ve Render Katmanları */
     this.gridView = new GridView(this, this.gridMap, this.factoryEconomy);
@@ -749,6 +765,7 @@ export class GameScene extends Phaser.Scene {
         isOffered: () => ads.isOffered('pad_discount'),
         onRequest: () => void this.requestPadDiscount(),
       },
+      () => this.openLeaderboard(),
     );
 
     /* Ana ekran */
@@ -759,7 +776,14 @@ export class GameScene extends Phaser.Scene {
         this.cancelActiveTool();
         this.boostModal.open();
       },
+      () => this.openLeaderboard(),
     );
+    /* Lider tablosu: rekor mesafeye göre sıralama (HUD'daki rekor bölümünden açılır) */
+    this.leaderboardModal = new LeaderboardModal(this.ui, {
+      getPlayer: () => currentPlayer(this.hangarBridge.getFlightStats().bestDistance),
+      loadSnapshot: () => leaderboard.snapshot(currentPlayer(this.hangarBridge.getFlightStats().bestDistance)),
+      getOpenHangar: () => (this.milestones.isFeatureUnlocked(HANGAR_FEATURE) ? () => this.openHangar() : null),
+    });
     this.boostModal = new BoostModal(this.ui, {
       getState: () => ({
         remainingSec: this.incomeBoost.remaining,
@@ -843,6 +867,8 @@ export class GameScene extends Phaser.Scene {
 
     /* Ayarlar */
     this.controlsModal = new ControlsModal(this.ui);
+    // Giriş ekranı kapanınca masaüstünde (ilk açılışta) kontrol şeması gösterilir
+    this.startScreen = new StartScreenModal(this.ui, () => this.controlsModal.openOnFirstVisit());
     this.settingsPanel = new SettingsPanel(this.ui, () => this.resetGame(), {
       onShowControls: () => this.controlsModal.open(),
       isTutorialActive: () => !this.tutorial.isDone,
@@ -947,8 +973,11 @@ export class GameScene extends Phaser.Scene {
 
     this.lastRocketClass = this.hangarBridge.getRocketClass();
 
-    /* Masaüstünde ilk açılışta kontrol şeması gösterilir (sonra Ayarlar > Kontroller) */
-    this.time.delayedCall(250, () => this.controlsModal.openOnFirstVisit());
+    /* Giriş ekranı: sayfa her açıldığında bir kez. Ardından masaüstünde ilk açılışta
+       kontrol şeması gösterilir (sonra Ayarlar > Kontroller). */
+    if (!this.startScreen.openOnce()) {
+      this.time.delayedCall(250, () => this.controlsModal.openOnFirstVisit());
+    }
 
     /* İlk UI güncellemesi */
     this.refreshUI();
@@ -977,6 +1006,8 @@ export class GameScene extends Phaser.Scene {
 
   /** Uçuş tamamlandığında FlightScene'den çağrılır */
   onReturnFromFlight(totalResources: number, distance: number): void {
+    // Rekor lider tablosuna bildirilir (sunucu yalnızca daha iyisini saklar)
+    submitRecord(this.hangarBridge.getFlightStats().bestDistance);
     crazyGames.gameplayStart();
     sound.playCoin();
     this.cameraController.setEnabled(true);
@@ -1479,6 +1510,7 @@ export class GameScene extends Phaser.Scene {
       exported: (itemId) => this.milestones.getExportedCount(itemId),
       isPlotUnlocked: (plotIndex) => this.factoryEconomy.isPlotUnlocked(plotIndex),
       hangarUnlocked: this.milestones.isFeatureUnlocked(HANGAR_FEATURE),
+      leaderboardOnline: leaderboard.mode === 'online',
       totalFlights: this.hangarBridge.getFlightStats().totalFlights,
     };
   }
@@ -1533,6 +1565,8 @@ export class GameScene extends Phaser.Scene {
         return this.toolbar.getButtonBounds(target);
       case 'objective':
         return this.objective.bounds;
+      case 'leaderboard':
+        return this.hud.recordBounds;
       case 'firstMachine': {
         const machine = this.productionEngine.getAllMachines()[0];
         if (!machine) return null;
@@ -1852,6 +1886,11 @@ export class GameScene extends Phaser.Scene {
     this.buildMenuModal.open();
   }
 
+  private openLeaderboard(): void {
+    this.cancelActiveTool();
+    this.leaderboardModal.open();
+  }
+
   private openHangar(): void {
     this.cancelActiveTool();
     this.rocketHangar.open();
@@ -2076,12 +2115,16 @@ export class GameScene extends Phaser.Scene {
     const dock = this.toolbar.occupied;
     const viewLeft = 0;
     const viewRight = this.toolbar.isVertical ? dock.x : m.width;
-    const viewBottom = this.toolbar.isVertical ? m.height : dock.y;
+    // Geniş yatay ekranda araç çubuğu ortada duran dar bir tabladır; dünya onun arkasında
+    // ekranın altına kadar uzanır (tablanın iki yanında boş şerit kalmasın).
+    const dockFloats = !this.toolbar.isVertical && m.mode === 'landscape';
+    const dockHeight = dockFloats ? m.height - dock.y : 0;
+    const viewBottom = this.toolbar.isVertical || dockFloats ? m.height : dock.y;
     const viewWidth = viewRight - viewLeft;
     const viewHeight = viewBottom - contentTop;
 
     /* Etkin araç çubuğu fabrikanın alt kenarında, araç çubuğunun hemen üstünde yüzer */
-    const barBottom = viewBottom - SPACE.sm - (this.toolbar.isVertical ? m.safe.bottom : 0);
+    const barBottom = viewBottom - dockHeight - SPACE.sm - (this.toolbar.isVertical ? m.safe.bottom : 0);
     this.contextBar.layout(
       viewLeft + viewWidth / 2,
       barBottom,
@@ -2117,7 +2160,7 @@ export class GameScene extends Phaser.Scene {
     this.cameraController.setPixelScale(m.renderScale);
     this.cameraController.setViewport(...viewport);
     // Etkin araç çubuğunun yüzdüğü şerit sığdırmada boş bırakılır: çubuk fabrikayı örtmez
-    this.cameraController.setFitInsetBottom((ToolContextBar.height + SPACE.md + tutorialInset) * zoom);
+    this.cameraController.setFitInsetBottom((ToolContextBar.height + SPACE.md + tutorialInset + dockHeight) * zoom);
     this.cameraController.fitToFactory();
     this.syncWorldTextResolution();
   }

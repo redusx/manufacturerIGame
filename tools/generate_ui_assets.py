@@ -42,7 +42,7 @@ BUTTON_VARIANTS = {
     "factory": (0xF4A261, 0xFFD9B0, 0xC0621A),
     "gold": (0xFFD166, 0xFFF0C2, 0xC98F1A),
     "danger": (0xE74C3C, 0xF29488, 0xA5281B),
-    "disabled": (0x22293E, 0x3D4E7A, 0x141A2E),
+    "disabled": (0xCBB894, 0xE0D0AE, 0xA8956F),
 }
 
 
@@ -109,7 +109,7 @@ def chip() -> Image.Image:
     size = 16
     img = Image.new("RGBA", (size, size), CLEAR)
     px = img.load()
-    fill = (40, 48, 72, 255)
+    fill = (51, 36, 26, 255)  # koyu kahve: açık zeminde rozet okunur kalsın
     for y in range(size):
         for x in range(size):
             d = min(x, y, size - 1 - x, size - 1 - y)

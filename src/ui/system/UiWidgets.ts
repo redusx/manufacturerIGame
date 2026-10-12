@@ -7,7 +7,7 @@
  * ====================================================================== */
 
 import Phaser from 'phaser';
-import { PALETTE, SEMANTIC, SPACE, type UiTextVariant } from '../theme.ts';
+import { SEMANTIC, SPACE, type UiTextVariant } from '../theme.ts';
 import { UiLayer } from './UiLayer.ts';
 
 export type UiBarColor = 'gold' | 'green' | 'cyan' | 'red';
@@ -156,7 +156,7 @@ export function createDivider(
   x: number,
   y: number,
   width: number,
-  color: number = PALETTE.borderDark,
+  color: number = SEMANTIC.divider,
 ): Phaser.GameObjects.Image {
   return scene.add.image(x, y, 'ui2_px').setOrigin(0, 0).setDisplaySize(width, 1).setTint(color);
 }
@@ -185,7 +185,7 @@ export function createPips(
   const container = scene.add.container(x, y);
   for (let i = 0; i < total; i++) {
     const pip = scene.add.image(i * 10, 0, 'ui2_pip').setOrigin(0, 0.5);
-    pip.setTint(i < filled ? color : PALETTE.borderHighlight);
+    pip.setTint(i < filled ? color : SEMANTIC.divider);
     container.add(pip);
   }
   return container;

@@ -151,7 +151,7 @@ export class FlightReportModal extends UiModal {
     const rows: Array<[string, number | undefined, string, string]> = [
       ['icon_flag', undefined, 'Mesafe', view.distanceText],
       [uiIcon('up'), SEMANTIC.rocket, 'En yüksek irtifa', view.maxAltitudeText],
-      [uiIcon('clock'), 0x8c9bb3, 'Havada kalma', view.durationText],
+      [uiIcon('clock'), SEMANTIC.iconMuted, 'Havada kalma', view.durationText],
       ['icon_gear', undefined, 'Toplanan dişli', `${data.gears} adet`],
       [uiIcon('star'), SEMANTIC.rocket, 'Toplanan kristal', `${data.crystals} adet`],
     ];

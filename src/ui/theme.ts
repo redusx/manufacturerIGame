@@ -91,40 +91,83 @@ export const FONT_FAMILY = 'Arial, Helvetica, sans-serif';
  * ========================================================================= */
 
 /**
- * Anlamsal renkler: bir anlam her ekranda aynı renkle gösterilir.
- * Hepsi ART_DIRECTION §2 paletinden gelir.
+ * Arayüz zeminleri açıktır (krem pencere, açık kahve çubuk; tools/generate_theme_assets.py),
+ * bu yüzden panelin üstündeki yazılar koyudur ("mürekkep" tonları). Parlak karşılıkları
+ * konturlu yazılarda ve koyu zeminlerde (dünya, uçuş, renkli düğmeler) kullanılır.
+ */
+const INK = {
+  text: '#33241a',
+  muted: '#6b543c',
+  money: '#96580a',
+  primary: '#1b7f45',
+  rocket: '#086f78',
+  factory: '#a8521a',
+  warning: '#a55a00',
+  danger: '#b93626',
+  secondary: '#3f5490',
+} as const;
+
+/** Mürekkep tonu -> koyu zeminde okunan parlak karşılığı */
+const BRIGHT_OF_INK: Readonly<Record<string, string>> = {
+  [INK.text]: PALETTE.textPrimary,
+  [INK.muted]: '#d8ccb8',
+  [INK.money]: PALETTE.resourceGoldHex,
+  [INK.primary]: PALETTE.successGreenHex,
+  [INK.rocket]: PALETTE.rocketCyanHex,
+  [INK.factory]: PALETTE.factoryAmberHex,
+  [INK.warning]: PALETTE.warningOrangeHex,
+  [INK.danger]: PALETTE.dangerRedHex,
+  [INK.secondary]: PALETTE.borderLightHex,
+};
+
+/**
+ * Panel üstü (mürekkep) yazı renginin koyu zemindeki parlak karşılığı. Konturlu yazılar,
+ * dünyada yüzen yazılar ve uçuş ekranındaki duyurular bununla boyanır.
+ */
+export function brightOf(colorHex: string): string {
+  return BRIGHT_OF_INK[colorHex] ?? colorHex;
+}
+
+/**
+ * Anlamsal renkler: bir anlam her ekranda aynı renkle gösterilir. Sayısal değerler
+ * (ikon, çubuk, rozet, düğme) parlaktır; `...Hex` değerleri panel üstündeki yazı içindir.
  */
 export const SEMANTIC = {
   /** Ana eylem / satın alınabilir / olumlu sonuç */
   primary: PALETTE.successGreen,
-  primaryHex: PALETTE.successGreenHex,
+  primaryHex: INK.primary,
   /** İkincil, nötr eylem */
   secondary: PALETTE.borderLight,
-  secondaryHex: PALETTE.borderLightHex,
+  secondaryHex: INK.secondary,
   /** Para, fiyat, kaynak, ilerleme */
   money: PALETTE.resourceGold,
-  moneyHex: PALETTE.resourceGoldHex,
+  moneyHex: INK.money,
   /** Fabrika / elle üretim */
   factory: PALETTE.factoryAmber,
-  factoryHex: PALETTE.factoryAmberHex,
+  factoryHex: INK.factory,
   /** Roket, hangar, uçuş */
   rocket: PALETTE.rocketCyan,
-  rocketHex: PALETTE.rocketCyanHex,
+  rocketHex: INK.rocket,
   /** Uyarı ve kilitli içerik */
   warning: PALETTE.warningOrange,
-  warningHex: PALETTE.warningOrangeHex,
+  warningHex: INK.warning,
   /** Tehlikeli / geri alınamaz eylem, hata */
   danger: PALETTE.dangerRed,
-  dangerHex: PALETTE.dangerRedHex,
+  dangerHex: INK.danger,
   /** Devre dışı */
   disabled: PALETTE.btnDisabled,
   disabledHex: PALETTE.btnDisabledHex,
-  textPrimary: PALETTE.textPrimary,
-  textMuted: PALETTE.textMuted,
+  textPrimary: INK.text,
+  textMuted: INK.muted,
   textOnBright: PALETTE.textDark,
   textOnDark: '#ffffff',
   /** Metin ve ikon konturu */
   outlineHex: '#070913',
+  /** Panel üstündeki çizgiler: ayırıcı, seçim ve odak çerçevesi, kaydırma tutamağı */
+  divider: 0xc9a877,
+  ink: 0x33241a,
+  /** Açık zeminde soluk ikon (tamamlanmamış, ikincil) */
+  iconMuted: 0x8a7558,
 } as const;
 
 export type UiTextVariant =
@@ -166,7 +209,8 @@ export const BUTTON_LABEL_COLORS: Readonly<Record<UiButtonVariant | 'disabled', 
   factory: SEMANTIC.textOnBright,
   gold: SEMANTIC.textOnBright,
   danger: SEMANTIC.textOnDark,
-  disabled: SEMANTIC.textMuted,
+  // Devre dışı düğme soluk ten rengidir; etiketi bir ton koyusu
+  disabled: '#8a7558',
 };
 
 /** UI 2.0 dokuları (public/assets/ui/, tools/generate_ui_assets.py üretir) */

@@ -35,6 +35,10 @@ export interface CrazyGamesSDKRaw {
     requestAd(type: AdType, callbacks?: AdCallbacks): Promise<void>;
     hasAdblock?(): Promise<boolean>;
   };
+  /** Kullanıcı modülü: lider tablosuna skor gönderme (davetli oyunlarda etkindir) */
+  user?: {
+    submitScore?(payload: { encryptedScore: string; score: number }): Promise<void> | void;
+  };
 }
 
 /** Reklam isteği sırasında çağıranın dinlediği olaylar */
@@ -256,6 +260,36 @@ export class CrazyGamesSDK {
         finish(false);
       }
     });
+  }
+
+  /**
+   * CrazyGames lider tablosuna skor gönderir (istemci tarafı yol). Skor, geliştirici
+   * panelinde üretilen 32 baytlık anahtarla AES-GCM ile şifrelenir; şifreli ve açık skor
+   * birlikte gönderilir (docs.crazygames.com/sdk/leaderboards-client). Sıralamayı CrazyGames
+   * kendi panelinde gösterir; oyun listeyi okuyamaz. SDK veya anahtar yoksa false döner.
+   */
+  public async submitLeaderboardScore(score: number, encryptionKeyBase64: string): Promise<boolean> {
+    const submit = this.readySdk?.user?.submitScore;
+    const subtle = globalThis.crypto?.subtle;
+    if (!submit || !subtle || !encryptionKeyBase64) return false;
+
+    try {
+      const keyBytes = Uint8Array.from(atob(encryptionKeyBase64), (char) => char.charCodeAt(0));
+      const key = await subtle.importKey('raw', keyBytes, 'AES-GCM', false, ['encrypt']);
+      const iv = globalThis.crypto.getRandomValues(new Uint8Array(12));
+      const cipher = new Uint8Array(
+        await subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(score.toString())),
+      );
+      const combined = new Uint8Array(iv.length + cipher.length);
+      combined.set(iv, 0);
+      combined.set(cipher, iv.length);
+      const encryptedScore = btoa(String.fromCharCode(...combined));
+      await this.readySdk?.user?.submitScore?.({ encryptedScore, score });
+      return true;
+    } catch (err) {
+      console.warn('[CrazyGamesSDK] submitScore başarısız:', err);
+      return false;
+    }
   }
 
   /** Testler için durumu sıfırlar */

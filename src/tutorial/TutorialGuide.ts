@@ -27,6 +27,8 @@ export interface TutorialContext {
   exported: (itemId: string) => number;
   isPlotUnlocked: (plotIndex: number) => boolean;
   hangarUnlocked: boolean;
+  /** Lider tablosu gerçek oyuncularla (çevrimiçi) mı çalışıyor? */
+  leaderboardOnline: boolean;
   totalFlights: number;
 }
 
@@ -39,7 +41,8 @@ export type TutorialTarget =
   | 'hangar'
   | 'objective'
   | 'firstMachine'
-  | 'plotBadge';
+  | 'plotBadge'
+  | 'leaderboard';
 
 export interface TutorialStepView {
   id: string;
@@ -184,7 +187,16 @@ const STEPS: readonly TutorialStep[] = [
   {
     id: 'after_flight',
     text: () =>
-      'İlk uçuşun tamam! Daha uzağa gitmek geliri kalıcı artırır: sevkiyata ulaşan parçalarla roketi yükselt. Öğretici bitti.',
+      'İlk uçuşun tamam! Daha uzağa gitmek geliri kalıcı artırır: sevkiyata ulaşan parçalarla roketi yükselt.',
+    needsConfirm: true,
+  },
+  {
+    id: 'leaderboard',
+    text: (ctx) =>
+      ctx.leaderboardOnline
+        ? 'Rekorun lider tablosunda: kupaya dokun. Diğer pilotlarla yarışıyorsun; daha uzağa git, sıralamada yüksel. Öğretici bitti.'
+        : 'Rekorun lider tablosuna yazıldı: kupaya dokun, yerini gör ve daha uzağa giderek sıralamada yüksel. Öğretici bitti.',
+    highlight: () => 'leaderboard',
     needsConfirm: true,
   },
 ];

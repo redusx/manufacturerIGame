@@ -15,7 +15,7 @@
 import Phaser from 'phaser';
 import { UiHost } from './UiHost.ts';
 import type { UiMetrics } from './UiMetrics.ts';
-import { FONT_FAMILY, SEMANTIC, TYPE_SCALE, type UiTextVariant } from '../theme.ts';
+import { FONT_FAMILY, SEMANTIC, TYPE_SCALE, brightOf, type UiTextVariant } from '../theme.ts';
 
 type Camera = Phaser.Cameras.Scene2D.Camera;
 type GameObject = Phaser.GameObjects.GameObject;
@@ -242,7 +242,8 @@ export class UiLayer {
       fontFamily: FONT_FAMILY,
       fontSize: `${type.size}px`,
       fontStyle: type.bold ? 'bold' : 'normal',
-      color: options.color ?? SEMANTIC.textPrimary,
+      // Konturlu yazı koyu konturla çizilir; dolgusu parlak olmalı (mürekkep tonu değil)
+      color: options.stroke ? brightOf(options.color ?? SEMANTIC.textPrimary) : (options.color ?? SEMANTIC.textPrimary),
       align: options.align ?? 'left',
     };
     if (options.wrapWidth !== undefined) {

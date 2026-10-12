@@ -125,7 +125,7 @@ export class RangeLadderModal extends UiModal {
     const statusColor = isDone ? SEMANTIC.primaryHex : isCurrent ? SEMANTIC.rocketHex : SEMANTIC.textMuted;
     const statusLabel = isDone ? 'Tamamlandı' : isCurrent ? 'Sıradaki hedef' : 'İleride';
     const icon = scene.add.image(pad + 8, cursor + 9, statusIcon).setOrigin(0.5);
-    if (!isDone && !isCurrent) icon.setTint(0x8c9bb3);
+    if (!isDone && !isCurrent) icon.setTint(SEMANTIC.iconMuted);
     rows.push(icon);
     rows.push(
       layer

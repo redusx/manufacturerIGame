@@ -454,7 +454,8 @@ export class GridView {
       const activePixelW = activeW * this.tileSize;
       const activePixelH = activeH * this.tileSize;
       const overlayGraphics = this.scene.add.graphics();
-      overlayGraphics.fillStyle(PALETTE.bgDeep, 0.65);
+      // Sıradaki parsel hafifçe gölgelenir; altındaki gri beton (açılmamış alan) görünür kalır
+      overlayGraphics.fillStyle(PALETTE.bgDeep, 0.22);
       overlayGraphics.fillRect(activePixelW, 0, plotPixelW - activePixelW, plotPixelH);
       overlayGraphics.fillRect(0, activePixelH, activePixelW, plotPixelH - activePixelH);
 

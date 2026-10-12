@@ -130,14 +130,14 @@ export class UiButton extends Phaser.GameObjects.Container implements UiFocusabl
     this.selectedFrame = scene.add
       .nineslice(0, 0, 'ui2_frame', 0, config.width + 4, config.height + 4, 4, 4, 4, 4)
       .setOrigin(0.5)
-      .setTint(SEMANTIC.money)
+      .setTint(SEMANTIC.ink)
       .setVisible(false);
     this.add(this.selectedFrame);
 
     this.focusFrame = scene.add
       .nineslice(0, 0, 'ui2_frame', 0, config.width + 8, config.height + 8, 4, 4, 4, 4)
       .setOrigin(0.5)
-      .setTint(0xffffff)
+      .setTint(SEMANTIC.secondary)
       .setVisible(false);
     this.add(this.focusFrame);
 

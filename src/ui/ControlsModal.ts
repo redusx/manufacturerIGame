@@ -172,7 +172,7 @@ export class ControlsModal extends UiModal {
 
   /** Klavye tuşu görünümünde küçük kutu */
   private createKeyCap(label: string): { container: Phaser.GameObjects.Container; width: number } {
-    const text = this.layer.text(0, 0, label, 'captionBold').setOrigin(0.5);
+    const text = this.layer.text(0, 0, label, 'captionBold', { color: SEMANTIC.textOnDark }).setOrigin(0.5);
     const width = Math.max(KEY_HEIGHT, Math.ceil(text.width) + 12);
     const container = this.scene.add.container(0, 0);
     container.add(

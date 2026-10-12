@@ -102,7 +102,7 @@ export class OfflineEarningsModal extends UiModal {
     body.add(createInset(this.scene, 0, y, width, rows.length * rowH + SPACE.sm));
     rows.forEach(([icon, label, value], i) => {
       const centerY = y + SPACE.xs + rowH / 2 + i * rowH;
-      body.add(this.scene.add.image(SPACE.md + 4, centerY, icon).setOrigin(0.5).setTint(0x8c9bb3));
+      body.add(this.scene.add.image(SPACE.md + 4, centerY, icon).setOrigin(0.5).setTint(SEMANTIC.iconMuted));
       body.add(layer.text(SPACE.md + 20, centerY, label, 'body', { color: SEMANTIC.textMuted }).setOrigin(0, 0.5));
       body.add(layer.text(width - SPACE.md, centerY, value, 'bodyBold').setOrigin(1, 0.5));
     });

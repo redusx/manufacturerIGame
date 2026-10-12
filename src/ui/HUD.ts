@@ -18,6 +18,8 @@ import type { UiLayer } from './system/UiLayer.ts';
 
 /** Çubuğun güvenli alan hariç yüksekliği (arayüz birimi) */
 export const HUD_BAR_HEIGHT = 48;
+/** Dar ekrandaki kupa (lider tablosu) düğmesinin kenarı */
+const TROPHY_BUTTON_SIZE = 30;
 /** Gelir rozetinin yanındaki takviye reklamı düğmesinin kenarı */
 const BOOST_AD_BUTTON_SIZE = 26;
 
@@ -32,6 +34,9 @@ export class HUD {
   private readonly incomeChip: UiChip;
   private readonly recordIcon: Phaser.GameObjects.Image;
   private readonly recordText: Phaser.GameObjects.Text;
+  private readonly recordZone: Phaser.GameObjects.Zone;
+  /** Dar ekranda rekor yazısının yerine geçen, lider tablosunu açan kupa düğmesi */
+  private readonly trophyButton: UiButton;
   private readonly settingsButton: UiButton;
   /**
    * Tam ekran düğmesi: yatay tutulan telefonda tarayıcı çubukları yüksekliğin çoğunu
@@ -66,7 +71,13 @@ export class HUD {
    * @param onIncomeClick Para/gelir bölümüne dokununca (Takviye penceresi). Bölüm bir
    * reklam düğmesi değildir; yalnızca süreli gelir çarpanının durumunu gösterir.
    */
-  constructor(layer: UiLayer, onSettingsClick: () => void, onIncomeClick?: () => void) {
+  constructor(
+    layer: UiLayer,
+    onSettingsClick: () => void,
+    onIncomeClick?: () => void,
+    /** Rekor bölümüne (ya da dar ekrandaki kupa düğmesine) dokununca: lider tablosu */
+    onRecordClick?: () => void,
+  ) {
     this.layer = layer;
     const scene = layer.scene;
     this.root = layer.container(100);
@@ -92,6 +103,24 @@ export class HUD {
     this.recordIcon = scene.add.image(0, 0, 'icon_trophy').setOrigin(0.5);
     this.recordText = layer.text(0, 0, '0 m', 'captionBold', { color: SEMANTIC.rocketHex }).setOrigin(0, 0.5);
     this.root.add([this.recordIcon, this.recordText]);
+    // Rekor bölümü basılabilir: lider tablosunu açar. Dar ekranda yazı sığmaz; yerine kupa düğmesi gelir.
+    this.recordZone = scene.add.zone(0, 0, 80, HUD_BAR_HEIGHT).setOrigin(0, 0);
+    this.root.add(this.recordZone);
+    if (onRecordClick) {
+      this.recordZone.setInteractive({ useHandCursor: true });
+      this.recordZone.on(Phaser.Input.Events.GAMEOBJECT_POINTER_UP, (pointer: Phaser.Input.Pointer) => {
+        if (layer.pointerDragDistance(pointer) <= 10) onRecordClick();
+      });
+    }
+    this.trophyButton = new UiButton(layer, 0, 0, {
+      width: TROPHY_BUTTON_SIZE,
+      height: TROPHY_BUTTON_SIZE,
+      variant: 'secondary',
+      icon: 'icon_trophy',
+      onClick: () => onRecordClick?.(),
+    });
+    this.trophyButton.setVisible(false);
+    this.root.add(this.trophyButton);
 
     this.settingsButton = new UiButton(layer, 0, 0, {
       width: 40,
@@ -139,6 +168,16 @@ export class HUD {
   /** Çubuğun alt kenarı (güvenli alan dahil); altındaki içerik buradan başlar */
   get bottom(): number {
     return this.barBottom;
+  }
+
+  /** Lider tablosunu açan öğenin dikdörtgeni (rekor bölümü ya da kupa düğmesi); yoksa null */
+  get recordBounds(): { x: number; y: number; width: number; height: number } | null {
+    if (this.trophyButton.visible) {
+      const bounds = this.trophyButton.getFocusBounds();
+      return { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height };
+    }
+    if (!this.recordIcon.visible) return null;
+    return { x: this.recordZone.x, y: this.centerY - 16, width: this.recordZone.width, height: 32 };
   }
 
   /** Yatay düzende hedef kartının sığabileceği boş aralık */
@@ -206,7 +245,8 @@ export class HUD {
     }
 
     let rightStart = settingsLeft;
-    const recordVisible = this.showRecord && this.bestDistance > 0;
+    // Rekor her zaman gösterilir (uçuş yoksa "0 m"): lider tablosunun giriş noktasıdır
+    const recordVisible = this.showRecord;
     this.recordIcon.setVisible(recordVisible);
     this.recordText.setVisible(recordVisible);
     if (recordVisible) {
@@ -214,6 +254,20 @@ export class HUD {
       rightStart = settingsLeft - recordWidth - SPACE.sm;
       this.recordIcon.setPosition(rightStart + 8, this.centerY);
       this.recordText.setPosition(rightStart + 20, this.centerY);
+      this.recordZone
+        .setPosition(rightStart - SPACE.xs, this.centerY - HUD_BAR_HEIGHT / 2)
+        .setSize(recordWidth + SPACE.sm, HUD_BAR_HEIGHT);
+    }
+    if (this.recordZone.input) this.recordZone.input.enabled = recordVisible;
+
+    // Dar ekranda kupa düğmesi: yalnızca para ve gelir rozetine yer kalıyorsa
+    const trophyLeft = settingsLeft - TROPHY_BUTTON_SIZE - SPACE.xs;
+    const neededLeft = this.moneyText.x + this.moneyText.width + SPACE.sm + this.incomeChip.chipWidth;
+    const trophyVisible = !recordVisible && neededLeft <= trophyLeft;
+    this.trophyButton.setVisible(trophyVisible);
+    if (trophyVisible) {
+      this.trophyButton.setPosition(trophyLeft + TROPHY_BUTTON_SIZE / 2, this.centerY);
+      rightStart = trophyLeft;
     }
     this.rightGroupStart = rightStart;
 

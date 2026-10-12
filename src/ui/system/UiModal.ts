@@ -138,7 +138,7 @@ export abstract class UiModal implements UiModalHandle {
     this.scrollThumb = scene.add
       .nineslice(0, 0, 'ui2_scroll_thumb', 0, 6, 24, 2, 2, 2, 2)
       .setOrigin(0, 0)
-      .setTint(SEMANTIC.money)
+      .setTint(SEMANTIC.iconMuted)
       .setVisible(false);
     this.panelLayer.add(this.scrollThumb);
 

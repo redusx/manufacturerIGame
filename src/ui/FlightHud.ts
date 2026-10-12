@@ -9,7 +9,7 @@
 
 import Phaser from 'phaser';
 import { formatDistance, formatNumber } from '../utils/format';
-import { PALETTE, SEMANTIC, SPACE, uiIcon } from './theme';
+import { PALETTE, SEMANTIC, SPACE, brightOf, uiIcon } from './theme';
 import type { UiLayer } from './system/UiLayer.ts';
 import { UiProgressBar } from './system/UiWidgets.ts';
 
@@ -269,7 +269,7 @@ export class FlightHud {
     this.meterMarker.x = Math.round((position - 0.5) * inner);
     this.meterPercent
       .setText(perfect ? 'MÜKEMMEL' : `%${Math.round(power * 100)}`)
-      .setColor(perfect ? SEMANTIC.primaryHex : SEMANTIC.textPrimary);
+      .setColor(brightOf(perfect ? SEMANTIC.primaryHex : SEMANTIC.textPrimary));
   }
 
   /** Kalkışla birlikte fırlatma göstergesi kapanır, nitro düğmesi belirir */

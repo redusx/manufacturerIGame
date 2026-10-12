@@ -45,7 +45,7 @@ import {
   type GroundTheme,
 } from '../flight/GroundThemes.ts';
 import { MAX_ROCKET_LEVEL } from '../data/RocketData.ts';
-import { PALETTE, FONT_FAMILY, SEMANTIC, FLIGHT_SKY_TONES } from '../ui/theme';
+import { PALETTE, FONT_FAMILY, SEMANTIC, FLIGHT_SKY_TONES, brightOf } from '../ui/theme';
 import { formatDistance } from '../utils/format';
 import { UiLayer } from '../ui/system/UiLayer.ts';
 import { FlightHud } from '../ui/FlightHud.ts';
@@ -1037,7 +1037,8 @@ export class FlightScene extends Phaser.Scene {
     const t = this.add.text(x, y, text, {
       fontFamily: FONT_FAMILY,
       fontSize: '13px',
-      color,
+      // Dünyada, koyu gökyüzünün üstünde: mürekkep tonunun parlak karşılığı
+      color: brightOf(color),
       fontStyle: 'bold',
       stroke: '#0c1020',
       strokeThickness: 3,
