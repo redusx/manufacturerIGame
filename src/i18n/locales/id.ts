@@ -63,6 +63,7 @@ export const id: Dictionary = {
 
   'start.message':
     'Kamulah bosnya: kembangkan pabrikmu, bangun ekonomimu, luncurkan roket ke luar angkasa dan raih tempatmu di papan peringkat.',
+  'start.messageSolo': 'Kamulah bosnya: kembangkan pabrikmu, terbang lebih jauh, dan pecahkan rekor jarakmu sendiri.',
   'start.play': 'MAIN',
 
   'item.iron_ore': 'Bijih Besi',

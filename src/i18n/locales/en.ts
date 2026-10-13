@@ -71,6 +71,7 @@ export const en = {
   // --- Giriş ekranı -----------------------------------------------------------
   'start.message':
     'You are the boss: grow your factory, build your economy, launch the rocket into deep space and take your place on the leaderboard.',
+  'start.messageSolo': 'You are the boss: grow your factory, fly farther and beat your own distance record.',
   'start.play': 'PLAY',
 
   // --- Eşyalar ----------------------------------------------------------------

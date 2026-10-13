@@ -451,3 +451,17 @@
   7. **Yazı tipi:** oyuna yazı tipi dosyası eklenmedi; `FONT_FAMILY` sistem yazı tiplerine düşer (Japonca, Korece, Çince, Devanagari, Bengal, Arap). Japonca ve Çincede satırlar harf arasından bölünür.
   8. **Çevrilmeyenler:** oyunun adı ("Manufacturer"), kademe adları ("Mk I–IV"), "HP", "CrazyGames", geliştirici konsolu iletileri ve yalnız geliştirme sürümündeki sahte reklam katmanı.
 * **Varsayım (onay bekler):** çeviriler elle yazıldı; ana dili konuşan biri tarafından okunmadı. Arayüz düzeninin sağdan sola dillerde aynalanmaması bilinçli bir sınırdır.
+
+### [DEC-056] Yayın Yapılandırması: Tek Kod Tabanı, Basic ve Full Derlemeleri; Platform Kuralları
+* **Tarih:** 2026-10-14
+* **Karar:**
+  1. **İki derleme, tek kaynak:** `npm run build:basic` → `dist-basic/`, `npm run build:full` → `dist-full/`; `npm run build` → `dist/` (Full yapılandırması, eski komut). Mod Vite'ın `--mode` değeridir; kaynak dosya düzenlenmez. Her çıktıda `build-info.json` hangi modla derlendiğini söyler.
+  2. **Bütün farklar `src/config/release.ts` tablosundadır:** ödüllü reklamların ana şalteri, yedi yerleşimin (R1–R7) ayrı şalterleri, geçiş reklamı, reklam için en az aşama, genel lider tablosu, oyun içi tam ekran düğmeleri. Bir özelliği kapatmak onu silmek değildir; reklam servisi, SDK bağlantısı, düğmeler ve lider tablosu kodu iki derlemede de aynıdır.
+  3. **Basic:** reklam sağlayıcısı hiç takılmaz, SDK'dan reklam istenmez, hiçbir reklam teklifi çizilmez (CrazyGames Basic Launch'ta reklam kapalıdır; iş görmeyen düğme bırakılmaz). Genel lider tablosu kapalı.
+  4. **Full:** yerleşimler açık; yine de reklam yalnız SDK sunabiliyorsa, lider tablosu yalnız davet + anahtar varsa görünür.
+  5. **Yeni oyuncuya reklam sunulmaz:** teklifler iki aşama tamamlanınca görünür (`adsMinCompletedStages`). Önceden makine indirimi düğmesi ilk dakikada, öğreticinin yolladığı pencerede duruyordu.
+  6. **Platform kuralları moddan ayrıdır (`src/config/platform.ts`):** platform SDK'nın bildirdiği ortamdan anlaşılır. CrazyGames'te oyun içi tam ekran düğmeleri gizlenir (platform yasaklıyor) ve "Oyna"dan sonra kontrol şeması kendiliğinden açılmaz (en fazla bir tıklamayla oynanış). Bağımsız çalıştırmada ikisi de eskisi gibidir.
+  7. **Sıralama sunulamıyorken** hangardaki Sıralama düğmesi çizilmez, rekor bölümü Seferler penceresini açar, giriş cümlesi lider tablosu yerine kişisel rekoru anlatır (`start.messageSolo`, 15 dil). Kişisel rekor ve uçuş hesapları aynıdır.
+  8. **Görünen ad:** `Manufacturer: Rocket Factory` (sayfa başlığı ve giriş ekranı). Kayıt anahtarları, paket adı ve kod adları değişmedi.
+* **Varsayım (onay bekler):** reklam eşiğinin iki aşama olması; Full'de geçiş reklamının kapalı kalması (G1 kararı hâlâ açık).
+

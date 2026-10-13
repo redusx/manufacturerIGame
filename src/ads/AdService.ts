@@ -93,6 +93,8 @@ export class AdService {
   private playing = false;
   /** Son reklamın (ödüllü veya geçiş) ekrana geldiği an; geçiş reklamı aralığı buna göre tutulur */
   private lastAdStartedAt: number | null = null;
+  /** Yerleşim sunulabilir mi? (yayın yapılandırması, oyuncunun ilerlemesi); verilmezse hepsi açık */
+  private placementGate: ((placement: AdPlacementId) => boolean) | null = null;
 
   constructor(provider: AdProvider | null = null, now: () => number = Date.now) {
     this.provider = provider;
@@ -101,6 +103,18 @@ export class AdService {
 
   setProvider(provider: AdProvider | null): void {
     this.provider = provider;
+  }
+
+  /**
+   * Yerleşimleri süzen kapıyı takar. Kapı false dönerse yerleşim hiç sunulmaz: düğmesi
+   * çizilmez ve `show` reklam istemeden 'unavailable' döner.
+   */
+  setPlacementGate(gate: ((placement: AdPlacementId) => boolean) | null): void {
+    this.placementGate = gate;
+  }
+
+  private isPlacementAllowed(placement: AdPlacementId): boolean {
+    return this.placementGate ? this.placementGate(placement) : true;
   }
 
   /** Dinleyici ekler; dönen işlev dinleyiciyi kaldırır */
@@ -123,8 +137,8 @@ export class AdService {
    * Yerleşimin düğmesi gösterilsin mi? Reklam sunulamıyorsa false döner ve
    * arayüz düğmeyi hiç çizmez.
    */
-  isOffered(_placement: AdPlacementId): boolean {
-    return this.provider?.isAvailable() ?? false;
+  isOffered(placement: AdPlacementId): boolean {
+    return this.isPlacementAllowed(placement) && (this.provider?.isAvailable() ?? false);
   }
 
   /** Yerleşimin yeniden sunulmasına kalan süre (saniye); hazırsa 0 */
@@ -146,7 +160,7 @@ export class AdService {
    */
   async show(placement: AdPlacementId): Promise<AdResult> {
     const provider = this.provider;
-    if (!provider || !provider.isAvailable()) return 'unavailable';
+    if (!provider || !provider.isAvailable() || !this.isPlacementAllowed(placement)) return 'unavailable';
     if (this.showing) return 'busy';
     if (this.cooldownRemaining(placement) > 0) return 'cooldown';
 

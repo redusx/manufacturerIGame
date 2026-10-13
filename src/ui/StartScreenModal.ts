@@ -18,6 +18,9 @@ import { UiModal } from './system/UiModal.ts';
 import { createInset } from './system/UiWidgets.ts';
 import { t } from '../i18n/i18n.ts';
 
+/** Oyuncuya görünen oyun adı (çevrilmez); index.html başlığıyla aynıdır */
+const GAME_TITLE = 'Manufacturer: Rocket Factory';
+
 const MAX_WIDTH = 400;
 /** Yan yana düzende pencerenin en fazla genişliği */
 const WIDE_MAX_WIDTH = 560;
@@ -40,10 +43,12 @@ let shownThisSession = false;
 export class StartScreenModal extends UiModal {
   private playButton: UiButton | null = null;
   private readonly onPlay: () => void;
+  private readonly getMessage: () => string;
 
-  constructor(layer: UiLayer, onPlay: () => void) {
-    super(layer, { title: 'Manufacturer', maxWidth: MAX_WIDTH, depth: 350, dismissible: false, accent: SEMANTIC.factory });
+  constructor(layer: UiLayer, onPlay: () => void, getMessage: () => string = () => t('start.message')) {
+    super(layer, { title: GAME_TITLE, maxWidth: MAX_WIDTH, depth: 350, dismissible: false, accent: SEMANTIC.factory });
     this.onPlay = onPlay;
+    this.getMessage = getMessage;
   }
 
   /** Bu oturumda henüz gösterilmediyse açar; açtıysa true döner */
@@ -73,7 +78,7 @@ export class StartScreenModal extends UiModal {
       this.buildBanner(body, bannerWidth, bannerHeight);
 
       const textX = bannerWidth + SPACE.md;
-      const message = layer.text(textX, 0, t('start.message'), 'bodyBold', {
+      const message = layer.text(textX, 0, this.getMessage(), 'bodyBold', {
         wrapWidth: width - textX,
         lineSpacing: 3,
       });
@@ -85,7 +90,7 @@ export class StartScreenModal extends UiModal {
 
     // Üstte manzara, altında yazı. Önce yazı ölçülür; manzara kalan yere sığacak kadar kısalır
     const message = layer
-      .text(Math.round(width / 2), 0, t('start.message'), 'bodyBold', {
+      .text(Math.round(width / 2), 0, this.getMessage(), 'bodyBold', {
         align: 'center',
         wrapWidth: width - SPACE.sm * 2,
         lineSpacing: 3,

@@ -60,6 +60,7 @@ export const tr: Dictionary = {
 
   'start.message':
     'Sen bir patronsun; fabrikanı geliştir, ekonomini büyüt, roketi derin uzaya fırlat ve lider tablosunda yerini al.',
+  'start.messageSolo': 'Patron sensin: fabrikanı geliştir, daha uzağa uç ve kendi mesafe rekorunu kır.',
   'start.play': 'OYNA',
 
   'item.iron_ore': 'Demir Cevheri',

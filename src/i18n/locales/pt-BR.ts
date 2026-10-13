@@ -63,6 +63,7 @@ export const ptBR: Dictionary = {
 
   'start.message':
     'Você é o chefe: faça sua fábrica crescer, construa sua economia, lance o foguete ao espaço profundo e conquiste seu lugar no ranking.',
+  'start.messageSolo': 'Você é o chefe: faça sua fábrica crescer, voe mais longe e supere o seu próprio recorde de distância.',
   'start.play': 'JOGAR',
 
   'item.iron_ore': 'Minério de ferro',

@@ -16,6 +16,7 @@ import { UiButton } from './system/UiButton.ts';
 import { UiChip } from './system/UiWidgets.ts';
 import type { UiLayer } from './system/UiLayer.ts';
 import { t } from '../i18n/i18n.ts';
+import { areFullscreenControlsAllowed } from '../config/platform.ts';
 
 /** Çubuğun güvenli alan hariç yüksekliği (arayüz birimi) */
 export const HUD_BAR_HEIGHT = 48;
@@ -195,8 +196,10 @@ export class HUD {
     // Rekor ikincil bilgidir: dar ekranda para ve gelire yer açmak için gizlenir
     this.showRecord = m.width >= 560;
     // Tam ekran düğmesi yalnız işe yaradığı yerde görünür: dokunmatik, kısa yatay ekran,
-    // tarayıcı destekliyor ve henüz tam ekranda değil
+    // tarayıcı destekliyor ve henüz tam ekranda değil. CrazyGames'te hiç gösterilmez
+    // (platform tam ekranı kendisi sunar ve oyun içi düğmeyi yasaklar)
     this.showFullscreen =
+      areFullscreenControlsAllowed() &&
       m.mode === 'landscapeCompact' &&
       this.layer.scene.sys.game.device.input.touch &&
       typeof document !== 'undefined' &&

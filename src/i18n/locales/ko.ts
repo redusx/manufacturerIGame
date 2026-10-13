@@ -63,6 +63,7 @@ export const ko: Dictionary = {
   'hud.income': '+${value}/초',
 
   'start.message': '당신이 사장입니다. 공장을 키우고 경제를 일으켜, 로켓을 심우주로 쏘아 올리고 순위표에 이름을 올리세요.',
+  'start.messageSolo': '당신이 사장입니다. 공장을 키우고 더 멀리 날아 자신의 거리 기록을 깨세요.',
   'start.play': '시작',
 
   'item.iron_ore': '철광석',

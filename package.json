@@ -6,7 +6,11 @@
   "scripts": {
     "dev": "vite --host",
     "build": "tsc && vite build",
+    "build:basic": "tsc && vite build --mode basic",
+    "build:full": "tsc && vite build --mode full",
     "preview": "vite preview",
+    "preview:basic": "vite preview --mode basic --port 4181",
+    "preview:full": "vite preview --mode full --port 4182",
     "test": "node --experimental-strip-types --test \"src/**/*.test.ts\""
   },
   "dependencies": {

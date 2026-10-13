@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Manufacturer: Space Factory Idle</title>
+  <title>Manufacturer: Rocket Factory</title>
   <meta name="description" content="Build, optimize, and automate your 2D space factory, launch rockets, explore deep space, and grow your aerospace empire!" />
   <meta name="theme-color" content="#001437" />
   <!-- Ana ekrana eklenince tarayıcı çubukları olmadan, tam ekran açılır -->
@@ -26,6 +26,16 @@
       overflow: hidden;
       background: var(--px-bg-deep);
     }
+    /* Mobilde uzun basışta metin seçimi, büyüteç ve bağlam menüsü açılmasın (CrazyGames teknik gereksinimi).
+       Oyunda metin girişi yoktur. */
+    body {
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
+    }
     #game-container {
       width: 100%;
       height: 100%;
@@ -35,10 +45,32 @@
       image-rendering: pixelated;
       image-rendering: crisp-edges;
     }
+    /* Açılış yükleme çubuğu: dosyalar inerken ekran boş kalmasın (src/ui/BootLoader.ts) */
+    #boot-loader {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+    #boot-loader-track {
+      width: min(240px, 60vw);
+      height: 12px;
+      padding: 2px;
+      background: #201300;
+      border: 2px solid #e1b670;
+    }
+    #boot-loader-fill {
+      width: 0;
+      height: 100%;
+      background: #45944f;
+    }
   </style>
 </head>
 <body>
   <div id="game-container"></div>
+  <div id="boot-loader" aria-hidden="true"><div id="boot-loader-track"><div id="boot-loader-fill"></div></div></div>
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

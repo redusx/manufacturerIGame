@@ -22,6 +22,7 @@ import { UiModal } from './system/UiModal.ts';
 import { UiProgressBar, createDivider } from './system/UiWidgets.ts';
 import { LanguageModal } from './LanguageModal.ts';
 import { getLocaleInfo, t, type LocaleCode } from '../i18n/i18n.ts';
+import { areFullscreenControlsAllowed } from '../config/platform.ts';
 
 const ROW_HEIGHT = 44;
 /** Ses seviyesinin bir adımı */
@@ -134,8 +135,8 @@ export class SettingsPanel extends UiModal {
     y += SPACE.md;
     y = this.addVolumeRow(body, width, y);
 
-    // --- Tam ekran (tarayıcı destekliyorsa) -------------------------------
-    if (typeof document !== 'undefined' && document.fullscreenEnabled) {
+    // --- Tam ekran (tarayıcı destekliyorsa; CrazyGames'te platform sunar, burada gizlenir) ---
+    if (areFullscreenControlsAllowed() && typeof document !== 'undefined' && document.fullscreenEnabled) {
       const isFullscreen = document.fullscreenElement !== null;
       y = this.addToggleRow(body, width, y, {
         label: t('settings.fullscreen'),

@@ -63,6 +63,7 @@ export const de: Dictionary = {
 
   'start.message':
     'Du bist der Boss: Lass deine Fabrik wachsen, bau deine Wirtschaft auf, schick die Rakete in den tiefen Weltraum und sichere dir deinen Platz in der Bestenliste.',
+  'start.messageSolo': 'Du bist der Boss: Bau deine Fabrik aus, flieg weiter und brich deinen eigenen Streckenrekord.',
   'start.play': 'SPIELEN',
 
   'item.iron_ore': 'Eisenerz',

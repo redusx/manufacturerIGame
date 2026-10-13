@@ -24,6 +24,7 @@ import {
   toLeaderboardScore,
   type SeasonScoreState,
 } from './SeasonScore.ts';
+import { RELEASE } from '../config/release.ts';
 
 const PILOT_STORAGE_KEY = 'manufacturer_pilot_v1';
 const SEASON_STORAGE_KEY = 'manufacturer_cg_leaderboard_v1';
@@ -127,6 +128,8 @@ function saveSeasonState(state: SeasonScoreState): void {
 
 /** CrazyGames lider tablosuna skor gönderilebiliyor mu? */
 export function isCrazyGamesBoardEnabled(): boolean {
+  // Yayın yapılandırması kapattıysa (Basic) ya da davet/anahtar yoksa tablo sunulmaz
+  if (!RELEASE.globalLeaderboardEnabled) return false;
   if (!crazyGames.canSubmitScore) return false;
   if (!crazyGamesKey) {
     if (!warnedMissingKey) {
@@ -139,6 +142,15 @@ export function isCrazyGamesBoardEnabled(): boolean {
     return false;
   }
   return true;
+}
+
+/**
+ * Oyuncuya genel bir sıralama sunulabiliyor mu? (CrazyGames tablosu ya da oyunun kendi
+ * skor sunucusu.) False iken sıralama penceresi ve girişleri gizlenir; kişisel rekor kalır.
+ */
+export function isGlobalLeaderboardAvailable(): boolean {
+  if (!RELEASE.globalLeaderboardEnabled) return false;
+  return leaderboard.mode === 'online' || isCrazyGamesBoardEnabled();
 }
 
 export function getCrazyGamesBoardState(now: number = Date.now()): CrazyGamesBoardState {
@@ -155,7 +167,8 @@ export function getCrazyGamesBoardState(now: number = Date.now()): CrazyGamesBoa
  * `bestDistance` tüm zamanların rekorudur ve yalnızca oyunun kendi sunucusu (varsa) içindir.
  */
 export async function submitFlightDistance(distanceMeters: number, bestDistance: number): Promise<ScoreSubmitStatus> {
-  void leaderboard.submit(currentPlayer(bestDistance));
+  // Oyunun kendi skor sunucusu (varsa) yalnızca genel sıralama açıkken kullanılır
+  if (RELEASE.globalLeaderboardEnabled) void leaderboard.submit(currentPlayer(bestDistance));
 
   const now = Date.now();
   const score = toLeaderboardScore(distanceMeters);

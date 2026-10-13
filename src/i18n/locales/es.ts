@@ -63,6 +63,7 @@ export const es: Dictionary = {
 
   'start.message':
     'Tú eres el jefe: haz crecer tu fábrica, levanta tu economía, lanza el cohete al espacio profundo y ocupa tu lugar en la clasificación.',
+  'start.messageSolo': 'Tú eres el jefe: haz crecer tu fábrica, vuela más lejos y supera tu propio récord de distancia.',
   'start.play': 'JUGAR',
 
   'item.iron_ore': 'Mineral de hierro',

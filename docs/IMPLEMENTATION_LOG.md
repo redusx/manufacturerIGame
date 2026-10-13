@@ -1502,3 +1502,25 @@ Tarayıcıda (masaüstü 1024×768; kareler elle ilerletildi):
 
 **Denenemeyenler:** çevirilerin ana dili konuşan biri tarafından okunması; gerçek CrazyGames ortamında `systemInfo.locale`; fiziksel telefon ve sistem yazı tipi eksik cihazlar (Windows/Android'de Bengalce, Urduca); her dilin her penceresi tek tek (sefer, kontrol, takviye, fiyat pencereleri yalnız bazı dillerde açıldı); öğreticinin 17 adımının her dilde elde oynanması.
 
+### [2026-10-14] — Yayın Öncesi Hazırlık: Basic / Full Derlemeleri ve CrazyGames Uyumu
+
+Karar: DEC-056. Yeni oyun özelliği eklenmedi; hiçbir özellik silinmedi.
+
+- **Yeni:** `src/config/release.ts` (yayın tablosu), `src/config/platform.ts` (platform kuralları), `src/ui/BootLoader.ts` (açılış çubuğu).
+- **Derleme:** `vite.config.ts` moda göre çıktı klasörü ve `build-info.json`; `package.json` → `build:basic`, `build:full`, `preview:basic`, `preview:full`; `.gitignore` → `dist-basic/`, `dist-full/`.
+- **Reklam:** `AdService.setPlacementGate`; `ads.ts` Basic'te sağlayıcı takmaz, yerleşimleri yayın tablosuna ve oyuncunun ilerlemesine göre süzer. Arayüz zaten `isOffered` / `canShow` sorduğu için düğme kodu değişmedi.
+- **Lider tablosu:** `isGlobalLeaderboardAvailable()`; sahne, hangar ve öğretici buna bakar. Kendi skor sunucusuna gönderim de aynı şaltere bağlı.
+- **Platform:** Ayarlar'daki ve üst çubuktaki tam ekran düğmesi `areFullscreenControlsAllowed()`; ilk açılıştaki kontrol şeması `shouldAutoOpenControls()`.
+- **Düzeltilen hata:** Ayarlar açıkken kamera kilitlenmiyordu (güncelleme döngüsü erken dönüyordu); tekerlek arkadaki fabrikayı yakınlaştırıyordu.
+- **`index.html`:** `body` için `user-select: none`, yükleme çubuğu (Phaser yükleyicisinin gerçek oranı), başlık.
+- **Çeviri:** `start.messageSolo` 15 dilde.
+
+**Doğrulama:** `npm test` 359/359, `npx tsc --noEmit` temiz, `build:basic`, `build:full` ve `build` başarılı. İki paket yalnız mod sabitinde ayrışıyor (`"basic"` / `"full"`); Full derlemesi `dist-basic/`'e dokunmadı.
+Tarayıcıda, derlenmiş çıktılar `vite preview` ile (localhost, SDK yerel kipi), temiz kayıtla:
+- **Basic (`dist-basic`):** makine penceresi, hangar, takviye, parsel onayı, çevrimdışı rapor, uçuş raporu ve üst çubukta hiçbir reklam düğmesi yok; takviyenin nakit yolu duruyor; hangarda Sıralama yok, rekor Seferler'i açıyor; giriş cümlesi yeni metin. Öğretici (hoş geldin → üret → hedef → yükselt → 2. aşama → fırın) ilerledi, yükseltme çalıştı, 1. ve 2. aşama tamamlandı, sayfa yenilenince para/aşama/seviye/öğretici adımı aynı geldi. Uçuş başlatıldı ve rapor açıldı.
+- **Full (`dist-full`):** 0. aşamada makine penceresinde reklam düğmesi yok; ilerleyince makine indirimi, kargo, rampa indirimi, takviye, çevrimdışı ×2, uçuş ×3 ve üst çubuk düğmesi yerinde. SDK'nın deneme reklamıyla takviye reklamı izlendi, ödül bir kez verildi (0 → 600 sn).
+- **Platform (geliştirme sunucusu, `?platform=crazygames`):** "Oyna"dan sonra pencere açılmadı; Ayarlar'da tam ekran satırı yok; Ayarlar açıkken tekerlek fabrikayı oynatmadı, kapalıyken yakınlaştırdı; Kontroller Ayarlar'dan açıldı.
+- **800×450:** ana ekran ve hangar Almanca'da sığdı.
+
+**Denenemeyenler:** gerçek CrazyGames ortamı ve Preview (platform davranışı yalnız geliştirme parametresiyle denendi); gerçek reklam ve Basic Launch'ın `adsDisabledBasicLaunch` yanıtı; fiziksel telefon, Safari/iOS, 4 GB Chromebook; 3.–10. aşamaların ve öğreticinin kalan adımlarının bu turda elde oynanması; parsel indirimi reklamı (deneme durumunda parsel bedeli eşiğin altındaydı); dokunmatik yerleştirme ve taşıma bu turda yeniden denenmedi.
+

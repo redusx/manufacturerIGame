@@ -62,6 +62,7 @@ export const zhCN: Dictionary = {
   'hud.income': '+${value}/秒',
 
   'start.message': '你就是老板：壮大工厂，建立经济，把火箭送入深空，在排行榜上占据一席之地。',
+  'start.messageSolo': '你就是老板：壮大工厂，飞得更远，刷新自己的距离纪录。',
   'start.play': '开始游戏',
 
   'item.iron_ore': '铁矿石',

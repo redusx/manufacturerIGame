@@ -19,7 +19,18 @@
 
 ## 2. Yayından Önce Yapılacaklar
 
-- [ ] `npm run build` çıktısını (`dist/`) CrazyGames geliştirici paneline yükle ve Preview / QA aracında aç.
+**Hangi derleme?** (DEC-056; özellik tablosu `src/config/release.ts`)
+
+| Aşama | Komut | Yüklenecek klasör | Reklam | Lider tablosu |
+|---|---|---|---|---|
+| Basic Launch (ilk gönderim) | `npm run build:basic` | `dist-basic/` | Kapalı, hiçbir teklif çizilmez | Kapalı |
+| Full Launch | `npm run build:full` | `dist-full/` | SDK sunabiliyorsa açık | Davet + `VITE_CRAZYGAMES_LEADERBOARD_KEY` varsa açık |
+
+Klasördeki `build-info.json` hangi modla derlendiğini söyler. Yerelde bakmak için `npm run preview:basic` (4181) ve `npm run preview:full` (4182).
+
+- [ ] `npm run build:basic` çıktısını (`dist-basic/`) CrazyGames geliştirici paneline yükle ve Preview / QA aracında aç.
+- [ ] Preview'da: "Oyna"dan sonra başka pencere açılmıyor; Ayarlar'da ve üst çubukta tam ekran düğmesi yok; hiçbir reklam düğmesi yok.
+- [ ] Full Launch'a geçerken `npm run build:full` çıktısını yükle; aşağıdaki reklam maddelerini o derlemeyle dene.
 - [ ] Gönderim formunda **Progress Save** için "Automatic Progress Save (APS)" seç: kayıt `localStorage`'dadır, APS onu hesaba yedekler; oyunda uygulama içi satın alma yok (DEC-054).
 - [ ] Preview günlüğünde sırayı doğrula: SDK başlatıldı → loading start → loading stop → (Oyna) gameplay start; Ayarlar açılınca stop, kapanınca start; uçuşta start/stop.
 - [ ] Lider tablosu: `docs/LEADERBOARD.md` §3 (davet, anahtar, ayarlar, Preview'da `submitScore`).

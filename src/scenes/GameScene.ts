@@ -26,7 +26,9 @@ import { SettingsPanel } from '../ui/SettingsPanel';
 import { StagesModal } from '../ui/StagesModal.ts';
 import { RangeLadderModal } from '../ui/RangeLadderModal.ts';
 import { BoostModal } from '../ui/BoostModal.ts';
-import { ads } from '../ads/ads.ts';
+import { ads, setAdProgressGate } from '../ads/ads.ts';
+import { RELEASE } from '../config/release.ts';
+import { shouldAutoOpenControls } from '../config/platform.ts';
 import { formatAdCooldown, type AdPlacementId } from '../ads/AdService.ts';
 import { BOOST_GRANT_SECONDS, BOOST_MULTIPLIER, IncomeBoost } from '../economy/IncomeBoost.ts';
 import { RangeLadder } from '../flight/RangeLadder.ts';
@@ -45,7 +47,7 @@ import { LeaderboardModal } from '../ui/LeaderboardModal.ts';
 import {
   currentPlayer,
   getCrazyGamesBoardState,
-  isCrazyGamesBoardEnabled,
+  isGlobalLeaderboardAvailable,
   leaderboard,
   submitFlightDistance,
 } from '../leaderboard/leaderboard.ts';
@@ -101,6 +103,7 @@ import { sound } from '../audio/SoundManager.ts';
 import { fx } from '../effects/PixelParticleManager.ts';
 import { crazyGames, type AdErrorCode } from '../integration/CrazyGamesSDK.ts';
 import { getLocale, joinList, setLocale, t, type LocaleCode } from '../i18n/i18n.ts';
+import { hideBootLoader, setBootProgress } from '../ui/BootLoader.ts';
 
 /** Aşama ödülleriyle açılan özelliklerin kimlikleri (bkz. MilestoneManager.DEFAULT_MILESTONES) */
 const HANGAR_FEATURE = 'ROCKET_HANGAR';
@@ -236,6 +239,9 @@ export class GameScene extends Phaser.Scene {
    * ================================================================ */
 
   preload(): void {
+    // Açılış çubuğu yükleyicinin gerçek ilerlemesini gösterir
+    this.load.on(Phaser.Loader.Events.PROGRESS, setBootProgress);
+
     // Roket modülleri: her seviyenin kendi görünümü vardır (Sv.4+ tools/generate_rocket_tiers.py)
     for (const part of ['hull', 'engine', 'wings', 'tank']) {
       for (let level = 1; level <= MAX_ROCKET_LEVEL; level++) {
@@ -402,6 +408,8 @@ export class GameScene extends Phaser.Scene {
       () => this.hangarBridge.getFlightStats().bestDistance,
     );
     this.milestones = new MilestoneManager();
+    // Reklam teklifleri oyuncu ilk aşamaları geçtikten sonra görünür (yeni oyuncuya reklam sunulmaz)
+    setAdProgressGate(() => this.milestones.completedCount >= RELEASE.adsMinCompletedStages);
     this.logistics = new LogisticsNetwork(this.gridMap);
     this.productionEngine = new ProductionEngine(this.gridMap, this.logistics);
 
@@ -803,7 +811,8 @@ export class GameScene extends Phaser.Scene {
         isOffered: () => ads.isOffered('pad_discount'),
         onRequest: () => void this.requestPadDiscount(),
       },
-      () => this.openLeaderboard(),
+      // Sıralama düğmesi yalnız gerçekten bir sıralama sunulabiliyorsa çizilir
+      isGlobalLeaderboardAvailable() ? () => this.openLeaderboard() : null,
     );
 
     /* Ana ekran */
@@ -914,7 +923,15 @@ export class GameScene extends Phaser.Scene {
     /* Ayarlar */
     this.controlsModal = new ControlsModal(this.ui);
     // Giriş ekranı kapanınca masaüstünde (ilk açılışta) kontrol şeması gösterilir
-    this.startScreen = new StartScreenModal(this.ui, () => this.controlsModal.openOnFirstVisit());
+    this.startScreen = new StartScreenModal(
+      this.ui,
+      () => {
+        // CrazyGames'te "Oyna" doğrudan oynanışa iner; şema Ayarlar > Kontroller'dedir
+        if (shouldAutoOpenControls()) this.controlsModal.openOnFirstVisit();
+      },
+      // Sıralama sunulamıyorken giriş cümlesi lider tablosu vaat etmez
+      () => (isGlobalLeaderboardAvailable() ? t('start.message') : t('start.messageSolo')),
+    );
     this.settingsPanel = new SettingsPanel(this.ui, () => this.resetGame(), {
       onShowControls: () => this.controlsModal.open(),
       isTutorialActive: () => !this.tutorial.isDone,
@@ -1028,7 +1045,7 @@ export class GameScene extends Phaser.Scene {
       // Dil değişti: oyuncu seçimini yaptığı pencerede, yeni dille kalır
       reopenSettingsAfterRestart = false;
       this.settingsPanel.open();
-    } else if (!this.startScreen.openOnce()) {
+    } else if (!this.startScreen.openOnce() && shouldAutoOpenControls()) {
       this.time.delayedCall(250, () => this.controlsModal.openOnFirstVisit());
     }
 
@@ -1036,6 +1053,7 @@ export class GameScene extends Phaser.Scene {
     this.refreshUI();
 
     // Dosyalar indi ve sahne kuruldu: yükleme bitti (yalnızca ilk kurulumda etkilidir)
+    hideBootLoader();
     crazyGames.loadingStop();
   }
 
@@ -1142,8 +1160,12 @@ export class GameScene extends Phaser.Scene {
 
   update(_time: number, delta: number): void {
     this.syncGameplayState();
-    // Ayarlar açıkken ve reklam ekrandayken oyun duraklar
-    if (this.settingsPanel.isOpen || ads.isPlaying) return;
+    // Ayarlar açıkken ve reklam ekrandayken oyun duraklar. Kamera da kilitlenir: yoksa
+    // Ayarlar'da tekerlekle kaydırmak arkadaki fabrikayı yakınlaştırıp kaydırır
+    if (this.settingsPanel.isOpen || ads.isPlaying) {
+      this.cameraController.setEnabled(false);
+      return;
+    }
 
     const dt = delta / 1000;
 
@@ -1618,7 +1640,7 @@ export class GameScene extends Phaser.Scene {
       exported: (itemId) => this.milestones.getExportedCount(itemId),
       isPlotUnlocked: (plotIndex) => this.factoryEconomy.isPlotUnlocked(plotIndex),
       hangarUnlocked: this.milestones.isFeatureUnlocked(HANGAR_FEATURE),
-      leaderboardOnline: leaderboard.mode === 'online' || isCrazyGamesBoardEnabled(),
+      leaderboardOnline: isGlobalLeaderboardAvailable(),
       totalFlights: this.hangarBridge.getFlightStats().totalFlights,
     };
   }
@@ -2006,9 +2028,17 @@ export class GameScene extends Phaser.Scene {
     this.buildMenuModal.open();
   }
 
+  /**
+   * Rekor bölümüne basılınca: sıralama sunulabiliyorsa lider tablosu, sunulamıyorsa
+   * (davet yok, Basic derleme) kişisel rekoru ve hedefleri gösteren Seferler penceresi.
+   */
   private openLeaderboard(): void {
     this.cancelActiveTool();
-    this.leaderboardModal.open();
+    if (isGlobalLeaderboardAvailable()) {
+      this.leaderboardModal.open();
+    } else {
+      this.rangeLadderModal.open();
+    }
   }
 
   private openHangar(): void {

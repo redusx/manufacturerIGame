@@ -63,6 +63,7 @@ export const fr: Dictionary = {
 
   'start.message':
     "Vous êtes le patron : développez votre usine, bâtissez votre économie, lancez la fusée dans l'espace lointain et prenez votre place au classement.",
+  'start.messageSolo': 'Vous êtes le patron : développez votre usine, volez plus loin et battez votre propre record de distance.',
   'start.play': 'JOUER',
 
   'item.iron_ore': 'Minerai de fer',

@@ -62,6 +62,7 @@ export const ja: Dictionary = {
   'hud.income': '+${value}/秒',
 
   'start.message': 'あなたがボスです。工場を育て、経済を築き、ロケットを深宇宙へ打ち上げて、ランキングに名を刻みましょう。',
+  'start.messageSolo': 'あなたがボスです。工場を育て、もっと遠くへ飛び、自分の飛距離記録を塗り替えましょう。',
   'start.play': 'プレイ',
 
   'item.iron_ore': '鉄鉱石',
