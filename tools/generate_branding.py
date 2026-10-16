@@ -363,8 +363,8 @@ def banner() -> Image.Image:
     sky(img, [B["navy"], NIGHT_DEEP, NIGHT, B["plum"], LILAC], 0, horizon)
     stars(img, rng, 140, 2, 100)
 
-    # Hedef: halkalı gezegen (seferlerin sonu)
-    ring_planet(img, 238, 70)
+    # Hedef: halkalı gezegen (seferlerin sonu); adın altında, roketin solunda
+    ring_planet(img, 200, 90)
     # Uzak şehir silueti
     x = 0
     while x < W:
@@ -388,7 +388,8 @@ def banner() -> Image.Image:
     # Fabrika: baca dumanı, bacalar, hol, tank ve silolar
     smoke_rng = Rng(3)
     for cx in (40, 58):
-        for i in range(5):
+        # Duman ortadaki adın altında kalır
+        for i in range(3):
             disc(img, cx + i * 3 + smoke_rng.between(-1, 1), 70 - i * 6, 2.2 + i * 0.6, MIST)
             disc(img, cx + i * 3 - 1, 69 - i * 6, 1.4 + i * 0.5, B["white"])
     put(img, chimney(26), 37, 72)
@@ -425,9 +426,10 @@ def banner() -> Image.Image:
         disc(img, sx, ground_top - 4, r, MIST)
         disc(img, sx - 1, ground_top - 5, r - 2, B["white"])
 
-    # Oyun adı
+    # Oyun adı: ortada. CrazyGames kapağın sol üst köşesine etiket ("New", "Hot") koyar;
+    # ad ve önemli öğeler oraya yerleşmez.
     logo = title(TITLE, 3)
-    put(img, logo, 14, 12)
+    put(img, logo, (W - logo.width) // 2, 24)
     return img
 
 
@@ -493,7 +495,8 @@ def cover(W: int, H: int, title_x: int | None, title_y: int, rocket_nose: int, p
     hall_y = ground_top + 4 - hall_img.height
     smoke_rng = Rng(seed + 1)
     cx = 28
-    for i in range(5):
+    # Duman ortadaki adın altında kalır
+    for i in range(4):
         disc(img, cx + i * 3 + smoke_rng.between(-1, 1), hall_y - 13 - i * 6, 2.0 + i * 0.6, MIST)
         disc(img, cx + i * 3 - 1, hall_y - 14 - i * 6, 1.3 + i * 0.5, B["white"])
     put(img, chimney(22), cx - 3, hall_y - 16)
@@ -541,5 +544,6 @@ def save(img: Image.Image, base: str, scale: int) -> None:
 if __name__ == "__main__":
     save(icon(), "icon_512x512", 8)
     save(banner(), "banner_1920x1080", 6)
-    save(cover(200, 300, None, 16, 112, (52, 150, ), 21), "cover_portrait_800x1200", 4)
-    save(cover(200, 200, 10, 12, 54, (84, 98), 31), "cover_square_800x800", 4)
+    # Adlar ortada ve köşeden aşağıda: sol üst köşe platform etiketlerinin yeridir
+    save(cover(200, 300, None, 56, 150, (52, 178), 21), "cover_portrait_800x1200", 4)
+    save(cover(200, 200, None, 22, 84, (116, 122), 31), "cover_square_800x800", 4)

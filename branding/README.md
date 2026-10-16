@@ -15,4 +15,7 @@ Görseller oyunun kendi sprite'larıyla (roket Sv.1, kırıcı, bant, eşyalar, 
 uçuş zemini) ve 16 renkli paletle (`tools/palette.py`) çizilir. Adı değiştirmek için betikteki
 `TITLE` değiştirilir (yazı yalnız betikteki harflerle çizilir; yeni harf gerekirse `GLYPHS`'e eklenir).
 
+Yerleşim kuralı (CrazyGames): kapağın sol üst köşesine platform etiketleri ("New", "Hot")
+konur; oyun adı ve önemli öğeler oraya konmaz. Adlar yatayda ortalı ve kenardan aşağıdadır.
+
 Oyunun adı: **Ore to Orbit** (DEC-057; sayfa başlığı ve giriş ekranında da bu ad yazar).
