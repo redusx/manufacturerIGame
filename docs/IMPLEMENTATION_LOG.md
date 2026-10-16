@@ -1574,3 +1574,10 @@ Karar: DEC-058'in devamı. Belge: `docs/AUDIO.md`.
 **Doğrulama:** `npm test` 359/359, `npx tsc --noEmit` temiz, `build:basic` başarılı. Derlenmiş Basic (`vite preview`, SDK yerel kipi): `?muteAudio=true` ile SDK ayarı true, "Oyna"dan sonra çıkış kazancı 0 ve ses ölçümü 0, oyuncu ayarları yazılmadı; parametresiz çıkış 1, müzik duyuluyor (RMS 0.0048). Geliştirme sunucusunda SDK dinleyicisi elle tetiklendi: açık → susuyor (oyuncu ayarları aynı), reklam başlayıp bitince yine susuk, kapalı → ses geri.
 **Denenemeyenler:** gerçek CrazyGames sitesindeki ses düğmesi (Preview'da denenmeli).
 
+### [2026-10-17] — Tam Ekran Düğmeleri Yayın Derlemelerinde Kapalı; Data Modülü Notu
+
+- `src/config/release.ts`: Basic ve Full'de `inGameFullscreenControlsEnabled: false` (Ayarlar satırı ve üst çubuk düğmesi). Kod silinmedi. DEC-056 güncellendi.
+- `docs/RELEASE_CHECKLIST.md`: Full Launch öncesi zorunlu madde olarak SDK Data modülü.
+
+**Doğrulama:** `npm test`, `npx tsc --noEmit`, `build:basic`, `build:full`; derlenmiş Basic'te Ayarlar'da tam ekran satırı ve üst çubuk düğmesi yok.
+

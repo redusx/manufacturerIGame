@@ -64,7 +64,8 @@ export const RELEASE_CONFIGS: Readonly<Record<ReleaseMode, ReleaseConfig>> = {
     midgameAdsEnabled: false,
     adsMinCompletedStages: 2,
     globalLeaderboardEnabled: false,
-    inGameFullscreenControlsEnabled: true,
+    // CrazyGames tam ekranı kendisi sunar; yerel denemede de düğme görünmesin
+    inGameFullscreenControlsEnabled: false,
   },
   /* Full Launch: mevcut bütün reklam yerleşimleri kullanılabilir */
   full: {
@@ -82,7 +83,8 @@ export const RELEASE_CONFIGS: Readonly<Record<ReleaseMode, ReleaseConfig>> = {
     midgameAdsEnabled: false,
     adsMinCompletedStages: 2,
     globalLeaderboardEnabled: true,
-    inGameFullscreenControlsEnabled: true,
+    // CrazyGames tam ekranı kendisi sunar; yerel denemede de düğme görünmesin
+    inGameFullscreenControlsEnabled: false,
   },
 };
 

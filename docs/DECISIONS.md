@@ -464,6 +464,7 @@
   7. **Sıralama sunulamıyorken** hangardaki Sıralama düğmesi çizilmez, rekor bölümü Seferler penceresini açar, giriş cümlesi lider tablosu yerine kişisel rekoru anlatır (`start.messageSolo`, 15 dil). Kişisel rekor ve uçuş hesapları aynıdır.
   8. **Görünen ad:** `Manufacturer: Rocket Factory` (sayfa başlığı ve giriş ekranı). Kayıt anahtarları, paket adı ve kod adları değişmedi.
 * **Varsayım (onay bekler):** reklam eşiğinin iki aşama olması; Full'de geçiş reklamının kapalı kalması (G1 kararı hâlâ açık).
+* **Güncelleme (2026-10-17, kullanıcı isteği):** oyun içi tam ekran düğmeleri iki derlemede de kapalı (`inGameFullscreenControlsEnabled: false`). Önceden yalnız CrazyGames ortamında gizleniyordu; yerel denemede görünmesi kullanıcıyı yanılttı. Kod duruyor; tabloda açılırsa platform kuralı yine geçerli.
 
 ### [DEC-057] Oyunun Adı: Ore to Orbit
 * **Tarih:** 2026-10-16
