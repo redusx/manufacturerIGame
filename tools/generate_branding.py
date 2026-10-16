@@ -426,11 +426,21 @@ def banner() -> Image.Image:
         disc(img, sx, ground_top - 4, r, MIST)
         disc(img, sx - 1, ground_top - 5, r - 2, B["white"])
 
-    # Oyun adı: ortada. CrazyGames kapağın sol üst köşesine etiket ("New", "Hot") koyar;
-    # ad ve önemli öğeler oraya yerleşmez.
-    logo = title(TITLE, 3)
-    put(img, logo, (W - logo.width) // 2, 24)
+    # Oyun adı burada çizilmez: büyütülmüş görüntünün üstüne `banner_title` koyar
     return img
+
+
+# Banner adının piksel ölçüsü (son görüntüde px). Sahne 6 px ızgarada; ad ayrı katmandır ve
+# 18 px'ten (3 hücre x 6) 15 px'e (3 hücre x 5) küçültüldü.
+BANNER_TITLE_SCALE = 5
+
+
+def banner_title(big: Image.Image) -> None:
+    """Oyun adı ortada ve kenardan aşağıda. CrazyGames kapağın sol üst köşesine etiket
+    ("New", "Hot") koyar; ad ve önemli öğeler oraya yerleşmez."""
+    logo = title(TITLE, 3)
+    logo = logo.resize((logo.width * BANNER_TITLE_SCALE, logo.height * BANNER_TITLE_SCALE), Image.NEAREST)
+    big.alpha_composite(logo, ((big.width - logo.width) // 2, 225))
 
 
 # ---- İkon -------------------------------------------------------------------------------
@@ -457,7 +467,8 @@ def icon() -> Image.Image:
 
 
 # ---- Dikey (2:3) ve kare (1:1) kapaklar ------------------------------------------------------
-def cover(W: int, H: int, title_x: int | None, title_y: int, rocket_nose: int, planet: tuple, seed: int) -> Image.Image:
+def cover(W: int, H: int, title_x: int | None, title_y: int, rocket_nose: int, planet: tuple, seed: int,
+          title_cell: int = 4) -> Image.Image:
     """Banner'ın daralmış hali: üstte ad, ortada kalkan roket, altta üretim hattı ve rampa.
     title_x None ise ad ortalanır."""
     img = Image.new("RGBA", (W, H), B["navy"])
@@ -465,7 +476,7 @@ def cover(W: int, H: int, title_x: int | None, title_y: int, rocket_nose: int, p
     ground_top = H - 32
     horizon = ground_top - 14
     sky(img, [B["navy"], NIGHT_DEEP, NIGHT, B["plum"], LILAC], 0, horizon)
-    logo = title_lines(["ORE TO", "ORBIT"], 4)
+    logo = title_lines(["ORE TO", "ORBIT"], title_cell)
     lx = (W - logo.width) // 2 if title_x is None else title_x
     stars(img, rng, W * H // 260, 2, horizon - 30,
           avoid=lambda x, y: lx - 3 <= x <= lx + logo.width + 3 and title_y - 3 <= y <= title_y + logo.height + 3)
@@ -533,17 +544,20 @@ def cover(W: int, H: int, title_x: int | None, title_y: int, rocket_nose: int, p
     return img
 
 
-def save(img: Image.Image, base: str, scale: int) -> None:
+def save(img: Image.Image, base: str, scale: int, overlay=None) -> None:
+    """`overlay` büyütülmüş görüntüye sonradan çizilen katmandır (banner adı)."""
     OUT.mkdir(exist_ok=True)
     img.save(OUT / f"{base}_base.png")
     big = img.resize((img.width * scale, img.height * scale), Image.NEAREST)
+    if overlay:
+        overlay(big)
     big.convert("RGB").save(OUT / f"{base}.png")
     print(f"{base}: {img.size} x{scale} -> {big.size}")
 
 
 if __name__ == "__main__":
     save(icon(), "icon_512x512", 8)
-    save(banner(), "banner_1920x1080", 6)
+    save(banner(), "banner_1920x1080", 6, banner_title)
     # Adlar ortada ve köşeden aşağıda: sol üst köşe platform etiketlerinin yeridir
     save(cover(200, 300, None, 56, 150, (52, 178), 21), "cover_portrait_800x1200", 4)
-    save(cover(200, 200, None, 22, 84, (116, 122), 31), "cover_square_800x800", 4)
+    save(cover(200, 200, None, 34, 84, (116, 124), 31, title_cell=3), "cover_square_800x800", 4)

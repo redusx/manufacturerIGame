@@ -17,5 +17,7 @@ uçuş zemini) ve 16 renkli paletle (`tools/palette.py`) çizilir. Adı değişt
 
 Yerleşim kuralı (CrazyGames): kapağın sol üst köşesine platform etiketleri ("New", "Hot")
 konur; oyun adı ve önemli öğeler oraya konmaz. Adlar yatayda ortalı ve kenardan aşağıdadır.
+Banner'da ad ayrı bir katmandır (`banner_title`, 15 px piksel; sahne 6 px ızgarada), bu yüzden
+`banner_1920x1080_base.png` adı içermez. Kare kapakta ad 3 hücrelik (12 px) yazıyla çizilir.
 
 Oyunun adı: **Ore to Orbit** (DEC-057; sayfa başlığı ve giriş ekranında da bu ad yazar).
