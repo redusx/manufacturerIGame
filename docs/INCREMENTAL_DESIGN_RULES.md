@@ -1,4 +1,4 @@
-# INCREMENTAL_DESIGN_RULES.md — Manufacturer Incremental Tasarım Kuralları
+# INCREMENTAL_DESIGN_RULES.md — Ore to Orbit Incremental Tasarım Kuralları
 
 > **Bu dosya tüm agentlar için bağlayıcıdır.** Ekonomi, ilerleme, dengeleme veya oyuncu deneyimiyle ilgili her değişiklikte bu kurallar dikkate alınmalıdır.
 
@@ -6,7 +6,7 @@
 
 ## Temel Oyun Döngüsü
 
-Manufacturer'ın çekirdek deneyimi **incremental fabrika ekonomisidir**:
+Ore to Orbit'in çekirdek deneyimi **incremental fabrika ekonomisidir**:
 
 ```
 Üretim → Gelir → Yatırım → Üretim Artışı → Yeni Hedef / İçerik Açılımı

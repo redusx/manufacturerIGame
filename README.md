@@ -1,4 +1,4 @@
-# Manufacturer — Fabrika İncremental Oyunu
+# Ore to Orbit — Fabrika İncremental Oyunu
 
 Tarayıcıda çalışan, CrazyGames'e yayımlanmaya uygun 2D fabrika incremental/clicker oyunu.
 

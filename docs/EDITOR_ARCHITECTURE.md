@@ -1,4 +1,4 @@
-# EDITOR_ARCHITECTURE.md — Manufacturer Harita & Fabrika Editörü Mimarisi
+# EDITOR_ARCHITECTURE.md — Ore to Orbit Harita & Fabrika Editörü Mimarisi
 
 > **Bu dosya, gelecekteki seviye/fabrika editörünün veri yapısını ve araç setini tanımlar.**
 

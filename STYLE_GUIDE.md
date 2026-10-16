@@ -1,4 +1,4 @@
-# Manufacturer Oyun Stili Kılavuzu (STYLE_GUIDE.md)
+# Ore to Orbit Oyun Stili Kılavuzu (STYLE_GUIDE.md)
 
 Bu belge, oyunun görsel tutarlılığını sağlamak için uyulması zorunlu olan tasarım ve stil kurallarını içerir.
 

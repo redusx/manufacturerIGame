@@ -1,4 +1,4 @@
-# GAMEPLAY_SYSTEMS.md — Manufacturer Sistemler Arası Etkileşim Mimarisi
+# GAMEPLAY_SYSTEMS.md — Ore to Orbit Sistemler Arası Etkileşim Mimarisi
 
 > **Bu dosya, oyundaki ana alt sistemleri ve birbirleriyle olan veri/durum akışlarını tanımlar.**
 

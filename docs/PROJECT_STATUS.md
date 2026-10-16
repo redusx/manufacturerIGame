@@ -1,4 +1,4 @@
-# PROJECT_STATUS.md — Manufacturer Proje Durumu
+# PROJECT_STATUS.md — Ore to Orbit Proje Durumu
 
 > **ÖNEMLİ KURAL:** Her yeni oturum/context açılışında İLK okunacak dosyadır.
 > Her tamamlanan görevden sonra bu dosya güncellenmelidir.

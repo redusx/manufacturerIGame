@@ -1,4 +1,4 @@
-# TESTING.md — Manufacturer Test Stratejisi ve Protokolü
+# TESTING.md — Ore to Orbit Test Stratejisi ve Protokolü
 
 > **Bu dosya, projede uygulanacak test metodolojisini ve test paketlerini tanımlar.**
 

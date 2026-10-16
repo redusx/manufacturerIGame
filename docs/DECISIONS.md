@@ -469,6 +469,7 @@
 * **Tarih:** 2026-10-16
 * **Karar:** Görünen ad **Ore to Orbit** (kullanıcı onayladı). Cevherden yörüngeye uzanan üretim zincirini anlatır. DEC-056'daki "Manufacturer: Rocket Factory" başlığının yerini alır.
 * **Uygulandığı yerler:** sayfa başlığı (`index.html`), giriş ekranının başlığı (`StartScreenModal.ts` → `GAME_TITLE`), yayın görselleri (`branding/`, `tools/generate_branding.py`).
-* **Değişmeyenler:** paket ve proje adı (`manufacturer`), kayıt anahtarları (`manufacturer_*`), kaynak kodu sembolleri. Ad çevrilmez; her dilde aynı yazılır.
+* **Proje adı da değişti (2026-10-16, kullanıcı isteği):** paket adı `ore-to-orbit`, belgeler ve başlıklar "Ore to Orbit". Mağazalarda rakip ad bulunmadı (kullanıcının incelemesi).
+* **Değişmeyenler:** tarayıcı kayıt anahtarları (`manufacturer_*`): değişirse mevcut kayıtlar ve ayarlar okunamaz, oyuncuya da görünmezler. Kaynak kodu sembolleri ve klasör adı. Ad çevrilmez; her dilde aynı yazılır.
 * **Not:** aynı adla bir oyun bulunamadı; en yakını mobil "Orbit Ore". Benzersizlik ve marka tescili doğrulanmadı.
 

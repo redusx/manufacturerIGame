@@ -1,4 +1,4 @@
-# MACHINE_SYSTEM.md — Manufacturer Makine Taksonomisi ve Port Mimarisi
+# MACHINE_SYSTEM.md — Ore to Orbit Makine Taksonomisi ve Port Mimarisi
 
 > **Bu dosya, makinelerin fiziksel boyutlarını, port kurallarını ve rollerini tanımlar.**
 

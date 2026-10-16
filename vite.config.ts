@@ -20,7 +20,7 @@ const OUT_DIRS: Readonly<Record<string, string>> = {
 /** Çıktı klasörüne hangi modla derlendiğini yazar (yüklemeden önce bakılabilsin) */
 function buildInfo(releaseMode: string, outDir: string): Plugin {
   return {
-    name: 'manufacturer-build-info',
+    name: 'ore-to-orbit-build-info',
     apply: 'build',
     closeBundle() {
       writeFileSync(

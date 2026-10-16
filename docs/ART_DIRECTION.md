@@ -1,4 +1,4 @@
-# ART_DIRECTION.md — Manufacturer Görsel ve Piksel Sanat Kılavuzu
+# ART_DIRECTION.md — Ore to Orbit Görsel ve Piksel Sanat Kılavuzu
 
 > **ÖNEMLİ KURAL (Tüm Agentlar İçin):**
 > Bu dosya projenin görsel, sanatsal ve arayüz (UI) standartlarının tek ve bağlayıcı kaynağıdır. Arayüz, sahne, grafik, animasyon veya görsel varlıklar üzerinde çalışacak her agent göreve başlamadan önce bu kılavuzu okumalı ve buradaki standartlara eksiksiz uymalıdır.

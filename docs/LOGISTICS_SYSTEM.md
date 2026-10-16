@@ -1,4 +1,4 @@
-# LOGISTICS_SYSTEM.md — Manufacturer Lojistik ve Konveyör Sistemi
+# LOGISTICS_SYSTEM.md — Ore to Orbit Lojistik ve Konveyör Sistemi
 
 > **Bu dosya, bantların mekaniğini, eşya slotlarını, tıkanma fiziğini ve yönlendiricileri tanımlar.**
 

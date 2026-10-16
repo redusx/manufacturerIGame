@@ -1,13 +1,13 @@
-# GAME_DESIGN.md — Manufacturer Temel Oyun Tasarımı ve Çekirdek Vizyon
+# GAME_DESIGN.md — Ore to Orbit Temel Oyun Tasarımı ve Çekirdek Vizyon
 
-> **Bu dosya, Manufacturer'ın nihai türünü, çekirdek döngülerini ve tasarım sınırlarını tanımlar.**
+> **Bu dosya, Ore to Orbit'in nihai türünü, çekirdek döngülerini ve tasarım sınırlarını tanımlar.**
 > Tüm mimari, ekonomi ve kodlama kararları buradaki vizyonu güçlendirmek zorundadır.
 
 ---
 
 ## 1. Temel Vizyon ve Oyun Türü
 
-Manufacturer klasik bir hardcore fabrika simülatörü veya karmaşık bir bulmaca oyunu **değildir**.
+Ore to Orbit klasik bir hardcore fabrika simülatörü veya karmaşık bir bulmaca oyunu **değildir**.
 
 Oyunun ana türü:
 

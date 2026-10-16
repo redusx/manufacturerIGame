@@ -1,4 +1,4 @@
-# TECHNICAL_ARCHITECTURE.md — Manufacturer Teknik Mimari Spesifikasyonu
+# TECHNICAL_ARCHITECTURE.md — Ore to Orbit Teknik Mimari Spesifikasyonu
 
 > **Bu dosya, kodun katmanlarını, sorumluluk sınırlarını ve Phaser 3 entegrasyonunu tanımlar.**
 

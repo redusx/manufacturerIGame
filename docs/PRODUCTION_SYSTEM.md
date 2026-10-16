@@ -1,4 +1,4 @@
-# PRODUCTION_SYSTEM.md — Manufacturer Üretim ve Reçete Motoru
+# PRODUCTION_SYSTEM.md — Ore to Orbit Üretim ve Reçete Motoru
 
 > **Bu dosya, eşyaların makinelerde nasıl işlendiğini, girdi/çıktı tamponlarını ve reçete motorunu tanımlar.**
 

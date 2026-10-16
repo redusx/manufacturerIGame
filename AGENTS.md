@@ -1,4 +1,4 @@
-# AGENTS.md — Manufacturer (Fabrika İncremental Oyunu)
+# AGENTS.md — Ore to Orbit (Fabrika İncremental Oyunu)
 
 > **Her görev öncesinde bu dosyayı oku.** Buradaki kurallar tüm agentlar için bağlayıcıdır.
 
@@ -58,7 +58,7 @@ Oyuncu fabrikada tıklayarak ve makineler/üretim hatları kurarak kaynak kazan�
 
 Aşağıdaki konular henüz karara bağlanmamıştır. Bunları kesin karar gibi kodlama; gerektiğinde kullanıcıya sor.
 
-- Marka kimliği (görünen oyun adı `Ore to Orbit` olarak onaylandı, DEC-057; kayıt anahtarları ve proje adı `manufacturer` kalır)
+- Marka kimliği (oyunun ve projenin adı `Ore to Orbit`, DEC-057; tarayıcı kayıt anahtarları `manufacturer_*` oyuncu kayıtları bozulmasın diye değişmez)
 - Kaynak türleri ve ekonomi değerleri
 - Kesin ilerleme eğrisi ve dengeleme
 - Prestige / reset sistemi

@@ -1,4 +1,4 @@
-# ECONOMY.md — Manufacturer Ekonomi ve Değer Modeli
+# ECONOMY.md — Ore to Orbit Ekonomi ve Değer Modeli
 
 > Oyundaki güncel değerleri anlatır (son eşitleme: 2026-10-12, beşinci liste). Kaynak her zaman koddur:
 > `ItemRegistry.ts`, `RecipeRegistry.ts`, `MachineRegistry.ts`, `MilestoneManager.ts`, `FactoryEconomy.ts`,

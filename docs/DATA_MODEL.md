@@ -1,4 +1,4 @@
-# DATA_MODEL.md — Manufacturer Veri Modeli ve Tipler
+# DATA_MODEL.md — Ore to Orbit Veri Modeli ve Tipler
 
 > **Bu dosya, fabrikadaki tüm veri yapılarını, JSON kayıt şemasını ve TypeScript arayüzlerini tanımlar.**
 
