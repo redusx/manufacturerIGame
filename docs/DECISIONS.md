@@ -465,3 +465,10 @@
   8. **Görünen ad:** `Manufacturer: Rocket Factory` (sayfa başlığı ve giriş ekranı). Kayıt anahtarları, paket adı ve kod adları değişmedi.
 * **Varsayım (onay bekler):** reklam eşiğinin iki aşama olması; Full'de geçiş reklamının kapalı kalması (G1 kararı hâlâ açık).
 
+### [DEC-057] Oyunun Adı: Ore to Orbit
+* **Tarih:** 2026-10-16
+* **Karar:** Görünen ad **Ore to Orbit** (kullanıcı onayladı). Cevherden yörüngeye uzanan üretim zincirini anlatır. DEC-056'daki "Manufacturer: Rocket Factory" başlığının yerini alır.
+* **Uygulandığı yerler:** sayfa başlığı (`index.html`), giriş ekranının başlığı (`StartScreenModal.ts` → `GAME_TITLE`), yayın görselleri (`branding/`, `tools/generate_branding.py`).
+* **Değişmeyenler:** paket ve proje adı (`manufacturer`), kayıt anahtarları (`manufacturer_*`), kaynak kodu sembolleri. Ad çevrilmez; her dilde aynı yazılır.
+* **Not:** aynı adla bir oyun bulunamadı; en yakını mobil "Orbit Ore". Benzersizlik ve marka tescili doğrulanmadı.
+

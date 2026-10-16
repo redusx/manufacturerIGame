@@ -19,7 +19,7 @@ import { createInset } from './system/UiWidgets.ts';
 import { t } from '../i18n/i18n.ts';
 
 /** Oyuncuya görünen oyun adı (çevrilmez); index.html başlığıyla aynıdır */
-const GAME_TITLE = 'Manufacturer: Rocket Factory';
+const GAME_TITLE = 'Ore to Orbit';
 
 const MAX_WIDTH = 400;
 /** Yan yana düzende pencerenin en fazla genişliği */

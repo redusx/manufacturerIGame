@@ -1524,3 +1524,13 @@ Tarayıcıda, derlenmiş çıktılar `vite preview` ile (localhost, SDK yerel ki
 
 **Denenemeyenler:** gerçek CrazyGames ortamı ve Preview (platform davranışı yalnız geliştirme parametresiyle denendi); gerçek reklam ve Basic Launch'ın `adsDisabledBasicLaunch` yanıtı; fiziksel telefon, Safari/iOS, 4 GB Chromebook; 3.–10. aşamaların ve öğreticinin kalan adımlarının bu turda elde oynanması; parsel indirimi reklamı (deneme durumunda parsel bedeli eşiğin altındaydı); dokunmatik yerleştirme ve taşıma bu turda yeniden denenmedi.
 
+### [2026-10-16] — Ad (Ore to Orbit) ve Yayın Görselleri
+
+Karar: DEC-057.
+
+- **Ad:** `index.html` başlığı ve giriş ekranı başlığı "Ore to Orbit".
+- **Görseller (`branding/`, `tools/generate_branding.py`):** 512×512 ikon, 1920×1080 banner, 800×1200 dikey kapak, 800×800 kare kapak. Oyunun sprite'ları (roket Sv.1, kırıcı, bant, eşyalar, fırlatma rampası Sv.8, uçuş zemini) ve 16 renkli paletle düşük çözünürlükte çizilip tam sayı katla büyütülür. Kapaklarda yalnız oyun adı yazılıdır, çerçeve ve logo yoktur.
+
+**Doğrulama:** dört dosyanın boyutu ve en-boy oranı ölçüldü (1:1, 16:9, 2:3, 1:1). `npm test` 359/359, `npx tsc --noEmit` temiz, `build:basic` ve `build:full` başarılı. Derlenmiş Basic çıktısında sayfa başlığı ve giriş ekranı "Ore to Orbit" gösterdi.
+**Yapılmadı:** önizleme videoları (oyun kaydı gerekir).
+

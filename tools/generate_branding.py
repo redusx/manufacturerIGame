@@ -322,6 +322,19 @@ def ring_planet(img, cx: int, cy: int) -> None:
     ring(True)
 
 
+def title_lines(lines: list, cell: int, gap: int = 3) -> Image.Image:
+    """Birden çok satırlı oyun adı: satırlar ortalanır (dar kapaklar için)."""
+    parts = [title(line, cell) for line in lines]
+    w = max(p.width for p in parts)
+    h = sum(p.height for p in parts) + gap * (len(parts) - 1)
+    out = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    y = 0
+    for part in parts:
+        out.alpha_composite(part, ((w - part.width) // 2, y))
+        y += part.height + gap
+    return out
+
+
 def gear(r_out: int, r_in: int, teeth: int, c: tuple, hole: tuple) -> Image.Image:
     import math
 
@@ -441,6 +454,82 @@ def icon() -> Image.Image:
     return img
 
 
+# ---- Dikey (2:3) ve kare (1:1) kapaklar ------------------------------------------------------
+def cover(W: int, H: int, title_x: int | None, title_y: int, rocket_nose: int, planet: tuple, seed: int) -> Image.Image:
+    """Banner'ın daralmış hali: üstte ad, ortada kalkan roket, altta üretim hattı ve rampa.
+    title_x None ise ad ortalanır."""
+    img = Image.new("RGBA", (W, H), B["navy"])
+    rng = Rng(seed)
+    ground_top = H - 32
+    horizon = ground_top - 14
+    sky(img, [B["navy"], NIGHT_DEEP, NIGHT, B["plum"], LILAC], 0, horizon)
+    logo = title_lines(["ORE TO", "ORBIT"], 4)
+    lx = (W - logo.width) // 2 if title_x is None else title_x
+    stars(img, rng, W * H // 260, 2, horizon - 30,
+          avoid=lambda x, y: lx - 3 <= x <= lx + logo.width + 3 and title_y - 3 <= y <= title_y + logo.height + 3)
+    ring_planet(img, *planet)
+
+    # Uzak şehir silueti
+    x = 0
+    while x < W:
+        bw, bh = rng.between(8, 20), rng.between(6, 20)
+        rect(img, x, horizon - bh, bw, bh, NIGHT_DEEP)
+        for wy in range(horizon - bh + 2, horizon - 1, 3):
+            for wx in range(x + 2, min(W, x + bw - 2), 3):
+                if rng.next() < 0.25:
+                    img.putpixel((wx, wy), B["sand"])
+        x += bw
+    rect(img, 0, horizon - 1, W, 2, NIGHT_DEEP)
+
+    ground = sprite("flight/ground_field.png")
+    for gx in range(0, W, ground.width):
+        put(img, ground.crop((0, 0, min(ground.width, W - gx), H - ground_top + 4)), gx, ground_top - 4)
+    rect(img, 0, horizon + 1, W, ground_top - horizon - 3, B["olive"])
+    rect(img, 0, horizon + 1, W, 1, B["green"])
+
+    # Fabrika: tek baca, hol
+    hall_w = 76
+    hall_img = hall(hall_w, 34, 4)
+    hall_y = ground_top + 4 - hall_img.height
+    smoke_rng = Rng(seed + 1)
+    cx = 28
+    for i in range(5):
+        disc(img, cx + i * 3 + smoke_rng.between(-1, 1), hall_y - 13 - i * 6, 2.0 + i * 0.6, MIST)
+        disc(img, cx + i * 3 - 1, hall_y - 14 - i * 6, 1.3 + i * 0.5, B["white"])
+    put(img, chimney(22), cx - 3, hall_y - 16)
+    put(img, hall_img, 2, hall_y)
+
+    # Kırıcı, kısa bant ve eşyalar, rampa
+    crusher = sprite("machines/crusher.png", 32)
+    put(img, crusher, hall_w + 4, ground_top - crusher.height + 3)
+    pad = sprite("launch_pads/launch_pad_8.png")
+    pad_x = W - pad.width - 2
+    belt = sprite("conveyor_belt.png")
+    belt_x0, belt_x1 = hall_w + 36, pad_x + 4
+    belt_y = ground_top - belt.height + 3
+    put(img, belt.crop((0, 0, belt_x1 - belt_x0, belt.height)), belt_x0, belt_y)
+    for i, name in enumerate(["iron_ore", "steel_gear"]):
+        if belt_x0 + 2 + i * 14 + 16 <= belt_x1:
+            put(img, sprite(f"items/{name}.png"), belt_x0 + 2 + i * 14, belt_y - 9)
+    put(img, pad, pad_x, ground_top - pad.height + 4)
+
+    rocket_x = pad_x + 25
+    flame_end = launch(img, rocket_x, rocket_nose)
+    y, i = flame_end + 2, 0
+    while y < ground_top - 8:
+        r = 1.2 + (y - flame_end) / 18
+        disc(img, rocket_x + (1 if i % 2 else -1), y, r, MIST)
+        disc(img, rocket_x - 1 + (1 if i % 2 else -1), y - 1, max(0.8, r - 1.2), B["white"])
+        y += max(3, int(r * 1.6))
+        i += 1
+    for sx, r in ((pad_x + 4, 7), (W - 2, 7), (pad_x + 12, 6), (W - 10, 6), (rocket_x, 5)):
+        disc(img, sx, ground_top - 4, r, MIST)
+        disc(img, sx - 1, ground_top - 5, r - 2, B["white"])
+
+    put(img, logo, lx, title_y)
+    return img
+
+
 def save(img: Image.Image, base: str, scale: int) -> None:
     OUT.mkdir(exist_ok=True)
     img.save(OUT / f"{base}_base.png")
@@ -452,3 +541,5 @@ def save(img: Image.Image, base: str, scale: int) -> None:
 if __name__ == "__main__":
     save(icon(), "icon_512x512", 8)
     save(banner(), "banner_1920x1080", 6)
+    save(cover(200, 300, None, 16, 112, (52, 150, ), 21), "cover_portrait_800x1200", 4)
+    save(cover(200, 200, 10, 12, 54, (84, 98), 31), "cover_square_800x800", 4)

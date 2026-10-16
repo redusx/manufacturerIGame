@@ -58,7 +58,7 @@ Oyuncu fabrikada tıklayarak ve makineler/üretim hatları kurarak kaynak kazan�
 
 Aşağıdaki konular henüz karara bağlanmamıştır. Bunları kesin karar gibi kodlama; gerektiğinde kullanıcıya sor.
 
-- Marka kimliği (görünen oyun adı `Manufacturer: Rocket Factory` olarak seçildi, DEC-056; kayıt anahtarları ve proje adı `manufacturer` kalır)
+- Marka kimliği (görünen oyun adı `Ore to Orbit` olarak onaylandı, DEC-057; kayıt anahtarları ve proje adı `manufacturer` kalır)
 - Kaynak türleri ve ekonomi değerleri
 - Kesin ilerleme eğrisi ve dengeleme
 - Prestige / reset sistemi

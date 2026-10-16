@@ -30,6 +30,7 @@ Klasördeki `build-info.json` hangi modla derlendiğini söyler. Yerelde bakmak 
 
 - [ ] `npm run build:basic` çıktısını (`dist-basic/`) CrazyGames geliştirici paneline yükle ve Preview / QA aracında aç.
 - [ ] Preview'da: "Oyna"dan sonra başka pencere açılmıyor; Ayarlar'da ve üst çubukta tam ekran düğmesi yok; hiçbir reklam düğmesi yok.
+- [ ] Panelde oyun adı **Ore to Orbit**; kapaklar `branding/`: `banner_1920x1080.png` (yatay), `cover_portrait_800x1200.png` (dikey), `cover_square_800x800.png` (kare). Önizleme videoları ayrıca kaydedilmeli (15–20 sn, sessiz, 1080p yatay ve 2:3 dikey).
 - [ ] Full Launch'a geçerken `npm run build:full` çıktısını yükle; aşağıdaki reklam maddelerini o derlemeyle dene.
 - [ ] Gönderim formunda **Progress Save** için "Automatic Progress Save (APS)" seç: kayıt `localStorage`'dadır, APS onu hesaba yedekler; oyunda uygulama içi satın alma yok (DEC-054).
 - [ ] Preview günlüğünde sırayı doğrula: SDK başlatıldı → loading start → loading stop → (Oyna) gameplay start; Ayarlar açılınca stop, kapanınca start; uçuşta start/stop.
