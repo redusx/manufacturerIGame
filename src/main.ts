@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { GameScene } from './scenes/GameScene';
 import { FlightScene } from './scenes/FlightScene';
 import { initLocale } from './i18n/i18n.ts';
+import { sound } from './audio/SoundManager.ts';
 import { crazyGames } from './integration/CrazyGamesSDK.ts';
 import { UiHost } from './ui/system/UiHost.ts';
 import { PALETTE } from './ui/theme.ts';
@@ -37,6 +38,8 @@ const config: Phaser.Types.Core.GameConfig = {
 async function boot(): Promise<void> {
   await crazyGames.init().catch(() => false);
   crazyGames.loadingStart();
+  // Platform sesi kapatırsa (CrazyGames ses düğmesi) oyun susar; oyuncunun ses ayarı korunur
+  crazyGames.watchAudioMute((muted) => sound.setPlatformMuted(muted));
   // Dil, ilk metin çizilmeden seçilir: kayıtlı seçim → platformun dili → tarayıcının dili → İngilizce
   initLocale(crazyGames.systemLocale);
 

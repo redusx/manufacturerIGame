@@ -109,6 +109,8 @@ export class SoundManager {
   private musicVolume = DEFAULT_MUSIC_VOLUME;
   /** Reklam ekrandayken geçici sessizlik; ayara ve kayda yansımaz */
   private suspended = false;
+  /** Platform (CrazyGames) sesi kapattı; oyuncunun ayarından önce gelir, kayda yansımaz */
+  private platformMuted = false;
   /** Tüm sesin çıkışı (reklam sessizliği burada uygulanır) */
   private outputGain: GainNode | null = null;
   /** Efekt kanalı (eski adıyla ana kazanç) */
@@ -246,14 +248,33 @@ export class SoundManager {
     this.applyGain();
   }
 
+  /**
+   * Platformun ses kapatma ayarı (CrazyGames `muteAudio`). Açıkken müzik ve efektler
+   * oyuncunun ayarı ne olursa olsun susar; kapanınca oyuncunun ayarına dönülür.
+   * Ayarlar penceresindeki değerlere ve kayda dokunmaz.
+   */
+  public setPlatformMuted(muted: boolean): void {
+    this.platformMuted = muted;
+    this.applyGain();
+  }
+
+  public isPlatformMuted(): boolean {
+    return this.platformMuted;
+  }
+
+  /** Bütün ses dışarıdan (reklam veya platform) kapatıldı mı? */
+  private get isHeld(): boolean {
+    return this.suspended || this.platformMuted;
+  }
+
   /** Efektler duyulmuyor mu? */
   private get isSilent(): boolean {
-    return this.muted || this.suspended;
+    return this.muted || this.isHeld;
   }
 
   /** Müzik duyulmuyor mu? (sessizken nota üretilmez, zaman yine ilerler) */
   private get isMusicSilent(): boolean {
-    return this.musicMuted || this.suspended || this.musicVolume <= 0;
+    return this.musicMuted || this.isHeld || this.musicVolume <= 0;
   }
 
   private get currentGain(): number {
@@ -268,7 +289,7 @@ export class SoundManager {
     if (!this.ctx) return;
     const now = this.ctx.currentTime;
     // Kısa yumuşatma: seviye çubuğu sürüklenirken çıtırtı olmasın
-    this.outputGain?.gain.setTargetAtTime(this.suspended ? 0 : 1, now, 0.02);
+    this.outputGain?.gain.setTargetAtTime(this.isHeld ? 0 : 1, now, 0.02);
     this.masterGain?.gain.setTargetAtTime(this.currentGain, now, 0.02);
     this.musicGain?.gain.setTargetAtTime(this.currentMusicGain, now, 0.02);
   }

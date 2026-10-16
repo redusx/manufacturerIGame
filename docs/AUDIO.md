@@ -29,6 +29,9 @@ Harici bir ses dosyası eklenirse kaynağı ve lisansı bu tabloya yazılmalıd�
 - Aynı anda tek ana müzik çalar: eski parça 0.6 sn'de söner, ardından yenisi 1.6 sn'de açılır.
 - Uçuş bitince (çakılma, patlama, yakıt sonu) uçuş müziği söner; fabrika teması dönüşte açılır.
 - Sahne yeniden kurulduğunda (dil değişimi, kayıt sıfırlama) çalan parça baştan başlamaz.
+- Platform ses kapatması: CrazyGames `game.settings.muteAudio` açıkken (ve
+  `addSettingsChangeListener` ile değiştiğinde) bütün ses susar; oyuncunun Ayarlar'daki değerleri
+  değişmez ve kapatma kalkınca onlara dönülür (`SoundManager.setPlatformMuted`, `main.ts`).
 - Tarayıcı kuralı: ses ilk tıklama/dokunuş/tuşla açılır; müzik o an başlar. Sekme gizlenince
   ses durur, dönünce sürer. Reklam sırasında her şey susar.
 

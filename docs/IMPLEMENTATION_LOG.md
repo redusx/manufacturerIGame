@@ -1565,3 +1565,12 @@ Karar: DEC-058'in devamı. Belge: `docs/AUDIO.md`.
 **Doğrulama:** `npm test` 359/359, `npx tsc --noEmit` temiz, `build:basic` ve `build:full` başarılı. Tarayıcıda (geliştirme sunucusu, ölçümle): rampada motor sesi yok; kalkıştan 150 ms sonra ana motor açılıyor; nitro 100 ms'de tam seviyede, bırakınca 100 ms'de %16'ya, 400 ms'de sıfıra iniyor; yakıt bitince ana motor sönüyor; nitro biterken basılı tutulsa da nitro sesi kapanıyor. Seyir RMS 0.0195 (enerjinin %3'ü 1 kHz üstünde), nitro RMS 0.0296 (%35'i 1 kHz üstünde). Uçuş sırasında karede yeni ses düğümü kurulmuyor. Efekt %50 → seviye yarıya iniyor, efekt sessiz → 0. Çakılınca motor durdu, dönüşte açık ses kalmadı, fabrika teması geldi.
 **Denenemeyenler:** kulakla dinleme; yakıtın uçuş içinde kristalle yeniden dolması (kod yolu aynı: motor sessizde bekler, yakıt gelince açılır); Safari/iOS.
 
+### [2026-10-17] — CrazyGames SDK Ses Kapatma Desteği (muteAudio)
+
+- **`CrazyGamesSDK.watchAudioMute(listener)`:** `game.settings.muteAudio` şimdiki değeri ve `addSettingsChangeListener` ile değişiklikler. SDK yoksa/kapalıysa çağrılmaz.
+- **`SoundManager.setPlatformMuted`:** reklam sessizliği gibi ortak çıkışı kapatır; müzik notası ve efekt üretilmez. Oyuncunun ayarlarına ve kayda dokunmaz; reklam bitince açılmaz (platform kapatması öncelikli). `main.ts` SDK başlatıldıktan sonra bağlar.
+- **`RELEASE_CHECKLIST.md`:** form maddeleri (muteAudio, APS uyarısı).
+
+**Doğrulama:** `npm test` 359/359, `npx tsc --noEmit` temiz, `build:basic` başarılı. Derlenmiş Basic (`vite preview`, SDK yerel kipi): `?muteAudio=true` ile SDK ayarı true, "Oyna"dan sonra çıkış kazancı 0 ve ses ölçümü 0, oyuncu ayarları yazılmadı; parametresiz çıkış 1, müzik duyuluyor (RMS 0.0048). Geliştirme sunucusunda SDK dinleyicisi elle tetiklendi: açık → susuyor (oyuncu ayarları aynı), reklam başlayıp bitince yine susuk, kapalı → ses geri.
+**Denenemeyenler:** gerçek CrazyGames sitesindeki ses düğmesi (Preview'da denenmeli).
+

@@ -34,6 +34,12 @@ export interface CrazyGamesUser {
   profilePictureUrl?: string;
 }
 
+/** Platformun oyuna bildirdiği ayarlar */
+export interface CrazyGamesSettings {
+  muteAudio?: boolean;
+  disableChat?: boolean;
+}
+
 export interface CrazyGamesSDKRaw {
   init(): Promise<void>;
   /** 'crazygames' (sitede) · 'local' (localhost; deneme reklamı) · 'disabled' (başka alan adı) */
@@ -44,6 +50,9 @@ export interface CrazyGamesSDKRaw {
     happytime(): void;
     loadingStart?(): void;
     loadingStop?(): void;
+    /** Platform ayarları; `muteAudio` true iken oyunun sesi kapalı olmalı (docs.crazygames.com/sdk/game) */
+    settings?: CrazyGamesSettings;
+    addSettingsChangeListener?(listener: (settings: CrazyGamesSettings) => void): void;
   };
   ad: {
     requestAd(type: AdType, callbacks?: AdCallbacks): Promise<void>;
@@ -439,6 +448,22 @@ export class CrazyGamesSDK {
     } catch (err) {
       console.warn('[CrazyGamesSDK] submitScore başarısız:', err);
       return false;
+    }
+  }
+
+  /**
+   * Platformun ses kapatma ayarını izler: `listener` şimdiki değerle hemen, sonra her
+   * değişiklikte çağrılır. SDK yoksa veya ayar okunamazsa çağrılmaz (ses açık kalır).
+   * Yerel denemede `?muteAudio=true` ayarı açık getirir.
+   */
+  public watchAudioMute(listener: (muted: boolean) => void): void {
+    const game = this.readySdk?.game;
+    if (!game) return;
+    try {
+      listener(game.settings?.muteAudio === true);
+      game.addSettingsChangeListener?.((settings) => listener(settings?.muteAudio === true));
+    } catch (err) {
+      console.warn('[CrazyGamesSDK] Ayar dinleyicisi kurulamadı:', err);
     }
   }
 

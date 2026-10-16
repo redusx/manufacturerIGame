@@ -32,7 +32,8 @@ Klasördeki `build-info.json` hangi modla derlendiğini söyler. Yerelde bakmak 
 - [ ] Preview'da: "Oyna"dan sonra başka pencere açılmıyor; Ayarlar'da ve üst çubukta tam ekran düğmesi yok; hiçbir reklam düğmesi yok.
 - [ ] Panelde oyun adı **Ore to Orbit**; kapaklar `branding/`: `banner_1920x1080.png` (yatay), `cover_portrait_800x1200.png` (dikey), `cover_square_800x800.png` (kare). Önizleme videoları ayrıca kaydedilmeli (15–20 sn, sessiz, 1080p yatay ve 2:3 dikey).
 - [ ] Full Launch'a geçerken `npm run build:full` çıktısını yükle; aşağıdaki reklam maddelerini o derlemeyle dene.
-- [ ] Gönderim formunda **Progress Save** için "Automatic Progress Save (APS)" seç: kayıt `localStorage`'dadır, APS onu hesaba yedekler; oyunda uygulama içi satın alma yok (DEC-054).
+- [ ] Gönderim formunda **Progress Save** için "Automatic Progress Save (APS)" seç: kayıt `localStorage`'dadır, APS onu hesaba yedekler; oyunda uygulama içi satın alma yok (DEC-054). Form "iframe oyunlarında APS çalışmaz" uyarısı gösterir; oyun dosya olarak yüklendiği için iframe (dış adresten gömülü) oyun değildir. Bulut kaydı kesinleştirmek için SDK Data modülü Full Launch'ta ayrı iş olarak açık.
+- [ ] Formda "The game supports CrazyGames muting audio through SDK" işaretli. Preview'da platformun ses düğmesiyle sesi kapat/aç: müzik ve efektler susmalı, Ayarlar'daki değerler değişmemeli. Yerelde `?muteAudio=true` ile denenebilir.
 - [ ] Preview günlüğünde sırayı doğrula: SDK başlatıldı → loading start → loading stop → (Oyna) gameplay start; Ayarlar açılınca stop, kapanınca start; uçuşta start/stop.
 - [ ] Lider tablosu: `docs/LEADERBOARD.md` §3 (davet, anahtar, ayarlar, Preview'da `submitScore`).
 - [ ] QA aracında yedi yerleşimi (R1–R7) tek tek dene: ödül geliyor, bekleme süresi başlıyor, reklam kapatılınca ödül gelmiyor.
