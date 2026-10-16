@@ -317,7 +317,8 @@ export const fr: Dictionary = {
   'settings.scaleHintLimited':
     "Les options désactivées ne tiennent pas sur cet écran. Votre choix est mémorisé : en tournant l'écran ou en passant en plein écran, la plus grande taille possible s'applique toute seule.",
   'settings.scaleHint': "Change la taille du texte, des boutons et des fenêtres. La vue de l'usine n'est pas modifiée.",
-  'settings.sound': 'Son',
+  'settings.music': 'Musique',
+  'settings.effects': 'Effets sonores',
   'settings.soundOff': 'Coupé',
   'settings.fullscreen': 'Plein écran',
   'settings.tutorial': 'Tutoriel',

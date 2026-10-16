@@ -1534,3 +1534,24 @@ Karar: DEC-057.
 **Doğrulama:** dört dosyanın boyutu ve en-boy oranı ölçüldü (1:1, 16:9, 2:3, 1:1). `npm test` 359/359, `npx tsc --noEmit` temiz, `build:basic` ve `build:full` başarılı. Derlenmiş Basic çıktısında sayfa başlığı ve giriş ekranı "Ore to Orbit" gösterdi.
 **Yapılmadı:** önizleme videoları (oyun kaydı gerekir).
 
+### [2026-10-17] — Müzik ve Ses Efektleri
+
+Karar: DEC-058. Belge: `docs/AUDIO.md`.
+
+- **`SoundManager`:** efekt ve müzik kanalı (ayrı seviye/sessize alma, saklanır), reklam için ortak çıkış, ilk dokunuşta ses bağlamı, sekme gizlenince durma. Müzik zamanlayıcısı notaları 0.3 sn ileriden yerleştirir; geciken zamanlayıcıda kaçan notalar atlanır.
+- **Yeni efektler:** `playIncome` (seyreltilmiş gelir), `playLaunch` (kademeli), `playNitro`, `playCrash`, `playExplosion`. Kısa aralıklı çoğalmaya karşı efekt başına bekleme.
+- **Bağlantılar:** `GameScene` sevkiyat geliri → `playIncome`; açılışta fabrika teması, fırlatma düğmesinde uçuş teması, dönüşte fabrika teması. `FlightScene` nitro → `playNitro`, yere çakılma → `playCrash`, uçuş sonu → müzik söner, çakılmada `playExplosion`; ölümcül olmayan engel → `playHit`. Kıvılcım efekti artık ses çalmıyor (çakılmada iki kez çalıyordu).
+- **Ayarlar:** "Ses" satırı yerine "Müzik" ve "Ses efektleri" satırları; `settings.music`, `settings.effects` 15 dilde (`settings.sound` kaldırıldı).
+- **Test:** `SoundManager.test.ts` yeni yöntemleri de çağırıyor (`playBoost` → `playNitro`).
+
+**Doğrulama:** `npm test` 359/359, `npx tsc --noEmit` temiz, `build:basic` ve `build:full` başarılı.
+Tarayıcıda (geliştirme sunucusu):
+- İlk tıklamadan önce ses bağlamı yok, fabrika teması bekliyor; "Oyna" tıklamasıyla bağlam açıldı, müzik yavaşça açıldı ve adım adım ilerledi.
+- Seviyeler analizörle ölçüldü (tepe): gelir 0.016, eski para 0.075, tık 0.044, nitro 0.066, darbe 0.10, fırlatma 0.14, çakılma 0.18, patlama 0.20; müzik %60'ta 0.048 (kanal 0.1 iken) → kanal 0.2'ye çıkarıldı.
+- Gelir: düşük üretimde 30 sn'de 10 satış → 10 çınlama (aralar 1.4 sn'den uzun). Gerçek teslim olayı saniyede 8 kez verilince 10 sn'de 80 satış (hepsi ekonomiye yazıldı) → 8 çınlama, aralar 1.40 sn.
+- Uçuş: fırlatma düğmesi → uçuş teması (rampa); kalkışta bir `playLaunch`; nitro basılı tutunca tek ses, hızlı basışlarda sınırlı; ölümcül olmayan engel → yalnız `playHit` (HP 160 → 141); ölümcül engel → yalnız patlama + müzik söndü; yere çakılma → darbe + patlama, her biri bir kez. Dönüşte fabrika teması.
+- Ayarlar: iki satır göründü; müzik −/sessiz, efekt sessiz birbirinden bağımsız çalıştı, kanal kazançları ve kayıtlı değerler değişti; sayfa yenilenince müzik %45, efektler kapalı geldi (sonra varsayılana döndürüldü). Sahne yeniden kurulunca çalan parça aynı kaldı.
+- Derlenmiş Basic ve Full: "Oyna" ile tek ses bağlamı açıldı, müzik nota üretti, konsolda hata yok.
+
+**Denenemeyenler:** sesler kulakla dinlenmedi (yalnız ölçüm ve olay kaydı); gerçek reklam sırasında susma (yalnız mevcut `setSuspended` yolu); sekmeyi gizleyip açma; Safari/iOS ve telefon; uzun oturumda müziğin yorucu olup olmadığı.
+

@@ -36,8 +36,13 @@ describe('SoundManager Headless Unit Tests', () => {
     assert.doesNotThrow(() => sound.playUpgrade());
     assert.doesNotThrow(() => sound.playMilestone());
     assert.doesNotThrow(() => sound.playLaunch());
-    assert.doesNotThrow(() => sound.playBoost());
+    assert.doesNotThrow(() => sound.playNitro());
     assert.doesNotThrow(() => sound.playHit());
+    assert.doesNotThrow(() => sound.playCrash());
+    assert.doesNotThrow(() => sound.playExplosion());
+    assert.doesNotThrow(() => sound.playIncome());
+    assert.doesNotThrow(() => sound.playMusic('factory'));
+    assert.doesNotThrow(() => sound.stopMusic());
     assert.doesNotThrow(() => sound.playDemolish());
   });
 

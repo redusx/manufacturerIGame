@@ -313,7 +313,8 @@ export const ko: Dictionary = {
   'settings.scaleHintLimited':
     '비활성화된 옵션은 이 화면에 맞지 않아요. 선택은 저장되며, 화면을 돌리거나 전체 화면으로 바꾸면 맞는 가장 큰 크기가 자동으로 적용돼요.',
   'settings.scaleHint': '글자, 버튼, 창의 크기를 바꿔요. 공장 화면은 바뀌지 않아요.',
-  'settings.sound': '소리',
+  'settings.music': '음악',
+  'settings.effects': '효과음',
   'settings.soundOff': '꺼짐',
   'settings.fullscreen': '전체 화면',
   'settings.tutorial': '튜토리얼',

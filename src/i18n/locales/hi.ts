@@ -317,7 +317,8 @@ export const hi: Dictionary = {
   'settings.scaleHintLimited':
     'बंद विकल्प इस स्क्रीन में नहीं समाते। आपकी पसंद याद रखी जाती है: स्क्रीन घुमाने या फ़ुलस्क्रीन करने पर समाने वाला सबसे बड़ा आकार अपने-आप लग जाता है।',
   'settings.scaleHint': 'टेक्स्ट, बटन और विंडो का आकार बदलता है। फ़ैक्टरी का दृश्य नहीं बदलता।',
-  'settings.sound': 'आवाज़',
+  'settings.music': 'संगीत',
+  'settings.effects': 'साउंड इफ़ेक्ट',
   'settings.soundOff': 'बंद',
   'settings.fullscreen': 'फ़ुलस्क्रीन',
   'settings.tutorial': 'ट्यूटोरियल',

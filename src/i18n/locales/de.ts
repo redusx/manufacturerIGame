@@ -317,7 +317,8 @@ export const de: Dictionary = {
   'settings.scaleHintLimited':
     'Deaktivierte Optionen passen nicht auf diesen Bildschirm. Deine Wahl bleibt gespeichert: Wenn du den Bildschirm drehst oder in den Vollbildmodus wechselst, wird automatisch die größte passende Größe verwendet.',
   'settings.scaleHint': 'Ändert die Größe von Text, Schaltflächen und Fenstern. Die Fabrikansicht bleibt gleich.',
-  'settings.sound': 'Ton',
+  'settings.music': 'Musik',
+  'settings.effects': 'Soundeffekte',
   'settings.soundOff': 'Aus',
   'settings.fullscreen': 'Vollbild',
   'settings.tutorial': 'Tutorial',

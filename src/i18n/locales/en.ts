@@ -338,7 +338,8 @@ export const en = {
   'settings.scaleHintLimited':
     'Disabled options do not fit this screen. Your choice is remembered: when you rotate the screen or go fullscreen, the largest scale that fits is applied automatically.',
   'settings.scaleHint': 'Changes the size of text, buttons and windows. The factory view is not affected.',
-  'settings.sound': 'Sound',
+  'settings.music': 'Music',
+  'settings.effects': 'Sound effects',
   'settings.soundOff': 'Off',
   'settings.fullscreen': 'Fullscreen',
   'settings.tutorial': 'Tutorial',

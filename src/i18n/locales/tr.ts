@@ -314,7 +314,8 @@ export const tr: Dictionary = {
   'settings.scaleHintLimited':
     'Kapalı seçenekler bu ekrana sığmıyor. Seçimin saklanır: ekranı döndürünce veya tam ekrana geçince sığan en büyük ölçek kendiliğinden uygulanır.',
   'settings.scaleHint': 'Yazı, düğme ve pencerelerin büyüklüğünü değiştirir. Fabrika görünümü etkilenmez.',
-  'settings.sound': 'Ses',
+  'settings.music': 'Müzik',
+  'settings.effects': 'Ses efektleri',
   'settings.soundOff': 'Kapalı',
   'settings.fullscreen': 'Tam ekran',
   'settings.tutorial': 'Öğretici',

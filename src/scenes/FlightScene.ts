@@ -561,7 +561,7 @@ export class FlightScene extends Phaser.Scene {
     this.flightScore += Math.round(distanceDelta * 1.8);
 
     if (this.body.isBoosting) {
-      if (!wasBoosting) sound.playBoost();
+      if (!wasBoosting) sound.playNitro();
       if (Math.random() < 0.25) {
         this.cameras.main.shake(50, 0.003);
       }
@@ -647,6 +647,7 @@ export class FlightScene extends Phaser.Scene {
     this.currentHP = 0;
 
     this.cameras.main.shake(350, 0.016);
+    sound.playCrash();
     this.spawnExplosionSparks(this.rocketScreenX, this.rocketScreenY + 10);
     this.endFlight(true, t('flight.crashGround'));
   }
@@ -978,6 +979,8 @@ export class FlightScene extends Phaser.Scene {
       if (dist < (obs.radius + 14)) {
         obs.hasCollided = true;
         this.takeObstacleDamage(25);
+        // Ölümcül temasta patlama sesi endFlight'tan gelir
+        if (this.flightState !== 'crashed') sound.playHit();
         this.spawnExplosionSparks(obs.x, obs.y);
         break;
       }
@@ -1000,7 +1003,6 @@ export class FlightScene extends Phaser.Scene {
   }
 
   private spawnExplosionSparks(x: number, y: number): void {
-    sound.playHit();
     fx.emitExplosion(this, x, y, 16);
 
     // Çarpışma kıvılcımı — önce hit_spark spritesheet animasyonu
@@ -1108,7 +1110,10 @@ export class FlightScene extends Phaser.Scene {
     this.flightState = isCrash ? 'crashed' : 'finished';
     crazyGames.gameplayStop();
 
+    // Uçuş müziği söner; fabrika teması dönüşte açılır
+    sound.stopMusic();
     if (isCrash) {
+      sound.playExplosion();
       this.spawnExplosionSparks(this.rocketScreenX, this.rocketScreenY);
       this.rocketContainer.setVisible(false);
     }

@@ -318,7 +318,8 @@ export const ru: Dictionary = {
   'settings.scaleHintLimited':
     'Отключённые варианты не помещаются на этом экране. Выбор запоминается: при повороте экрана или в полноэкранном режиме сам применится самый крупный масштаб, который помещается.',
   'settings.scaleHint': 'Меняет размер текста, кнопок и окон. Вид фабрики не меняется.',
-  'settings.sound': 'Звук',
+  'settings.music': 'Музыка',
+  'settings.effects': 'Звуковые эффекты',
   'settings.soundOff': 'Выкл.',
   'settings.fullscreen': 'Полный экран',
   'settings.tutorial': 'Обучение',

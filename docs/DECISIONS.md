@@ -473,3 +473,12 @@
 * **Değişmeyenler:** tarayıcı kayıt anahtarları (`manufacturer_*`): değişirse mevcut kayıtlar ve ayarlar okunamaz, oyuncuya da görünmezler. Kaynak kodu sembolleri ve klasör adı. Ad çevrilmez; her dilde aynı yazılır.
 * **Not:** aynı adla bir oyun bulunamadı; en yakını mobil "Orbit Ore". Benzersizlik ve marka tescili doğrulanmadı.
 
+### [DEC-058] Ses: Prosedürel Müzik, Ayrı Müzik/Efekt Kanalı, Seyreltilmiş Gelir Sesi
+* **Tarih:** 2026-10-17
+* **Karar:**
+  1. **Dosya yerine sentez:** müzik ve efektler Web Audio ile üretilir (`src/audio/SoundManager.ts`, besteler `src/audio/music.ts`). Lisans belirsizliği ve indirme yükü yoktur; kaynak ve lisans notu `docs/AUDIO.md`.
+  2. **İki parça:** fabrika teması ve fırlatma/uçuş teması. Aynı anda tek ana müzik; geçişler sönme + açılma ile. Uçuş müziği uçuş bitince söner, fabrika teması dönüşte açılır. Sahne yeniden kurulunca çalan parça baştan başlamaz.
+  3. **Mevcut ses yöneticisi genişletildi:** efekt ve müzik ayrı kanal, ayrı seviye ve ayrı sessize alma. Eski ses ayarı (anahtarlar `manufacturer_audio_*`) efekt kanalı olarak sürer; müzik `manufacturer_music_*` (varsayılan %60).
+  4. **Sevkiyat geliri sesi:** her satışta çalmaz. En az 1.4 sn arayla tek, yumuşak çınlama; arada gelen satışlar süre dolunca tek sesle duyurulur. Seviyesi eski para sesinin ~%20'si. Ekonomi, sevkiyat sıklığı ve gelir hesabı değişmedi.
+  5. **Olaylar:** fırlatma sesi yalnız roket rampadan kalkınca (hangardaki düğmede artık çalmaz, orada uçuş teması başlar). Yere çakılma = darbe + patlama, ölümcül engel = patlama, ölümcül olmayan engel = darbe. Nitro yalnız basıldığı anda.
+* **Varsayım (onay bekler):** "%10–20 efekt seviyesi" isteği gelir sesinin kendi seviyesi olarak yorumlandı (eski para sesinin ~%20'si); efekt kaydırıcısının varsayılanı %100 kaldı. Müziğin %60 varsayılanı ve beste karakteri elle dinlenerek değil, ölçülen seviyelerle ayarlandı.

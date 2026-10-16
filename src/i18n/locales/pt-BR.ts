@@ -317,7 +317,8 @@ export const ptBR: Dictionary = {
   'settings.scaleHintLimited':
     'As opções desativadas não cabem nesta tela. Sua escolha fica salva: ao girar a tela ou entrar em tela cheia, a maior escala que couber é aplicada sozinha.',
   'settings.scaleHint': 'Muda o tamanho do texto, dos botões e das janelas. A visão da fábrica não muda.',
-  'settings.sound': 'Som',
+  'settings.music': 'Música',
+  'settings.effects': 'Efeitos sonoros',
   'settings.soundOff': 'Desligado',
   'settings.fullscreen': 'Tela cheia',
   'settings.tutorial': 'Tutorial',

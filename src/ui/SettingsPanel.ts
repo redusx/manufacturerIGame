@@ -28,6 +28,35 @@ const ROW_HEIGHT = 44;
 /** Ses seviyesinin bir adımı */
 const VOLUME_STEP = 0.05;
 
+/** Ayarlardaki bir ses kanalı (müzik veya efektler) */
+interface VolumeChannel {
+  label: () => string;
+  isMuted: () => boolean;
+  setMuted: (muted: boolean) => void;
+  getVolume: () => number;
+  setVolume: (volume: number) => void;
+  /** Değişiklik sonrası duyulan örnek (efektlerde tık; müzikte müziğin kendisi duyulur) */
+  preview: () => void;
+}
+
+const EFFECTS_CHANNEL: VolumeChannel = {
+  label: () => t('settings.effects'),
+  isMuted: () => sound.isMuted(),
+  setMuted: (muted) => sound.setMuted(muted),
+  getVolume: () => sound.getVolume(),
+  setVolume: (volume) => sound.setVolume(volume),
+  preview: () => sound.playClick(),
+};
+
+const MUSIC_CHANNEL: VolumeChannel = {
+  label: () => t('settings.music'),
+  isMuted: () => sound.isMusicMuted(),
+  setMuted: (muted) => sound.setMusicMuted(muted),
+  getVolume: () => sound.getMusicVolume(),
+  setVolume: (volume) => sound.setMusicVolume(volume),
+  preview: () => {},
+};
+
 /** Ayarlar penceresinin sahneden beklediği ek eylemler */
 export interface SettingsPanelOptions {
   /** Kontrol şeması penceresini açar */
@@ -133,7 +162,8 @@ export class SettingsPanel extends UiModal {
     // --- Ses -------------------------------------------------------------
     body.add(createDivider(scene, 0, y, width));
     y += SPACE.md;
-    y = this.addVolumeRow(body, width, y);
+    y = this.addVolumeRow(body, width, y, MUSIC_CHANNEL);
+    y = this.addVolumeRow(body, width, y, EFFECTS_CHANNEL);
 
     // --- Tam ekran (tarayıcı destekliyorsa; CrazyGames'te platform sunar, burada gizlenir) ---
     if (areFullscreenControlsAllowed() && typeof document !== 'undefined' && document.fullscreenEnabled) {
@@ -234,15 +264,15 @@ export class SettingsPanel extends UiModal {
   }
 
   /**
-   * Ses: sessize alma düğmesi ile seviye denetimi tek satırdadır. Soldaki hoparlör
-   * düğmesi sesi açıp kapatır; eksi/artı %5'lik adımlarla, çubuğa dokunmak veya çubukta
-   * sürüklemek doğrudan ayarlar. Değer anında uygulanır ve saklanır.
+   * Ses (müzik ve efektler ayrı satır): sessize alma düğmesi ile seviye denetimi tek
+   * satırdadır. Soldaki hoparlör düğmesi kanalı açıp kapatır; eksi/artı %5'lik adımlarla,
+   * çubuğa dokunmak veya çubukta sürüklemek doğrudan ayarlar. Değer anında uygulanır ve saklanır.
    */
-  private addVolumeRow(body: Phaser.GameObjects.Container, width: number, y: number): number {
+  private addVolumeRow(body: Phaser.GameObjects.Container, width: number, y: number, channel: VolumeChannel): number {
     const scene = this.scene;
     const layer = this.layer;
     const labelY = y + 10;
-    body.add(layer.text(0, labelY, t('settings.sound'), 'bodyBold').setOrigin(0, 0.5));
+    body.add(layer.text(0, labelY, channel.label(), 'bodyBold').setOrigin(0, 0.5));
     const percentText = layer
       .text(width, labelY, '', 'bodyBold', { color: SEMANTIC.moneyHex })
       .setOrigin(1, 0.5);
@@ -262,20 +292,20 @@ export class SettingsPanel extends UiModal {
     const muteButton = new UiButton(layer, buttonSize / 2, rowY + buttonSize / 2, {
       width: buttonSize,
       height: buttonSize,
-      variant: sound.isMuted() ? 'secondary' : 'primary',
-      icon: uiIcon(sound.isMuted() ? 'sound_off' : 'sound_on'),
+      variant: channel.isMuted() ? 'secondary' : 'primary',
+      icon: uiIcon(channel.isMuted() ? 'sound_off' : 'sound_on'),
       silent: true,
       onClick: () => {
-        const nowMuted = sound.toggleMute();
-        if (!nowMuted) sound.playClick();
+        channel.setMuted(!channel.isMuted());
+        if (!channel.isMuted()) channel.preview();
         show();
       },
     });
     body.add(muteButton);
 
     const show = (): void => {
-      const muted = sound.isMuted();
-      const volume = sound.getVolume();
+      const muted = channel.isMuted();
+      const volume = channel.getVolume();
       bar.setProgress(muted ? 0 : volume);
       percentText.setText(muted ? t('settings.soundOff') : t('common.percent', { n: Math.round(volume * 100) }));
       muteButton.setVariant(muted ? 'secondary' : 'primary').setIcon(uiIcon(muted ? 'sound_off' : 'sound_on'));
@@ -283,10 +313,10 @@ export class SettingsPanel extends UiModal {
     const apply = (volume: number): void => {
       const snapped = Math.round(Phaser.Math.Clamp(volume, 0, 1) / VOLUME_STEP) * VOLUME_STEP;
       // Seviyeyi değiştirmek sessizi de kaldırır: oyuncu sesi duymak için ayarlıyordur
-      if (Math.abs(snapped - sound.getVolume()) < 1e-6 && !sound.isMuted()) return;
-      sound.setVolume(snapped);
-      if (sound.isMuted()) sound.setMuted(false);
-      sound.playClick();
+      if (Math.abs(snapped - channel.getVolume()) < 1e-6 && !channel.isMuted()) return;
+      channel.setVolume(snapped);
+      if (channel.isMuted()) channel.setMuted(false);
+      channel.preview();
       show();
     };
 
@@ -297,7 +327,7 @@ export class SettingsPanel extends UiModal {
         variant: 'secondary',
         icon: uiIcon('minus'),
         silent: true,
-        onClick: () => apply(sound.getVolume() - VOLUME_STEP),
+        onClick: () => apply(channel.getVolume() - VOLUME_STEP),
       }),
     );
     body.add(
@@ -307,7 +337,7 @@ export class SettingsPanel extends UiModal {
         variant: 'secondary',
         icon: uiIcon('plus'),
         silent: true,
-        onClick: () => apply(sound.getVolume() + VOLUME_STEP),
+        onClick: () => apply(channel.getVolume() + VOLUME_STEP),
       }),
     );
 

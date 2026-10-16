@@ -317,7 +317,8 @@ export const es: Dictionary = {
   'settings.scaleHintLimited':
     'Las opciones desactivadas no caben en esta pantalla. Tu elección se guarda: al girar la pantalla o pasar a pantalla completa se aplica sola la mayor escala que quepa.',
   'settings.scaleHint': 'Cambia el tamaño del texto, los botones y las ventanas. La vista de la fábrica no cambia.',
-  'settings.sound': 'Sonido',
+  'settings.music': 'Música',
+  'settings.effects': 'Efectos de sonido',
   'settings.soundOff': 'Apagado',
   'settings.fullscreen': 'Pantalla completa',
   'settings.tutorial': 'Tutorial',

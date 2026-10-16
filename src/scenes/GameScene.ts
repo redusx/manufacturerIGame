@@ -532,7 +532,8 @@ export class GameScene extends Phaser.Scene {
       const earned = this.factoryEconomy.exportItem(event.itemId);
       if (this.isCatchingUp) return;
       fx.emitSparkles(this, exportWorld.x, exportWorld.y, 8, PALETTE.resourceGold);
-      sound.playCoin();
+      // Art arda satışlar tek, yumuşak bir gelir sesinde birleşir (SoundManager.playIncome)
+      sound.playIncome();
       fx.emitFloatingText(
         this,
         exportWorld.x,
@@ -1052,6 +1053,10 @@ export class GameScene extends Phaser.Scene {
     /* İlk UI güncellemesi */
     this.refreshUI();
 
+    // Fabrika teması: zaten çalıyorsa (sahne yeniden kurulduysa) baştan başlamaz; ses
+    // bağlamı henüz açılmadıysa oyuncunun ilk dokunuşunda başlar
+    sound.playMusic('factory');
+
     // Dosyalar indi ve sahne kuruldu: yükleme bitti (yalnızca ilk kurulumda etkilidir)
     hideBootLoader();
     crazyGames.loadingStop();
@@ -1065,7 +1070,8 @@ export class GameScene extends Phaser.Scene {
     this.cancelActiveTool();
     this.machineInspectorModal.close();
     this.terminalModal.close();
-    sound.playLaunch();
+    // Fırlatma sesi roket rampadan kalkınca (FlightScene.blastOff) çalar; burada uçuş teması açılır
+    sound.playMusic('flight');
     this.cameraController.setEnabled(false);
     this.flightStartedAtMs = Date.now();
     this.saveGame();
@@ -1084,6 +1090,7 @@ export class GameScene extends Phaser.Scene {
     // Oyunun yeniden "oynanıyor" sayılması update içindeki eşitlemeyle olur.
     void submitFlightDistance(distance, this.hangarBridge.getFlightStats().bestDistance);
     sound.playCoin();
+    sound.playMusic('factory');
     this.cameraController.setEnabled(true);
     const factoryEarned = this.catchUpFactory((Date.now() - this.flightStartedAtMs) / 1000);
     this.gridView.refresh();

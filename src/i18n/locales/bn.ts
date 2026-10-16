@@ -317,7 +317,8 @@ export const bn: Dictionary = {
   'settings.scaleHintLimited':
     'বন্ধ থাকা বিকল্পগুলো এই স্ক্রিনে ধরে না। আপনার পছন্দ মনে রাখা হয়: স্ক্রিন ঘোরালে বা ফুলস্ক্রিনে গেলে যে সবচেয়ে বড় আকার ধরে সেটি নিজে থেকেই বসে যায়।',
   'settings.scaleHint': 'লেখা, বোতাম আর উইন্ডোর আকার বদলায়। কারখানার দৃশ্য বদলায় না।',
-  'settings.sound': 'শব্দ',
+  'settings.music': 'সংগীত',
+  'settings.effects': 'সাউন্ড ইফেক্ট',
   'settings.soundOff': 'বন্ধ',
   'settings.fullscreen': 'ফুলস্ক্রিন',
   'settings.tutorial': 'টিউটোরিয়াল',

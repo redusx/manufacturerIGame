@@ -317,7 +317,8 @@ export const id: Dictionary = {
   'settings.scaleHintLimited':
     'Pilihan yang nonaktif tidak muat di layar ini. Pilihanmu tetap disimpan: saat layar diputar atau masuk layar penuh, skala terbesar yang muat akan dipakai otomatis.',
   'settings.scaleHint': 'Mengubah ukuran teks, tombol, dan jendela. Tampilan pabrik tidak berubah.',
-  'settings.sound': 'Suara',
+  'settings.music': 'Musik',
+  'settings.effects': 'Efek suara',
   'settings.soundOff': 'Mati',
   'settings.fullscreen': 'Layar penuh',
   'settings.tutorial': 'Tutorial',

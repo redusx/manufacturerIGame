@@ -312,7 +312,8 @@ export const ja: Dictionary = {
   'settings.scaleHintLimited':
     '選べないサイズはこの画面に収まりません。選択は保存され、画面を回転したり全画面にしたりすると、収まる最大のサイズが自動で適用されます。',
   'settings.scaleHint': '文字、ボタン、ウィンドウの大きさを変えます。工場の表示は変わりません。',
-  'settings.sound': 'サウンド',
+  'settings.music': '音楽',
+  'settings.effects': '効果音',
   'settings.soundOff': 'オフ',
   'settings.fullscreen': '全画面',
   'settings.tutorial': 'チュートリアル',
