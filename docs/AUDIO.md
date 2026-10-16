@@ -39,7 +39,9 @@ Harici bir ses dosyası eklenirse kaynağı ve lisansı bu tabloya yazılmalıd�
 | Sevkiyat geliri | `playIncome` | Yumuşak iki notalı çınlama, eski para sesinin ~%20'si; en az 1.4 sn arayla (aşağıda) |
 | Elle üretim, uçuşta parça toplama | `playCoin` | Eski para sesi |
 | Roket fırlatma (rampadan kalkış) | `playLaunch` | Ateşleme çatırtısı → açılan motor gürlemesi → yükselen itki tonu (~1.8 sn) |
-| Nitro | `playNitro` | Yalnız basıldığı anda; 180 ms içinde tekrar çalmaz |
+| Nitro (açılış) | `playNitro` | Yalnız basıldığı anda; 180 ms içinde tekrar çalmaz |
+| Roket motoru itişi (sürekli) | `updateEngine` / `stopEngine` | Ana motor yakıt oldukça (`isThrusting`) duyulur: alçak gürleme + titreyen alev; tonu hızla parlaklaşır. Yakıt bitince ~1 sn'de söner |
+| Nitro itişi (sürekli) | `updateEngine` | Nitro basılı ve doluyken (`isBoosting`): tıslayan, titreşimli yüksek katman, ~0.1 sn'de açılır/kapanır; açıkken ana motor %70'e iner |
 | Engel teması (uçuş sürer) | `playHit` | Metalik darbe |
 | Yere çakılma | `playCrash` | Tok, alçak darbe; ardından patlama |
 | Patlama (çakılma veya ölümcül engel) | `playExplosion` | Kapanan süzgeçli gürleme + alçak gümbürtü + küçük çatırtılar |
@@ -66,3 +68,7 @@ dosyasına girmez):
 Kanal kazançları: efektler 0.3 × seviye, müzik 0.2 × seviye. Varsayılanda müziğin en yüksek
 anı (davul + bas) bir yükseltme sesi kadardır; ortalama seviyesi efektlerin belirgin altındadır.
 Gelir çınlaması bilerek en sessiz efekttir.
+
+Motor ve nitro sesi efekt kanalındadır (efekt seviyesi ve sessize alma onlara da uygulanır).
+Düğümler uçuşta bir kez kurulur ve döngüde çalar; her karede yalnız hedef seviye değişir. Uçuş
+bitince (`endFlight`) ve uçuş sahnesi kapanınca (`SHUTDOWN`) 0.25 sn'de söner ve durur.

@@ -58,6 +58,8 @@ import { t } from '../i18n/i18n.ts';
 
 /** Reklam izlenince uçuş priminin çıktığı kat (M9-E R2) */
 const FLIGHT_AD_BONUS_MULTIPLIER = 3;
+/** Motor sesinin en parlak tonuna ulaştığı hız (piksel/sn) */
+const ENGINE_SOUND_FULL_SPEED = 900;
 
 interface ObstacleEntity {
   sprite: Phaser.GameObjects.Image;
@@ -190,6 +192,8 @@ export class FlightScene extends Phaser.Scene {
     // Arayüz ayrı bir kamerada çizilir; ana kamera uçuş dünyasını çizer. Bundan sonra
     // sahneye eklenen her nesne dünyaya aittir, arayüz kökleri katman tarafından ayrılır.
     const uiCamera = this.cameras.add(0, 0, this.scale.width, this.scale.height);
+    // Sahne hangi yoldan kapanırsa kapansın motor sesi açık kalmaz
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => sound.stopEngine());
     this.ui = new UiLayer(this, uiCamera);
     this.ui.addWorldCamera(this.cameras.main);
     this.applyWorldCamera();
@@ -559,6 +563,9 @@ export class FlightScene extends Phaser.Scene {
     // İtiş, nitro, yer çekimi, süzülme, mesafe: saf fizik modülü
     const distanceDelta = stepFlight(this.body, this.stats, boostHeld, dt);
     this.flightScore += Math.round(distanceDelta * 1.8);
+
+    // Sürekli motor ve nitro itişi: gerçek fizik durumuna bağlı (ses yeniden başlatılmaz)
+    sound.updateEngine(this.body.isThrusting, this.body.isBoosting, Math.hypot(this.body.vx, this.body.vy) / ENGINE_SOUND_FULL_SPEED);
 
     if (this.body.isBoosting) {
       if (!wasBoosting) sound.playNitro();
@@ -1110,8 +1117,9 @@ export class FlightScene extends Phaser.Scene {
     this.flightState = isCrash ? 'crashed' : 'finished';
     crazyGames.gameplayStop();
 
-    // Uçuş müziği söner; fabrika teması dönüşte açılır
+    // Uçuş müziği ve motor sesi söner; fabrika teması dönüşte açılır
     sound.stopMusic();
+    sound.stopEngine();
     if (isCrash) {
       sound.playExplosion();
       this.spawnExplosionSparks(this.rocketScreenX, this.rocketScreenY);

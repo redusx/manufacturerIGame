@@ -1555,3 +1555,13 @@ Tarayıcıda (geliştirme sunucusu):
 
 **Denenemeyenler:** sesler kulakla dinlenmedi (yalnız ölçüm ve olay kaydı); gerçek reklam sırasında susma (yalnız mevcut `setSuspended` yolu); sekmeyi gizleyip açma; Safari/iOS ve telefon; uzun oturumda müziğin yorucu olup olmadığı.
 
+### [2026-10-17] — Sürekli Roket Motoru ve Nitro İtiş Sesi
+
+Karar: DEC-058'in devamı. Belge: `docs/AUDIO.md`.
+
+- **`SoundManager.updateEngine(thrusting, boosting, hız)` / `stopEngine()`:** iki katmanlı, döngüde çalan motor sesi. Ana motor: alçak geçiren gürültü + alçak testere dişi, titreyen süzgeç; hız arttıkça ton parlaklaşır. Nitro: bant geçiren tıslama + titreşimli vızıltı, açılışta süzgeç süpürmesi. Nitro açıkken ana motor %70'e iner. Seviyeler: motor 0.24, nitro 0.34 (efekt kanalı).
+- **`FlightScene`:** her karede fizikteki `isThrusting` / `isBoosting` ile `updateEngine`; `endFlight` ve sahne kapanışında `stopEngine`. Fırlatma, nitro açılışı ve diğer efektler aynı.
+
+**Doğrulama:** `npm test` 359/359, `npx tsc --noEmit` temiz, `build:basic` ve `build:full` başarılı. Tarayıcıda (geliştirme sunucusu, ölçümle): rampada motor sesi yok; kalkıştan 150 ms sonra ana motor açılıyor; nitro 100 ms'de tam seviyede, bırakınca 100 ms'de %16'ya, 400 ms'de sıfıra iniyor; yakıt bitince ana motor sönüyor; nitro biterken basılı tutulsa da nitro sesi kapanıyor. Seyir RMS 0.0195 (enerjinin %3'ü 1 kHz üstünde), nitro RMS 0.0296 (%35'i 1 kHz üstünde). Uçuş sırasında karede yeni ses düğümü kurulmuyor. Efekt %50 → seviye yarıya iniyor, efekt sessiz → 0. Çakılınca motor durdu, dönüşte açık ses kalmadı, fabrika teması geldi.
+**Denenemeyenler:** kulakla dinleme; yakıtın uçuş içinde kristalle yeniden dolması (kod yolu aynı: motor sessizde bekler, yakıt gelince açılır); Safari/iOS.
+

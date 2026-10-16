@@ -53,6 +53,30 @@ export interface SoundOptions {
   pitch?: number;
 }
 
+/** Roket motoru ana itiş katmanının seviyesi (efekt kanalında) */
+const ENGINE_LEVEL = 0.24;
+/** Nitro itiş katmanının seviyesi; nitro açıkken ana motor bu orana iner */
+const NITRO_LEVEL = 0.34;
+const ENGINE_DUCK_DURING_NITRO = 0.7;
+
+/**
+ * Uçuş boyunca açık kalan motor sesi: ana itiş (alçak gürleme) ve nitro (tıslayan,
+ * vızıldayan yüksek katman) iki ayrı kazançtır. Düğümler bir kez kurulur ve döngüde
+ * çalar; her karede yalnızca hedef seviyeler değişir.
+ */
+interface EngineVoice {
+  output: GainNode;
+  rumble: GainNode;
+  rumbleFilter: BiquadFilterNode;
+  rumbleOsc: OscillatorNode;
+  nitro: GainNode;
+  nitroFilter: BiquadFilterNode;
+  sources: AudioScheduledSourceNode[];
+  thrusting: boolean;
+  boosting: boolean;
+  speed: number;
+}
+
 /** Çalmakta olan bir müzik parçası */
 interface MusicPlayback {
   id: MusicId;
@@ -101,6 +125,7 @@ export class SoundManager {
   private incomePending = false;
   /** Aynı efektin çok kısa aralıkla çoğalmasını önlemek için son çalınma anları */
   private readonly lastPlayedAt = new Map<string, number>();
+  private engine: EngineVoice | null = null;
 
   private constructor() {
     this.loadSettings();
@@ -602,6 +627,156 @@ export class SoundManager {
     // Ardından gelen küçük çatırtılar
     this.playNoise(80, 0.15, 3000, { delayMs: 180 });
     this.playNoise(70, 0.12, 2600, { delayMs: 330 });
+  }
+
+  /* ======================================================================
+   * SÜREKLİ ROKET MOTORU VE NİTRO İTİŞİ
+   * ====================================================================== */
+
+  /**
+   * Uçuşta her kare çağrılır: motor yakıt oldukça (`thrusting`), nitro basılı ve doluyken
+   * (`boosting`) duyulur. Durum değişmedikçe yalnızca hıza göre ton hafifçe kayar; ses
+   * yeniden başlatılmaz. Motor susunca düğümler sessizde bekler (kristal yakıtı
+   * doldurursa yeniden duyulur); `stopEngine` uçuş bitince her şeyi kapatır.
+   * @param speed01 Roketin hızı 0..1 aralığında (ton ve parlaklık için)
+   */
+  public updateEngine(thrusting: boolean, boosting: boolean, speed01: number): void {
+    if (!this.engine) {
+      if (!thrusting && !boosting) return;
+      this.engine = this.createEngine();
+      if (!this.engine) return;
+    }
+    const engine = this.engine;
+    const ctx = this.ctx;
+    if (!ctx) return;
+
+    try {
+      const now = ctx.currentTime;
+      if (engine.thrusting !== thrusting || engine.boosting !== boosting) {
+        const rumbleTarget = (thrusting ? 1 : boosting ? 0.5 : 0) * (boosting ? ENGINE_DUCK_DURING_NITRO : 1) * ENGINE_LEVEL;
+        // Motor yakıt bitince yavaşça söner; nitro gecikmeden ama tıkırtısız kapanır
+        engine.rumble.gain.setTargetAtTime(rumbleTarget, now, rumbleTarget > 0 ? 0.12 : 0.3);
+        engine.nitro.gain.setTargetAtTime(boosting ? NITRO_LEVEL : 0, now, boosting ? 0.04 : 0.07);
+        if (boosting && !engine.boosting) {
+          // Nitro açılışında süzgeç yukarı süpürülür: itiş hissi
+          engine.nitroFilter.frequency.cancelScheduledValues(now);
+          engine.nitroFilter.frequency.setValueAtTime(1100, now);
+          engine.nitroFilter.frequency.exponentialRampToValueAtTime(2600, now + 0.25);
+        }
+        engine.thrusting = thrusting;
+        engine.boosting = boosting;
+      }
+      const speed = Math.min(1, Math.max(0, speed01));
+      if (Math.abs(speed - engine.speed) > 0.03) {
+        engine.speed = speed;
+        engine.rumbleFilter.frequency.setTargetAtTime(380 + speed * 520, now, 0.15);
+        engine.rumbleOsc.frequency.setTargetAtTime(46 + speed * 26, now, 0.15);
+      }
+    } catch {
+      // Ses düğümü kurulamazsa oyun sessiz sürer
+    }
+  }
+
+  /** Motor ve nitro seslerini kısa bir sönmeyle kapatır (uçuş sonu, sahne kapanışı) */
+  public stopEngine(): void {
+    const engine = this.engine;
+    const ctx = this.ctx;
+    this.engine = null;
+    if (!engine || !ctx) return;
+    try {
+      const now = ctx.currentTime;
+      engine.output.gain.cancelScheduledValues(now);
+      engine.output.gain.setValueAtTime(engine.output.gain.value, now);
+      engine.output.gain.linearRampToValueAtTime(0, now + 0.25);
+      for (const src of engine.sources) src.stop(now + 0.3);
+      setTimeout(() => engine.output.disconnect(), 500);
+    } catch {
+      // Düğüm zaten durmuşsa yoksay
+    }
+  }
+
+  private createEngine(): EngineVoice | null {
+    this.initContext();
+    const ctx = this.ctx;
+    if (!ctx || !this.masterGain || !this.noiseBuffer) return null;
+    try {
+      const now = ctx.currentTime;
+      const output = ctx.createGain();
+      output.connect(this.masterGain);
+      const sources: AudioScheduledSourceNode[] = [];
+      const loopNoise = (): AudioBufferSourceNode => {
+        const src = ctx.createBufferSource();
+        src.buffer = this.noiseBuffer;
+        src.loop = true;
+        sources.push(src);
+        return src;
+      };
+      const osc = (type: OscillatorType, freq: number): OscillatorNode => {
+        const node = ctx.createOscillator();
+        node.type = type;
+        node.frequency.setValueAtTime(freq, now);
+        sources.push(node);
+        return node;
+      };
+
+      // Ana itiş: alçak geçiren gürültü + alçak testere dişi; süzgeç yavaşça dalgalanır (alev titremesi)
+      const rumble = ctx.createGain();
+      rumble.gain.setValueAtTime(0, now);
+      rumble.connect(output);
+      const rumbleFilter = ctx.createBiquadFilter();
+      rumbleFilter.type = 'lowpass';
+      rumbleFilter.frequency.setValueAtTime(420, now);
+      rumbleFilter.Q.setValueAtTime(0.8, now);
+      rumbleFilter.connect(rumble);
+      loopNoise().connect(rumbleFilter);
+      const flutter = osc('sine', 6.5);
+      const flutterDepth = ctx.createGain();
+      flutterDepth.gain.setValueAtTime(70, now);
+      flutter.connect(flutterDepth);
+      flutterDepth.connect(rumbleFilter.frequency);
+      const rumbleOsc = osc('sawtooth', 50);
+      const subFilter = ctx.createBiquadFilter();
+      subFilter.type = 'lowpass';
+      subFilter.frequency.setValueAtTime(200, now);
+      const subGain = ctx.createGain();
+      subGain.gain.setValueAtTime(0.45, now);
+      rumbleOsc.connect(subFilter);
+      subFilter.connect(subGain);
+      subGain.connect(rumble);
+
+      // Nitro: bant geçiren tıslama + titreşimli vızıltı; ana motordan daha yüksek ve parlak
+      const nitro = ctx.createGain();
+      nitro.gain.setValueAtTime(0, now);
+      nitro.connect(output);
+      const nitroFilter = ctx.createBiquadFilter();
+      nitroFilter.type = 'bandpass';
+      nitroFilter.frequency.setValueAtTime(2600, now);
+      nitroFilter.Q.setValueAtTime(1.1, now);
+      nitroFilter.connect(nitro);
+      loopNoise().connect(nitroFilter);
+      const whine = osc('sawtooth', 190);
+      const vibrato = osc('sine', 11);
+      const vibratoDepth = ctx.createGain();
+      vibratoDepth.gain.setValueAtTime(9, now);
+      vibrato.connect(vibratoDepth);
+      vibratoDepth.connect(whine.frequency);
+      const whineFilter = ctx.createBiquadFilter();
+      whineFilter.type = 'lowpass';
+      whineFilter.frequency.setValueAtTime(1500, now);
+      const whineGain = ctx.createGain();
+      whineGain.gain.setValueAtTime(0.3, now);
+      whine.connect(whineFilter);
+      whineFilter.connect(whineGain);
+      whineGain.connect(nitro);
+
+      for (const src of sources) {
+        if (src instanceof AudioBufferSourceNode) src.start(now, Math.random() * 0.5);
+        else src.start(now);
+      }
+      return { output, rumble, rumbleFilter, rumbleOsc, nitro, nitroFilter, sources, thrusting: false, boosting: false, speed: -1 };
+    } catch {
+      return null;
+    }
   }
 
   /** Yıkım / Taşıma İadesi (Metalik dekonstrüksiyon sesi) */
