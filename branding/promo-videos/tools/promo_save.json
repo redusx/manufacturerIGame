@@ -1,0 +1,949 @@
+{
+ "version": 4,
+ "timestamp": 1792195744273,
+ "economy": {
+  "resources": "34614",
+  "totalEarned": "212789.5",
+  "rocketUpgrades": {
+   "hull": 1,
+   "engine": 1,
+   "wings": 1,
+   "boost": 1
+  },
+  "flightStats": {
+   "totalFlights": 0,
+   "bestDistance": 0,
+   "bestScore": 0
+  },
+  "timestamp": 1792195744272
+ },
+ "factoryEconomy": {
+  "money": 34614,
+  "totalEarned": 212789.5,
+  "unlockedPlots": [
+   0,
+   1,
+   2,
+   3
+  ],
+  "revenueMultiplier": 1,
+  "revenuePerSec": 12.223214285714281,
+  "discountedPlots": []
+ },
+ "hangar": {
+  "levels": {
+   "hull": 3,
+   "engine": 3,
+   "wings": 2,
+   "boost": 3
+  },
+  "inventory": {
+   "guidance_computer": 6
+  },
+  "flightStats": {
+   "totalFlights": 14,
+   "totalDistance": 31000,
+   "bestDistance": 4120,
+   "totalCashEarned": 160000
+  },
+  "collectModules": [],
+  "recordVersion": 2,
+  "launchPadLevel": 6
+ },
+ "milestones": {
+  "currentMilestoneIndex": 9,
+  "completedMilestoneIds": [
+   "milestone_01_first_ore",
+   "milestone_02_crushed_powder",
+   "milestone_03_first_ingot",
+   "milestone_04_foundry_expansion",
+   "milestone_05_heavy_plates",
+   "milestone_06_gears_and_hangar",
+   "milestone_07_assembly_line",
+   "milestone_08_electric_motor",
+   "milestone_09_chemical_refinery"
+  ],
+  "exportedItemCounts": {
+   "iron_ore": 600,
+   "iron_powder": 400,
+   "iron_ingot": 300,
+   "iron_plate": 260,
+   "steel_gear": 201,
+   "copper_wire": 361,
+   "optical_glass": 157,
+   "electric_motor": 60,
+   "plastic_pellet": 80,
+   "metal_scrap": 21
+  },
+  "unlockedMachineIds": [
+   "crusher",
+   "smelter",
+   "press",
+   "cutter",
+   "assembler",
+   "refinery"
+  ],
+  "unlockedFeatureIds": [
+   "BASIC_AUTOMATION",
+   "PLOT_1_READY",
+   "INTAKE_IRON",
+   "SPLITTER_MERGER",
+   "ROCKET_HANGAR",
+   "INTAKE_COPPER",
+   "PLOT_3_READY",
+   "INTAKE_SILICA",
+   "INTAKE_POLYMER"
+  ]
+ },
+ "contracts": {
+  "available": [],
+  "active": [],
+  "completedContractIds": [],
+  "totalCompletedCount": 0,
+  "totalRewardsEarned": 0
+ },
+ "factoryLayout": {
+  "version": 1,
+  "timestamp": 1792195744272,
+  "factoryWidth": 32,
+  "factoryHeight": 32,
+  "intakes": [
+   {
+    "coord": {
+     "x": 0,
+     "y": 0
+    },
+    "itemId": "iron_ore",
+    "intervalSec": 1,
+    "timerSec": 0,
+    "direction": "SOUTH"
+   },
+   {
+    "coord": {
+     "x": 4,
+     "y": 0
+    },
+    "itemId": "copper_ore",
+    "intervalSec": 1,
+    "timerSec": 0,
+    "direction": "SOUTH"
+   },
+   {
+    "coord": {
+     "x": 8,
+     "y": 0
+    },
+    "itemId": "iron_ore",
+    "intervalSec": 1,
+    "timerSec": 0,
+    "direction": "SOUTH"
+   },
+   {
+    "coord": {
+     "x": 12,
+     "y": 0
+    },
+    "itemId": "silica_sand",
+    "intervalSec": 1,
+    "timerSec": 0,
+    "direction": "SOUTH"
+   },
+   {
+    "coord": {
+     "x": 16,
+     "y": 0
+    },
+    "itemId": "copper_ore",
+    "intervalSec": 1,
+    "timerSec": 0,
+    "direction": "SOUTH"
+   }
+  ],
+  "exports": [
+   {
+    "x": 5,
+    "y": 10
+   },
+   {
+    "x": 3,
+    "y": 15
+   },
+   {
+    "x": 7,
+    "y": 15
+   },
+   {
+    "x": 11,
+    "y": 15
+   },
+   {
+    "x": 15,
+    "y": 15
+   },
+   {
+    "x": 19,
+    "y": 15
+   }
+  ],
+  "machines": [
+   {
+    "instanceId": "m_crusher_0",
+    "defId": "crusher",
+    "coord": {
+     "x": 0,
+     "y": 3
+    },
+    "rotation": 0,
+    "activeRecipeId": "recipe_crush_iron_ore",
+    "status": "WAITING_INPUT",
+    "progressSec": 0,
+    "inputBuffer": {},
+    "outputBuffer": {},
+    "level": 8
+   },
+   {
+    "instanceId": "m_smelter_1",
+    "defId": "smelter",
+    "coord": {
+     "x": 1,
+     "y": 5
+    },
+    "rotation": 0,
+    "activeRecipeId": "recipe_smelt_iron_ingot",
+    "status": "WAITING_INPUT",
+    "progressSec": 0,
+    "inputBuffer": {},
+    "outputBuffer": {},
+    "level": 8
+   },
+   {
+    "instanceId": "m_press_2",
+    "defId": "press",
+    "coord": {
+     "x": 3,
+     "y": 7
+    },
+    "rotation": 0,
+    "activeRecipeId": "recipe_press_iron_plate",
+    "status": "WAITING_INPUT",
+    "progressSec": 0,
+    "inputBuffer": {},
+    "outputBuffer": {},
+    "level": 8
+   },
+   {
+    "instanceId": "m_cutter_3",
+    "defId": "cutter",
+    "coord": {
+     "x": 3,
+     "y": 10
+    },
+    "rotation": 0,
+    "activeRecipeId": "recipe_cut_steel_gear",
+    "status": "WAITING_INPUT",
+    "progressSec": 0,
+    "inputBuffer": {},
+    "outputBuffer": {},
+    "level": 8
+   },
+   {
+    "instanceId": "m_crusher_4",
+    "defId": "crusher",
+    "coord": {
+     "x": 4,
+     "y": 3
+    },
+    "rotation": 0,
+    "activeRecipeId": "recipe_crush_copper_ore",
+    "status": "WAITING_INPUT",
+    "progressSec": 0,
+    "inputBuffer": {},
+    "outputBuffer": {},
+    "level": 8
+   },
+   {
+    "instanceId": "m_smelter_5",
+    "defId": "smelter",
+    "coord": {
+     "x": 5,
+     "y": 5
+    },
+    "rotation": 0,
+    "activeRecipeId": "recipe_smelt_copper_ingot",
+    "status": "WAITING_INPUT",
+    "progressSec": 0,
+    "inputBuffer": {},
+    "outputBuffer": {},
+    "level": 8
+   },
+   {
+    "instanceId": "m_cutter_6",
+    "defId": "cutter",
+    "coord": {
+     "x": 7,
+     "y": 7
+    },
+    "rotation": 0,
+    "activeRecipeId": "recipe_cut_copper_wire",
+    "status": "WAITING_INPUT",
+    "progressSec": 0,
+    "inputBuffer": {},
+    "outputBuffer": {},
+    "level": 8
+   },
+   {
+    "instanceId": "m_crusher_7",
+    "defId": "crusher",
+    "coord": {
+     "x": 8,
+     "y": 3
+    },
+    "rotation": 0,
+    "activeRecipeId": "recipe_crush_iron_ore",
+    "status": "WAITING_INPUT",
+    "progressSec": 0,
+    "inputBuffer": {},
+    "outputBuffer": {},
+    "level": 8
+   },
+   {
+    "instanceId": "m_smelter_8",
+    "defId": "smelter",
+    "coord": {
+     "x": 9,
+     "y": 5
+    },
+    "rotation": 0,
+    "activeRecipeId": "recipe_smelt_iron_ingot",
+    "status": "WAITING_INPUT",
+    "progressSec": 0,
+    "inputBuffer": {},
+    "outputBuffer": {},
+    "level": 8
+   },
+   {
+    "instanceId": "m_press_9",
+    "defId": "press",
+    "coord": {
+     "x": 11,
+     "y": 7
+    },
+    "rotation": 0,
+    "activeRecipeId": "recipe_press_iron_plate",
+    "status": "WAITING_INPUT",
+    "progressSec": 0,
+    "inputBuffer": {},
+    "outputBuffer": {},
+    "level": 8
+   },
+   {
+    "instanceId": "m_smelter_10",
+    "defId": "smelter",
+    "coord": {
+     "x": 13,
+     "y": 5
+    },
+    "rotation": 0,
+    "activeRecipeId": "recipe_smelt_optical_glass",
+    "status": "WAITING_INPUT",
+    "progressSec": 0,
+    "inputBuffer": {},
+    "outputBuffer": {},
+    "level": 8
+   },
+   {
+    "instanceId": "m_crusher_11",
+    "defId": "crusher",
+    "coord": {
+     "x": 16,
+     "y": 3
+    },
+    "rotation": 0,
+    "activeRecipeId": "recipe_crush_copper_ore",
+    "status": "WAITING_INPUT",
+    "progressSec": 0,
+    "inputBuffer": {},
+    "outputBuffer": {},
+    "level": 8
+   },
+   {
+    "instanceId": "m_smelter_12",
+    "defId": "smelter",
+    "coord": {
+     "x": 17,
+     "y": 5
+    },
+    "rotation": 0,
+    "activeRecipeId": "recipe_smelt_copper_ingot",
+    "status": "WAITING_INPUT",
+    "progressSec": 0,
+    "inputBuffer": {},
+    "outputBuffer": {},
+    "level": 8
+   },
+   {
+    "instanceId": "m_cutter_13",
+    "defId": "cutter",
+    "coord": {
+     "x": 19,
+     "y": 7
+    },
+    "rotation": 0,
+    "activeRecipeId": "recipe_cut_copper_wire",
+    "status": "WAITING_INPUT",
+    "progressSec": 0,
+    "inputBuffer": {},
+    "outputBuffer": {},
+    "level": 8
+   }
+  ],
+  "conveyors": [
+   {
+    "coord": {
+     "x": 0,
+     "y": 1
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 0,
+     "y": 2
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 0,
+     "y": 4
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 0,
+     "y": 5
+    },
+    "direction": "EAST",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 3,
+     "y": 5
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 3,
+     "y": 6
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 3,
+     "y": 9
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 3,
+     "y": 11
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 3,
+     "y": 12
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 3,
+     "y": 13
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 3,
+     "y": 14
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 4,
+     "y": 10
+    },
+    "direction": "EAST",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 4,
+     "y": 1
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 4,
+     "y": 2
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 4,
+     "y": 4
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 4,
+     "y": 5
+    },
+    "direction": "EAST",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 7,
+     "y": 5
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 7,
+     "y": 6
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 7,
+     "y": 8
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 7,
+     "y": 9
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 7,
+     "y": 10
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 7,
+     "y": 11
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 7,
+     "y": 12
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 7,
+     "y": 13
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 7,
+     "y": 14
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 8,
+     "y": 1
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 8,
+     "y": 2
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 8,
+     "y": 4
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 8,
+     "y": 5
+    },
+    "direction": "EAST",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 11,
+     "y": 5
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 11,
+     "y": 6
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 11,
+     "y": 9
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 11,
+     "y": 10
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 11,
+     "y": 11
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 11,
+     "y": 12
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 11,
+     "y": 13
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 11,
+     "y": 14
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 12,
+     "y": 1
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 12,
+     "y": 2
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 12,
+     "y": 3
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 12,
+     "y": 4
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 12,
+     "y": 5
+    },
+    "direction": "EAST",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 15,
+     "y": 5
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 15,
+     "y": 6
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 15,
+     "y": 7
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 15,
+     "y": 8
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 15,
+     "y": 9
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 15,
+     "y": 10
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 15,
+     "y": 11
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 15,
+     "y": 12
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 15,
+     "y": 13
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 15,
+     "y": 14
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 16,
+     "y": 1
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 16,
+     "y": 2
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 16,
+     "y": 4
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 16,
+     "y": 5
+    },
+    "direction": "EAST",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 19,
+     "y": 5
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 19,
+     "y": 6
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 19,
+     "y": 8
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 19,
+     "y": 9
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 19,
+     "y": 10
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 19,
+     "y": 11
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 19,
+     "y": 12
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 19,
+     "y": 13
+    },
+    "direction": "SOUTH",
+    "slots": []
+   },
+   {
+    "coord": {
+     "x": 19,
+     "y": 14
+    },
+    "direction": "SOUTH",
+    "slots": []
+   }
+  ],
+  "economy": {
+   "money": 34614,
+   "totalEarned": 212789.5,
+   "unlockedPlots": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "revenueMultiplier": 1,
+   "revenuePerSec": 12.223214285714281,
+   "discountedPlots": []
+  },
+  "money": 34614
+ },
+ "monetization": {
+  "ads": {
+   "lastRewardAt": {}
+  },
+  "boost": {
+   "remainingSec": 0
+  }
+ },
+ "tutorial": {
+  "done": true,
+  "confirmed": []
+ }
+}

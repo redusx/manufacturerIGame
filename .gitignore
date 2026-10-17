@@ -28,3 +28,7 @@ Thumbs.db
 # Agent / Tooling temporary files
 .agents/
 .gemini/
+
+# Tanıtım videoları (büyük ikili dosyalar; branding/promo-videos/tools ile yeniden üretilir)
+branding/promo-videos/*.mp4
+__pycache__/

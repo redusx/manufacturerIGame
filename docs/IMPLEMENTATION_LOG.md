@@ -1581,3 +1581,15 @@ Karar: DEC-058'in devamı. Belge: `docs/AUDIO.md`.
 
 **Doğrulama:** `npm test`, `npx tsc --noEmit`, `build:basic`, `build:full`; derlenmiş Basic'te Ayarlar'da tam ekran satırı ve üst çubuk düğmesi yok.
 
+### [2026-10-17] — 15 Saniyelik Tanıtım Videoları
+
+Belge: `branding/promo-videos/README.md`. Oyun kodu değişmedi.
+
+- **Çekim (`branding/promo-videos/tools/capture_shots.js`):** oyun geliştirme sunucusunda Basic yapılandırmasıyla açılır, 30 fps kare kare ilerletilir, tuval PNG olarak yerel alma sunucusuna (`capture_server.py`, yalnız 127.0.0.1) gönderilir. Sahneler oyunun kendi işlevleriyle oynanır (elle üretim, parsel açma, makine ve roket yükseltmesi, hangardan fırlatma, kusursuz atış, nitro). Phaser tween'leri `Date.now` ile ilerlediği için çekim boyunca `Date.now` oyun saatine bağlanır. Kayıt: `tools/promo_save.json` (9 aşama, 5 hat, 14 makine).
+- **Ses (`render_audio.js`):** oyunun SoundManager'ı ve müzik besteleri OfflineAudioContext'e, çekimde kaydedilen olay zamanlarında çalınır (müzik ve efekt ayrı kanal).
+- **Birleştirme (`build_videos.py`):** H.264 (OpenCV + AVFoundation), AAC (`afconvert`), ikisini birleştiren küçük MP4 yazıcısı (ffmpeg yok).
+- **Çıktılar:** istenen 16:9 ve 9:16 sesli iki video; CrazyGames kurallarına göre sessiz 16:9 ve 2:3 iki video (kapakla açılır). MP4'ler depoya konmadı (`.gitignore`).
+
+**Doğrulama:** dört dosya OpenCV ile baştan sona çözüldü (450 kare, 30 fps, 15,0 sn; 1920×1080, 1080×1920, 1920×1080, 1080×1620); iz listeleri `vide`+`soun` / `vide`. Ses `afinfo` ile 15,000 sn, MP4'ten geri çözülen seste fırlatma sesi olayın 10 ms'lik diliminde başlıyor; birleştirici ayrıca deneme dosyasıyla doğrulandı (geri çözülen ses kaynakla birebir). Chromium'da dört video yüklendi, her noktada kare çözüldü, sonuna kadar takılmadan oynadı (0 düşen kare), sesli ikisinde ses çözüldü. Kodlama kalitesi kaynak karelere göre PSNR 33–37 dB.
+**Denenemeyenler:** QuickTime/Safari ve telefonda oynatma; seslerin kulakla dinlenmesi; CrazyGames panelinin dosyaları kabul etmesi.
+
